@@ -1,4 +1,4 @@
-![Figure_0.png](Figure_0.png)
+![Figure_0.png](Figure_0.png =50x50)
 # Part 0: Import necessary libraries
 Import the functions necessary for the code:
 
