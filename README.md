@@ -1,5 +1,9 @@
-![Figure_0.png](Figure_0.png =50x50)
-# Part 0: Import necessary libraries
+# Binary Supernova Ejected Runaway Stars Code
+Sample Color-Magnitude Diagram
+<img src="Figure_0.png" alt="Sample Color-Magnitude Diagram" width="769.23076923" height="676.92307692">
+
+# Demo
+## Part 0: Import necessary libraries
 Import the functions necessary for the code:
 
 ```python
@@ -72,7 +76,7 @@ cluster.all
 <tr><td>ASCC_21</td><td>82.1423</td><td>3.4771</td><td>0.419</td><td>49.2</td><td>0.41</td><td>102</td><td>1.381</td><td>0.292</td><td>-0.610</td><td>0.237</td><td>2.893</td><td>0.132</td><td>15.313</td><td>3.818</td><td>8</td><td>343</td><td>5</td><td>7.102</td><td>0.038</td><td>-0.008</td><td>0.029</td><td>0.236</td><td>0.048</td><td>clusters1/ASCC_21.dat</td><td>[KPR2005] 21</td><td>82.1423</td><td>3.4771</td></tr>
 </table>
 
-# Part 2: Search stars in a region around the cluster
+## Part 2: Search stars in a region around the cluster
 
 Using the `calculate_search_arcmin` function from runaway_functions, calculate the region to be searched around the cluster. by default it is $10\ \mathrm{pc}$ around the clusters (from the edge of the cluster). This returns an astropy quantity object and prints its value.
 
@@ -90,7 +94,7 @@ cluster.plot_search_region()
 
 Using this as the search radius for a conic search around the cluster center coordinates, we find a table of all the stars in the cone.
 
-# Getting runaways (all functions necessary included):
+## Getting runaways (all functions necessary included):
 ```python
 cluster = Cluster('Ruprecht_170')
 cluster.generate_tables()
