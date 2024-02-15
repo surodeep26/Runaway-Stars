@@ -73,12 +73,12 @@ cluster.all
 
 # Part 2: Search stars in a region around the cluster
 
-Using the `calculate_search_arcmin` function from runaway_functions, calculate the region to be searched around the cluster. by default it is $10\ \mathrm{pc}$ around the clusters (from the edge of the cluster). This returns an astropy quantity object.
+Using the `calculate_search_arcmin` function from runaway_functions, calculate the region to be searched around the cluster. by default it is $10\ \mathrm{pc}$ around the clusters (from the edge of the cluster). This returns an astropy quantity object and prints its value.
 
 ```python
 cluster.calculate_search_arcmin()
 ```
-
+$124.771 \; \mathrm{{}^{\prime}}$
 We can also visualize this search region using:
 
 ```python
