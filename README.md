@@ -1,6 +1,7 @@
 # Binary Supernova Ejected Runaway Stars Code
 Sample Color-Magnitude Diagram
-<img src="Figure_0.png" alt="Sample Color-Magnitude Diagram" width="769.23076923" height="676.92307692">
+
+<img src="Figure_0.png" alt="Sample Color-Magnitude Diagram" width="1000">
 
 # Demo
 ## Part 0: Import necessary libraries
