@@ -78,7 +78,8 @@ Using the `calculate_search_arcmin` function from runaway_functions, calculate t
 ```python
 cluster.calculate_search_arcmin()
 ```
-$124.771 \; \mathrm{{}^{\prime}}$
+$124.771  \mathrm{{}^{\prime}}$
+
 We can also visualize this search region using:
 
 ```python
