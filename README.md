@@ -84,7 +84,7 @@ We can also visualize this search region using:
 ```python
 cluster.plot_search_region()
 ```
-![Figure_1.png]()
+![Figure_1.png](Figure_1.png)
 
 Using this as the search radius for a conic search around the cluster center coordinates, we find a table of all the stars in the cone.
 
