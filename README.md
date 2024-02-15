@@ -1,3 +1,4 @@
+![Figure_0.png](Figure_0.png)
 # Part 0: Import necessary libraries
 Import the functions necessary for the code:
 
