@@ -54,8 +54,39 @@ display(cluster)
 This imports all the details for the cluster.
 Various parameters of the cluster can be accessed:
 - Name
-- Diameter
-- Number of Cluster members 
+- Diameter (r50 Diameter: Diameter within which 50% of the cluster members lie)
+- Number of Cluster members etc.
+All parameters can be accessed together by:
+
+```python
+cluster_name = 'ASCC_21'
+cluster = Cluster(cluster_name)
+cluster.all
+```
+<i>Row index=0</i>
+<table id="table2364314290064">
+<thead><tr><th>Cluster</th><th>RA_ICRS</th><th>DE_ICRS</th><th>r50</th><th>Diameter</th><th>r50_table2</th><th>N</th><th>pmRA</th><th>e_pmRA</th><th>pmDE</th><th>e_pmDE</th><th>Plx</th><th>e_Plx</th><th>RV</th><th>e_RV</th><th>NRV</th><th>Dist</th><th>e_Dist</th><th>logage</th><th>e_logage</th><th>__Fe_H_</th><th>e__Fe_H_</th><th>Av</th><th>e_Av</th><th>FileName</th><th>SimbadName</th><th>_RA.icrs</th><th>_DE.icrs</th></tr></thead>
+<thead><tr><th></th><th>deg</th><th>deg</th><th>deg</th><th></th><th></th><th></th><th>mas / yr</th><th>mas / yr</th><th>mas / yr</th><th>mas / yr</th><th>mas</th><th>mas</th><th>km / s</th><th>km / s</th><th></th><th>pc</th><th>pc</th><th>log(yr)</th><th>log(yr)</th><th></th><th></th><th>mag</th><th>mag</th><th></th><th></th><th>deg</th><th>deg</th></tr></thead>
+<thead><tr><th>str16</th><th>float64</th><th>float64</th><th>float32</th><th>float64</th><th>float64</th><th>int16</th><th>float32</th><th>float32</th><th>float32</th><th>float32</th><th>float32</th><th>float32</th><th>float64</th><th>float32</th><th>int16</th><th>int16</th><th>int16</th><th>float32</th><th>float32</th><th>float32</th><th>float32</th><th>float32</th><th>float32</th><th>str30</th><th>str31</th><th>float64</th><th>float64</th></tr></thead>
+<tr><td>ASCC_21</td><td>82.1423</td><td>3.4771</td><td>0.419</td><td>49.2</td><td>0.41</td><td>102</td><td>1.381</td><td>0.292</td><td>-0.610</td><td>0.237</td><td>2.893</td><td>0.132</td><td>15.313</td><td>3.818</td><td>8</td><td>343</td><td>5</td><td>7.102</td><td>0.038</td><td>-0.008</td><td>0.029</td><td>0.236</td><td>0.048</td><td>clusters1/ASCC_21.dat</td><td>[KPR2005] 21</td><td>82.1423</td><td>3.4771</td></tr>
+</table>
+
+# Part 2: Search stars in a region around the cluster
+
+Using the `calculate_search_arcmin` function from runaway_functions, calculate the region to be searched around the cluster. by default it is $10\ \mathrm{pc}$ around the clusters (from the edge of the cluster). This returns an astropy quantity object.
+
+```python
+cluster.calculate_search_arcmin()
+```
+
+We can also visualize this search region using:
+
+```python
+cluster.plot_search_region()
+```
+![Figure_1.png]()
+
+Using this as the search radius for a conic search around the cluster center coordinates, we find a table of all the stars in the cone.
 
 # Getting runaways (all functions necessary included):
 ```python
@@ -66,5 +97,4 @@ fs = cluster.read_table('fs')
 runaways = get_runaways(cluster,fs,theoretical_data)
 display(runaways)
 ```
-
 
