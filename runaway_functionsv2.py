@@ -5,6 +5,8 @@ import pandas as pd  # Renamed for clarity
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
+from IPython.display import IFrame
+from matplotlib.widgets import CheckButtons
 
 from astroquery.vizier import Vizier
 from scipy.stats import norm
@@ -91,6 +93,10 @@ class Cluster:
         self.distance = self.cluster_table['Dist'][0]*u.pc
         self.RV = self.cluster_table['RV'][0]*u.km/u.s
         self.all = self.cluster_table[0]
+        self.Av = self.cluster_table['Av'][0]
+        self.logage = self.cluster_table['logage'][0]
+        self.age = 10**(self.cluster_table['logage'][0])
+        self.FeH = self.cluster_table['__Fe_H_'][0]
 
     def calculate_search_arcmin(self, extra=config['Cluster']['search_extent'], output=False):
         """
@@ -119,7 +125,7 @@ class Cluster:
 
         return search_arcmin
 
-    def plot_search_region(self, extra=config['Cluster']['search_extent']):
+    def plot_search_region(self, extra=config['Cluster']['search_extent'],display=True,**kwargs):
         """
         Plots and saves the fits file for the region around the given cluster.
 
@@ -141,12 +147,12 @@ class Cluster:
             images = [fits.open(fits_file_path)]
             # Extract the WCS information
             wcs = WCS(images[0][0].header)
-
         else:
             # File doesn't exist, get the image data from SkyView
             images = SkyView.get_images(position=self.coordinates,
                                         survey=config['Plots']['skyview_survey'],
-                                        radius=2*search_arcmin)
+                                        radius=2*search_arcmin,
+                                        **kwargs)
             # Extract the WCS information
             wcs = WCS(images[0][0].header)
             hdu = fits.PrimaryHDU(data=images[0][0].data, header=images[0][0].header)
@@ -154,6 +160,8 @@ class Cluster:
             
             # Save the fits file
             hdulist.writeto(fits_file_path, overwrite=True)
+        if not display:
+            return None
         # Plot the image
         print(f'Plotting a {extra} pc region around cluster.')
             
@@ -167,10 +175,10 @@ class Cluster:
         ax.grid(color='lightgrey',ls='dotted')
 
         # Add a circle representing the cluster radius
-        circle_cluster = plt.Circle((data.shape[1] / 2, data.shape[0] / 2), radius=150*self.diameter/search_arcmin,
+        circle_cluster = plt.Circle((data.shape[1] / 2, data.shape[0] / 2), radius=(data.shape[0] / 2)*self.diameter/(2*search_arcmin),
                         edgecolor='red', facecolor='none',ls='dashed',label=f'Cluster Diameter = {self.diameter}')
-        circle_search_region = plt.Circle((data.shape[1] / 2, data.shape[0] / 2), radius=150*search_arcmin/search_arcmin,
-                    edgecolor='green', facecolor='none',ls='dashed',label=f'Search Region = {search_arcmin}')
+        circle_search_region = plt.Circle((data.shape[1] / 2, data.shape[0] / 2), radius=(data.shape[0] / 2)*search_arcmin/search_arcmin,
+                    edgecolor='green', facecolor='none',ls='dashed',label=f'Search Region Diameter = {2*search_arcmin}')
         ax.add_artist(circle_cluster)
         ax.add_artist(circle_search_region)
         _ = search_arcmin.round(-1)/2 #round to the nearest 5 (by round first to nearest 10 and then divide by 2
@@ -181,6 +189,8 @@ class Cluster:
         y_min, y_max = ax.get_ylim()
         ax.annotate(f"{_:.2f}", xy=(0.83*x_max,0.08*y_max), color='yellow', ha='center',fontsize=12,fontweight='bold')
         ax.legend()
+        images[0].close()  # Close the opened FITS file
+
         # Show the plot
         plt.show()
 
@@ -294,8 +304,11 @@ class Cluster:
         rmRA = stars_in_region['pmRA']-dias_members['pmRA'].mean()
         rmDE = stars_in_region['pmDE']-dias_members['pmDE'].mean()
 
-        e_rmRA = stars_in_region['e_pmRA']+np.sqrt((dias_members['e_pmRA']**2).sum())
-        e_rmDE = stars_in_region['e_pmDE']+np.sqrt((dias_members['e_pmDE']**2).sum())
+        e_rmRA = stars_in_region['e_pmRA']+np.sqrt((dias_members['e_pmRA']**2).mean())
+        e_rmDE = stars_in_region['e_pmDE']+np.sqrt((dias_members['e_pmDE']**2).mean())
+
+        e_rmRA = stars_in_region['e_pmRA']+self.all['e_pmRA']
+        e_rmDE = stars_in_region['e_pmDE']+self.all['e_pmDE']
 
         µ_pec = np.sqrt(rmRA**2+rmDE**2)
         D = stars_in_region['rgeo']/1000
@@ -645,7 +658,7 @@ def get_runaways(cluster,fs,theoretical_data):
     else:
         name = "runaways"
 
-    file_path = f'{cluster.name}/{cluster.name}_{name}.tsv'     #`name` is either "walkaways" or "runaways"
+    file_path = f'{cluster.name}/{cluster.name}_{name}_all.tsv'     #`name` is either "walkaways" or "runaways"
     
     if os.path.exists(file_path):
         # If the file exists, read it and return its contents
@@ -716,14 +729,179 @@ def get_runaways(cluster,fs,theoretical_data):
         sources_to_mask = list(selected_stars_dict_with_temp.keys())
         mask = [source in sources_to_mask for source in fs['Source']]
         run = fs[mask]
-        run.add_column(np.array(list(selected_stars_dict_with_temp.values()),dtype=object)[:,1],name='Temp. Est',index =0)
+        run.add_column(np.array(list(selected_stars_dict_with_temp.values()),dtype=object)[:,1],name='Temp. Est',index =1)
         run['Temp. Est'] = run['Temp. Est']*u.K
         run.sort('Temp. Est',reverse=True)
         # Save
         run.write(file_path,format='ascii.ecsv',overwrite=True)
-        run.to_pandas().to_excel(os.path.join(cluster.name,f'{cluster.name}_{name}.xlsx'), index=False)
+        run.to_pandas().to_excel(os.path.join(cluster.name,f'{cluster.name}_{name}_all.xlsx'), index=False)
+
+        mask = [T > config['runaway_temp'] for T in run['Temp. Est']]
+        runaways = run[mask]
+        runaways.write(file_path.replace("_all",""),format='ascii.ecsv',overwrite=True)
+        runaways.to_pandas().to_excel(os.path.join(cluster.name,f'{cluster.name}_{name}.xlsx'), index=False)
+
 
         return run
+
+def get_coord(runaway):
+    return coord.SkyCoord(ra=runaway['RA_ICRS_1']*u.deg,dec=runaway['DE_ICRS_1']*u.deg, pm_ra_cosdec=runaway['rmRA']*u.mas/u.year,pm_dec=runaway['rmDE']*u.mas/u.year, frame='icrs')
+def plot_cmd(cluster):
+    # Plot CMD
+    BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster)
+
+    # fig = plt.figure(figsize=(19, 17))
+    # # fig = plt.figure()
+    # gs = GridSpec(1, 1, width_ratios=[1, 1])
+
+    # # Line Theorietical curve
+    # # ax1 = fig.add_subplot(gs[0, 0])
+    # ax1 = fig.subplots()
+
+    fig,ax1 = plt.subplots(figsize=(10, 8.8))
+
+    # plt.rcParams['figure.figsize'] = (10, 8.8)
+
+
+
+
+    ax1.set_ylim(bottom= min(Gmag_theo)-4,top=18)
+    ax1.set_xlim(left=min(BP_RP_theo)-0.5, right=max(BP_RP_theo))
+
+    ax1.plot(BP_RP_theo, Gmag_theo, label='Theoretical Isochrone')
+    ax1.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)", fontsize=14)
+    ax1.set_ylabel(r"$G$ (mag)", fontsize=14)
+    ax1.set_title(f"CMD for {cluster.name}", fontsize=14)
+    ax1.invert_yaxis()
+
+    #Scatter stars in the region
+    sir = cluster.stars_in_region()
+    sir_gmag,sir_bp_rp = sir['Gmag'],sir['BP-RP']
+    ax1.scatter(sir_bp_rp,sir_gmag,s=2, color='grey',label=f'{len(sir)} stars in the region {cluster.calculate_search_arcmin()}')
+
+    # Scatter dias members
+    dias_members = cluster.dias_members(memb_prob=config["memb_prob"])
+    dias_gmag,dias_bp_rp = dias_members['Gmag'],dias_members['BP-RP']
+    ax1.scatter(dias_bp_rp,dias_gmag,s=15, color='black',label=f'{len(dias_members)} Dias Members P > {config["memb_prob"]}')
+
+    # Scatter my members
+    my_members = find_cluster(sir,refCluster=cluster.name)
+    my_gmag,my_bp_rp = my_members['Gmag'],my_members['BP-RP']
+    ax1.scatter(my_bp_rp,my_gmag,s=15,alpha =0.7,marker='x', color='blue',label=rf'{len(my_members)} My Members $\sigma$ < {np.std(my_members["v_pec"]):.2f}')
+
+
+    # Table for cluster parameters
+    cluster_table = [
+        ['Members',len(dias_members)],
+        [r'Metallicity $[Fe/H]$',cluster.FeH],
+        ['Logage',cluster.logage],
+        ['Av',cluster.Av],
+        ['Distance (pc)',cluster.distance]
+    ]
+    table_bbox = [0.0, 0.84, 0.44, 0.16]  # [left, bottom, width, height]
+
+    table = ax1.table(cellText=cluster_table, cellLoc='right', loc='upper left',bbox=table_bbox)
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    for key, cell in table._cells.items():
+        cell.set_linewidth(0.5)  # Set the border width
+        cell.set_edgecolor('lightgray')  # Set the border color
+
+
+
+
+    # Scatter runaways
+    runaways_all = cluster.read_table('runaways_all')
+    _runaways_gmag,_runaways_bp_rp = runaways_all['Gmag'],runaways_all['BP-RP']
+    mask = [T > config['runaway_temp'] for T in runaways_all['Temp. Est']]
+    runaways = runaways_all[mask]
+    runaways_gmag,runaways_bp_rp = runaways['Gmag'],runaways['BP-RP']
+    ## all runaways
+    ax1.scatter(_runaways_bp_rp,_runaways_gmag,s=8,alpha=0.5, 
+                c=runaways_all['Temp. Est'],
+                cmap='spring_r',norm=plt.Normalize(4000, 23000),
+                label=rf'{len(runaways_all)} Runaway(s) $T_{{max}}$ = {max(runaways_all["Temp. Est"]):,.0f} K')
+
+    ## main runaways T > 10,000K
+    global annotations
+    annotations = []
+
+    def on_release(event):
+        global annotations, table2
+        for ann in annotations:
+            ann.remove()
+        annotations = []
+
+        try:
+            if table2:
+                table2.remove()
+        except:
+            pass
+        plt.draw() # for the release to remove functionality
+
+    def onpick3(event):
+        global annotations, table2
+        for ann in annotations:
+            ann.remove()
+        annotations = []
+        
+        ind = event.ind
+        for index in ind:
+            index = ind[0]
+            temp_est = runaways['Temp. Est'][index]
+            ann = ax1.annotate(f'{temp_est:,.0f} K', (runaways_bp_rp[index], runaways_gmag[index]), xytext=(0, -25), textcoords='offset points', fontsize=12, color='black', ha='center', fontweight='bold')
+            ann.set_path_effects([pe.withStroke(linewidth=4, foreground='white')])
+            annotations.append(ann)
+            
+            # Add the table below the annotation
+            table_data = [
+                ['SourceID', f'{runaways[index]["Source"]}'],
+                ['Temp. Est.', f'{runaways[index]["Temp. Est"]:,.0f} K'],
+                ['Coord.', f'{runaways["RA_ICRS_1"][index]:.4f} {"+" if runaways["DE_ICRS_1"][index] >= 0 else ""}{runaways["DE_ICRS_1"][index]:.4f}'],
+                ['Gmag', f'{runaways["Gmag"][index]}'],
+                ['Dist.', f'{runaways["rgeo"][index]:.0f}'+'$\pm$'+f'{(runaways["rgeo"][index]-runaways["b_rgeo"][index]):.0f}']
+
+                # Add more rows with actual values
+            ]
+            table_bbox = [0.55, 0.0, 0.45, 0.2]  # [left, bottom, width, height]
+            table2 = ax1.table(cellText=table_data, cellLoc='right', loc='lower center', bbox=table_bbox)
+            table2.auto_set_font_size(False)
+            table2.auto_set_column_width(col=[0,1])
+            table2.set_fontsize(8)
+            for key, cell in table2._cells.items():
+                cell.set_linewidth(0.5)  # Set the border width
+                cell.set_edgecolor('lightgray')  # Set the border color
+            
+        plt.draw()
+
+
+    scatter_main = ax1.scatter(runaways_bp_rp,runaways_gmag,picker=True,s=30, 
+                            c=runaways['Temp. Est'],cmap='spring_r',norm=plt.Normalize(4000, 23000),
+                            label=rf'{len(runaways)} Runaway(s) with T > {config["runaway_temp"]:,} K')
+    # Connect the pick_event to the onpick3 function
+    fig.canvas.mpl_connect('pick_event', onpick3)
+    fig.canvas.mpl_connect('button_release_event', on_release)
+
+    colorbar = fig.colorbar(scatter_main,ax=ax1)
+    colorbar.set_label('Temperature (K)')
+    ax1.legend(loc='upper right')
+
+
+
+def runCode(clustername):
+    print(f'{clustername:=>50}'+f'{"":=<50}')
+    cluster = Cluster(clustername)
+    cluster.generate_tables()
+    theoretical_data = theoretical_isochrone(cluster,output="table",printing=False)
+    fs = cluster.read_table('fs')
+    runaways_all = get_runaways(cluster,fs,theoretical_data)
+    # display(runaways_all)
+    mask = [T > config['runaway_temp'] for T in runaways_all['Temp. Est']]
+    runaways = runaways_all[mask]
+    plot_cmd(cluster)
+    display(runaways)
+    return cluster
+
 
 #plot the find_members and dias_members on the search region fits
 #find out the reason why some clusters were not searched. probably because of the search distance
