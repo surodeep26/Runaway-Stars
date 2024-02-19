@@ -98,6 +98,7 @@ class Cluster:
         self.age = 10**(self.cluster_table['logage'][0])
         self.FeH = self.cluster_table['__Fe_H_'][0]
 
+    
     def calculate_search_arcmin(self, extra=config['Cluster']['search_extent'], output=False):
         """
         Calculate the search arcminute for the cluster.
@@ -404,6 +405,7 @@ def find_cluster(stars_in_region,refCluster,sigma = config['sigma_clip'],plx_qua
     print('mean(v_pec): ',my_stars['v_pec'].mean())
     print('std(v_pec): ',my_stars['v_pec'].std())
     print('v_pec_max: ',my_stars['v_pec'].max())
+    print(f"{len(my_stars)} kinematic members")
     return my_stars
 
 
@@ -746,7 +748,7 @@ def get_runaways(cluster,fs,theoretical_data):
 
 def get_coord(runaway):
     return coord.SkyCoord(ra=runaway['RA_ICRS_1']*u.deg,dec=runaway['DE_ICRS_1']*u.deg, pm_ra_cosdec=runaway['rmRA']*u.mas/u.year,pm_dec=runaway['rmDE']*u.mas/u.year, frame='icrs')
-def plot_cmd(cluster):
+def plot_cmd(cluster,save=False):
     # Plot CMD
     BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster)
 
@@ -885,24 +887,287 @@ def plot_cmd(cluster):
     colorbar = fig.colorbar(scatter_main,ax=ax1)
     colorbar.set_label('Temperature (K)')
     ax1.legend(loc='upper right')
+    if save:
+        plt.savefig(f'{cluster.name}/{cluster.name}_cmd.{save}')
 
 
 
-def runCode(clustername):
+def runCode(clustername,save=False):
     print(f'{clustername:=>50}'+f'{"":=<50}')
     cluster = Cluster(clustername)
     cluster.generate_tables()
     theoretical_data = theoretical_isochrone(cluster,output="table",printing=False)
+    print(f'{clustername+": traceback":->50}'+f'{"":-<50}')
     fs = cluster.read_table('fs')
     runaways_all = get_runaways(cluster,fs,theoretical_data)
     # display(runaways_all)
     mask = [T > config['runaway_temp'] for T in runaways_all['Temp. Est']]
     runaways = runaways_all[mask]
-    plot_cmd(cluster)
-    display(runaways)
+    print(f'{clustername+": runaways and isochrone plot":->50}'+f'{"":-<50}')
+    plot_cmd(cluster,save=save)
+    plot_traceback(cluster,save=save)
+    display(f"{len(runaways)} Runaway(s) found",runaways)
+
     return cluster
+def plot_traceback(cluster,save=False):
+    search_arcmin = cluster.calculate_search_arcmin()
+    cluster.plot_search_region(display=None,pixels='800')
+    fits_path = f'{cluster.name}/{cluster.name}_extra10pc.fits'
+
+    fits_file = fits.open(fits_path)
+    image = fits_file[0]
+
+    wcs = WCS(image.header)
+    stars_in_region = cluster.stars_in_region()
+    fig, ax2 = plt.subplots(subplot_kw={'projection': wcs}, figsize=(10, 8))
+    ax2.imshow(image.data, cmap='gray')
+    stars_in_region_coords = SkyCoord(ra=stars_in_region['RA_ICRS_1'], dec=stars_in_region['DE_ICRS_1'])
+    stars_in_region_pix_coords = wcs.world_to_pixel_values(stars_in_region_coords.ra, stars_in_region_coords.dec)
+
+    dias_members_coords = SkyCoord(ra=cluster.dias_members()['RAdeg']*u.deg, dec=cluster.dias_members()['DEdeg']*u.deg)
+    dias_members_pix_coords = wcs.world_to_pixel_values(dias_members_coords.ra, dias_members_coords.dec)
+    # Add a circle representing the cluster radius
+    circle_cluster = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*cluster.diameter/(2*search_arcmin),
+                    edgecolor='red', facecolor='none', ls='dashed', label=f'Cluster Diameter = {cluster.diameter}',linewidth=1)
+    circle_search_region = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*search_arcmin/search_arcmin,
+                edgecolor='green', facecolor='none', ls='dashed', label=f'Search Region Diameter = {2*search_arcmin}',linewidth=1.5)
+    ax2.add_artist(circle_cluster)
+    ax2.add_artist(circle_search_region)
+    # Scatter Stars in region
+    scatter_stars_in_region, = ax2.plot(stars_in_region_pix_coords[0], stars_in_region_pix_coords[1], 
+                                        '.',markersize=2, color='grey',label=f'{len(stars_in_region)} Stars in the region')
+    # Scatter dias members
+    scatter_dias_members, = ax2.plot(dias_members_pix_coords[0], dias_members_pix_coords[1], '.',markersize=10, color='grey',
+                                    markeredgecolor='lightgrey',label=f'{len(cluster.dias_members())} Dias Members')
+    # ax2.legend()
+    # Scatter my members
+    my_members =find_cluster(stars_in_region,refCluster=cluster.name)
+    my_members_coords = SkyCoord(ra=my_members['RA_ICRS_1'], dec=my_members['DE_ICRS_1'])
+    my_members_pix_coords = wcs.world_to_pixel_values(my_members_coords.ra, my_members_coords.dec)
+    scatter_my_members, = ax2.plot(my_members_pix_coords[0],my_members_pix_coords[1],
+                                    '.',markersize=5, color='blue', label=f'{len(my_members)} My Members')
 
 
+
+    # Read runaways
+    runaways_all = cluster.read_table('runaways') #changing this to runaways_all plots all the runaways, not just the >10000K ones
+    runaways_all['Source'] = runaways_all['Source'].astype(str)
+    runaways_all['Gmag'] = runaways_all['Gmag'].astype(str)
+
+    psrs = search_psr(cluster.name)
+    # psrs['AGE'] = psrs['AGE'].astype(str)
+
+    display(psrs)
+    for i in range(len(psrs)):
+        new_row = {col_name: '0' for col_name in runaways_all.colnames}
+        new_row['Source'] = 'PSR'+f'{psrs["JNAME"][i]}'
+        new_row['RA_ICRS_1'] = psrs['RAJD'][i]
+        new_row['DE_ICRS_1'] = psrs['DECJD'][i]
+        new_row['rgeo'] = psrs['DIST'][i]*1000
+
+        new_row['pmRA'] = psrs['PMRA'][i]
+        new_row['pmDE'] = psrs['PMDEC'][i]
+        new_row['rmRA'] = psrs['PMRA'][i] - cluster.all['pmRA']
+        new_row['rmDE'] = psrs['PMDEC'][i] - cluster.all['pmDE']
+
+        new_row['Temp. Est'] = 42069 ###################
+        new_row['Gmag'] = f"{psrs['AGE'][i]:.2f}"+" kyr" ###################
+        new_row['b_rgeo'] = new_row['rgeo']-420 ###################
+
+
+        µ_pec = np.sqrt(new_row['rmRA']**2+new_row['rmDE']**2)
+        new_row['v_pec'] = µ_pec*psrs['DIST'][i]*4.74
+
+        runaways_all.add_row(new_row)
+    runaways_all_coords = SkyCoord(ra=runaways_all['RA_ICRS_1'], dec=runaways_all['DE_ICRS_1'])
+    runaways_all_pix_coords = wcs.world_to_pixel_values(runaways_all_coords.ra, runaways_all_coords.dec)
+
+
+
+    _ = search_arcmin.round(-1)/2 #round to the nearest 5 (by round first to nearest 10 and then divide by 2
+    scalebar_length = ((_.to(u.rad))*(cluster.distance.to(u.m)).to(u.pc)).round(2)
+    __ = cluster.distance.value/1000
+    add_scalebar(ax2, _, color="yellow", label=f"or {scalebar_length.value}pc (at dist {__:.2f}kpc)", size_vertical=0.5)
+    x_min, x_max = ax2.get_xlim()
+    y_min, y_max = ax2.get_ylim()
+    ax2.annotate(f"{_:.2f}", xy=(0.83*x_max,0.08*y_max), color='yellow', ha='center',fontsize=12,fontweight='bold')
+
+    ax2.set_xlabel('Right Ascension (degrees)')
+    ax2.set_ylabel('Declination (degrees)')
+    ax2.set_title(f"{cluster.name} with {config['Cluster']['search_extent']}pc search region")
+    ax2.grid(color='lightgrey', ls='dotted')
+
+
+    #######################################
+    if len(runaways_all)>0:
+        runaway_00, runaway_apdp,runaway_apdm,runaway_amdp,runaway_amdm = [coord.SkyCoord(ra=runaways_all['RA_ICRS_1'],dec=runaways_all['DE_ICRS_1'], pm_ra_cosdec=runaways_all['rmRA'],pm_dec=runaways_all['rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                            coord.SkyCoord(ra=runaways_all['RA_ICRS_1'],dec=runaways_all['DE_ICRS_1'], pm_ra_cosdec=(runaways_all['rmRA']+runaways_all['e_rmRA']),pm_dec=runaways_all['rmDE']+runaways_all['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                            coord.SkyCoord(ra=runaways_all['RA_ICRS_1'],dec=runaways_all['DE_ICRS_1'], pm_ra_cosdec=(runaways_all['rmRA']+runaways_all['e_rmRA']),pm_dec=runaways_all['rmDE']-runaways_all['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                            coord.SkyCoord(ra=runaways_all['RA_ICRS_1'],dec=runaways_all['DE_ICRS_1'], pm_ra_cosdec=(runaways_all['rmRA']-runaways_all['e_rmRA']),pm_dec=runaways_all['rmDE']+runaways_all['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                            coord.SkyCoord(ra=runaways_all['RA_ICRS_1'],dec=runaways_all['DE_ICRS_1'], pm_ra_cosdec=(runaways_all['rmRA']-runaways_all['e_rmRA']),pm_dec=runaways_all['rmDE']-runaways_all['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr))]
+
+        earlier_runaway_00 = runaway_00.apply_space_motion(dt = -100_000*u.year)
+        earlier_runaway_apdp = runaway_apdp.apply_space_motion(dt = -100_000*u.year)
+        earlier_runaway_apdm = runaway_apdm.apply_space_motion(dt = -100_000*u.year)
+        earlier_runaway_amdp = runaway_amdp.apply_space_motion(dt = -100_000*u.year)
+        earlier_runaway_amdm = runaway_amdm.apply_space_motion(dt = -100_000*u.year)
+
+        earlier_runaway_00_px = wcs.world_to_pixel_values(earlier_runaway_00.ra, earlier_runaway_00.dec)
+        earlier_runaway_apdp_px = wcs.world_to_pixel_values(earlier_runaway_apdp.ra, earlier_runaway_apdp.dec)
+        earlier_runaway_apdm_px = wcs.world_to_pixel_values(earlier_runaway_apdm.ra, earlier_runaway_apdm.dec)
+        earlier_runaway_amdp_px = wcs.world_to_pixel_values(earlier_runaway_amdp.ra, earlier_runaway_amdp.dec)
+        earlier_runaway_amdm_px = wcs.world_to_pixel_values(earlier_runaway_amdm.ra, earlier_runaway_amdm.dec)
+        runaway_00_px = wcs.world_to_pixel_values(runaway_00.ra, runaway_00.dec)
+        # Calculate the displacement vectors
+        delta_x = earlier_runaway_apdp_px[0]-earlier_runaway_amdp_px[0]
+        delta_y = earlier_runaway_apdp_px[1]-earlier_runaway_apdm_px[1]
+
+        for pxx, pxy, dx, dy in zip(earlier_runaway_00_px[0], earlier_runaway_00_px[1], delta_x, delta_y):
+            ellipse = patches.Ellipse(
+                (pxx, pxy),
+                width=1.5*dx,
+                height=1.5*dy,
+                fill=True,
+                color='g',
+                alpha=0.2
+            )
+            ax2.add_patch(ellipse)
+
+        for c in [earlier_runaway_apdp_px,earlier_runaway_apdm_px,earlier_runaway_amdp_px,earlier_runaway_amdm_px]:
+            delta_x = c[0] - runaway_00_px[0]
+            delta_y = c[1] - runaway_00_px[1]
+            # Draw the vectors
+            ax2.quiver(runaway_00_px[0], runaway_00_px[1], delta_x, delta_y, angles='xy', scale_units='xy', scale=1, color='limegreen', width=0.001)
+        ############################
+    else:
+        print("No runaways found")
+    # Scatter runaways
+    scatter_runaways_all = ax2.scatter(runaways_all_pix_coords[0], runaways_all_pix_coords[1], s=60,picker=True,pickradius=20,
+                                    c=runaways_all['Temp. Est'], cmap='spring_r', norm=plt.Normalize(4000, 23000), 
+                                    label=f'{len(runaways_all)} Runaway(s)')
+
+
+    global annotations
+    annotations = []
+
+    def on_release(event):
+        global annotations, table2
+        try:
+            if table2:
+                table2.remove()
+        except:
+            pass
+        fig.canvas.draw() # for the release to remove functionality
+
+    def onpick3(event):
+        global annotations, table2
+        
+        ind = event.ind
+        
+        # print(ind,type(ind),len(ind),event.artist)
+        # print(result)
+        import matplotlib
+        if isinstance(event.artist, matplotlib.collections.PathCollection) and len(ind) == 1:
+            for index in ind:
+                index = ind[0]
+                temp_est = runaways_all['Temp. Est'][index]
+                # ann = ax2.annotate(f'{temp_est:,.0f} K', (0,0), xytext=(0, 0), textcoords='offset points', fontsize=12, color='black', ha='center', fontweight='bold')
+                # ann.set_path_effects([pe.withStroke(linewidth=4, foreground='white')])
+                # annotations.append(ann)
+                
+                # Add the table below the annotation
+                table_data = [
+                    ['SourceID', f'{runaways_all[index]["Source"]}'],
+                    ['Temp. Est.', f'{runaways_all[index]["Temp. Est"]:,.0f} K'],
+                    ['Coord.', f'{runaways_all["RA_ICRS_1"][index]:.4f} {"+" if runaways_all["DE_ICRS_1"][index] >= 0 else ""}{runaways_all["DE_ICRS_1"][index]:.4f}'],
+                    ['Gmag', f'{runaways_all["Gmag"][index]}'],
+                    ['Dist.', f'{runaways_all["rgeo"][index]:.0f}'+'$\pm$'+f'{(runaways_all["rgeo"][index]-runaways_all["b_rgeo"][index]):.0f}']
+                    # Add more rows with actual values
+                ]
+                table_bbox = [0.0, 0.0, 0.45, 0.2]  # [left, bottom, width, height]
+                table2 = ax2.table(cellText=table_data, cellLoc='right', loc='lower center', bbox=table_bbox)
+                table2.auto_set_column_width(col=[0,1])
+                for key, cell in table2._cells.items():
+                    cell.set_linewidth(0.5)  # Set the border width
+                    cell.set_edgecolor('lightgray')  # Set the border color
+                    # cell.get_text().set_weight('bold')
+            
+            fig.canvas.draw()
+
+    legend = ax2.legend(loc='upper right')
+    scatter_stars_in_region_legend, scatter_dias_members_legend,scatter_my_members_legend = legend.get_lines()
+    scatter_stars_in_region_legend.set_picker(True)
+    scatter_stars_in_region_legend.set_pickradius(10)
+    scatter_dias_members_legend.set_picker(True)
+    scatter_dias_members_legend.set_pickradius(10)
+    scatter_my_members_legend.set_picker(True)
+    scatter_my_members_legend.set_pickradius(10)
+
+    graphs = {}
+    graphs[scatter_stars_in_region_legend] = scatter_stars_in_region
+    graphs[scatter_dias_members_legend] = scatter_dias_members
+    graphs[scatter_my_members_legend] = scatter_my_members
+
+
+    colorbar = fig.colorbar(scatter_runaways_all,ax=ax2)
+    # Connect the pick_event to the onpick3 function
+    fig.canvas.mpl_connect('pick_event', onpick3)
+    fig.canvas.mpl_connect('button_release_event', on_release)
+
+    def on_pick(event):
+        legend = event.artist
+        isVisible = legend.get_visible()
+        try:
+            graphs[legend].set_visible(not isVisible)
+            legend.set_visible(not isVisible)
+
+        except:
+            pass
+        # fig.canvas.draw() # for the release to remove functionality
+
+    plt.connect('pick_event', on_pick)
+    ax2.set_facecolor('black')
+
+    fits_file.close()
+    if save:
+        plt.savefig(f'{cluster.name}/{cluster.name}_traceback.{save}')
+
+
+def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_radial_tolerance']):
+    if isinstance(cluster,str):
+        cluster = Cluster(cluster)
+        print(f'{"Searching pulsars near":->50}'+f' {cluster.name:-<50}')
+
+    elif isinstance(cluster,Cluster):
+        cluster=cluster
+        print(f'{"Searching pulsars near":->50}'+f' {cluster.name:-<50}')
+
+
+    print(f'({extra} pc from cluster edge, {radial_tolerance*100:.0f}% radial tolerance around distance {cluster.distance.to(u.kpc)})')
+
+    cluster_coord_ra_str = cluster.coordinates.ra.to_string(unit='hourangle', sep=':', precision=3, pad=True)[0]
+    cluster_coord_dec_str = cluster.coordinates.dec.to_string(unit='degree', sep=':', precision=3, pad=True)[0]
+
+    psr_search_deg = cluster.calculate_search_arcmin(extra=extra).to(u.deg).value
+    c = [cluster_coord_ra_str,cluster_coord_dec_str,psr_search_deg]
+    query = QueryATNF(params=['NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX'], circular_boundary=c)
+    print(f'{len(query.table)} Pulsar(s) within {psr_search_deg:.2f} degrees ({extra} pc)')
+
+    r_close = (1-radial_tolerance)*cluster.distance.to(u.kpc).value
+    r_far = (1+radial_tolerance)*cluster.distance.to(u.kpc).value
+
+    dist_filtered_psr_table = query.table[(query.table['DIST']>r_close) & (query.table['DIST']<r_far)]
+    psr_coords = SkyCoord(ra = dist_filtered_psr_table['RAJD'], dec = dist_filtered_psr_table['DECJD'],pm_ra_cosdec = dist_filtered_psr_table['PMRA'],pm_dec = dist_filtered_psr_table['PMDEC'])
+    psr_sep = psr_coords.separation(cluster.coordinates).to(u.arcmin)
+    dist_filtered_psr_table.add_column(psr_sep,name='Separation')
+    dist_filtered_psr_table.sort('Separation')
+    dist_filtered_psr_table['AGE'] = dist_filtered_psr_table['AGE'].to(u.kyr)
+    dist_filtered_psr_table['AGE_I'] = dist_filtered_psr_table['AGE_I'].to(u.kyr)
+    print(f'Of which {len(dist_filtered_psr_table)} Pulsar(s) from {r_close:.2f} kpc to {r_far:.2f} kpc')
+    # display(dist_filtered_psr_table['Separation','NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX'])
+
+    return dist_filtered_psr_table['Separation','NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX']
+    #add distance from cluster column
 #plot the find_members and dias_members on the search region fits
 #find out the reason why some clusters were not searched. probably because of the search distance
 #3D visualisation
