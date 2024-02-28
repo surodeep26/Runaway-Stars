@@ -1,7 +1,7 @@
 import os
 from astropy.table import Table, Column, QTable, join
 import yaml
-import pandas as pd  # Renamed for clarity
+import pandas  # Renamed for clarity
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
@@ -20,10 +20,10 @@ from IPython.display import Math
 from astropy.wcs import WCS
 from astroquery.skyview import SkyView
 import os
-import numpy as np
 # from runaway_functions import *
-import pandas as pd
+# import pandas as pd
 import shutil
+from regions import CircleSkyRegion
 
 
 from selenium import webdriver
@@ -51,7 +51,6 @@ import astropy.coordinates as coord
 
 from astropy.table import Table
 from astropy.coordinates import SkyCoord
-import numpy as np
 from astropy import units as u
 from IPython.display import display, Math
 import yaml
@@ -71,32 +70,54 @@ def read_yaml_file(file_path):
 config = read_yaml_file('config.yaml')
 
 class Cluster:
-    def __init__(self, cluster_name):
+    def __init__(self, cluster_name,version='dr3'):
         # Assuming 'cluster_list' is a predefined list containing your Astropy table
         self.cluster_table = cluster_list[cluster_list['Cluster'] == cluster_name]
-        
+        self.all = self.cluster_table[0]
+        self.name = self.cluster_table['Cluster'][0]
+
+
         if len(self.cluster_table) == 0:
             raise ValueError(f"No data found for cluster '{cluster_name}' in the cluster list.")
-        
+        if version == 'dr3':
+            d = self.dias_members()
+            d.sort('Gmag')
+            dm = d[d['Gmag']<config['gmag_lim']]['Source','RAdeg','DEdeg','Gmag','e_Gmag','Plx','e_Plx','Pmemb']
+            # print(len(dm))
+            sources = np.array(dm['Source'])
+            sources_int = sources.astype(np.int64)
+            sr=self.stars_in_region(no_rmRArmDE=True)
+            sr = sr[sr['RUWE']<config['ruwe_lim']]
+            mask = np.isin(sr['Source'], sources_int)
+            dr3dias = sr[mask]
+            # print(dr3dias['rgeo'].mean(),dr3dias['rgeo'].std())
+            self.all['Dist'] = dr3dias['rgeo'].mean()
+            self.all['e_Dist'] = dr3dias['rgeo'].std()
+            self.all['pmRA'] = dr3dias['pmRA'].mean()
+            self.all['e_pmRA'] = dr3dias['pmRA'].std()
+            self.all['pmDE'] = dr3dias['pmDE'].mean()
+            self.all['e_pmDE'] = dr3dias['pmDE'].std()
+            self.all['Dist'] = dr3dias['rgeo'].mean()
+            self.all['Plx'] = dr3dias['Plx'].mean()
+            self.all['e_Plx'] = dr3dias['Plx'].std()
+        elif version == 'dr2':
+            dr3dias = self.dias_members()
         # Extracting values from the table and setting attributes
-        self.name = self.cluster_table['Cluster'][0]
         if not os.path.exists(f'{self.name}'):
             os.mkdir(f'{self.name}')
-
-        # self.ra_icrs = self.cluster_table['RA_ICRS'][0]
-        # self.de_icrs = self.cluster_table['DE_ICRS'][0]
         ti = (Time('J2000')+1*u.Myr)
         self.coordinates = SkyCoord(ra=self.cluster_table['RA_ICRS'],dec=self.cluster_table['DE_ICRS'],pm_ra_cosdec=self.cluster_table['pmRA'],pm_dec=self.cluster_table['pmDE'],obstime=ti)
-        self.diameter_dias = (self.cluster_table['r50'][0]*u.deg*2).to(u.arcmin)
         self.diameter = self.cluster_table['Diameter'][0]*u.arcmin
         self.N = self.cluster_table['N'][0] #no. of members
+        self.diameter_dias = (self.cluster_table['r50'][0]*u.deg*2).to(u.arcmin)
         self.distance = self.cluster_table['Dist'][0]*u.pc
         self.RV = self.cluster_table['RV'][0]*u.km/u.s
-        self.all = self.cluster_table[0]
         self.Av = self.cluster_table['Av'][0]
         self.logage = self.cluster_table['logage'][0]
         self.age = 10**(self.cluster_table['logage'][0])
         self.FeH = self.cluster_table['__Fe_H_'][0]
+        self.members = dr3dias #gets dias_members with the default settings for memb_prob and parallax_threshold_quality
+        #to change the memb_prob and parallax_threshold_quality filters for member selection, use something like dias_members(0.6,11)
 
     
     def calculate_search_arcmin(self, extra=config['Cluster']['search_extent'], output=False):
@@ -165,6 +186,8 @@ class Cluster:
             return None
         # Plot the image
         print(f'Plotting a {extra} pc region around cluster.')
+        # print(wcs.wcs.ctype) #projection is TAN by default for skyview images
+
             
         fig, ax = plt.subplots(figsize=(6,6), subplot_kw={'projection': wcs})
         ax.imshow(images[0][0].data, cmap='gray')
@@ -223,7 +246,7 @@ class Cluster:
         return plottable_members
     
 
-    def stars_in_region(self,allTables=False):
+    def stars_in_region(self,allTables=False,no_rmRArmDE=False):
         """
         Finds the stars around the cluster within a conical frustum.
         Saves the three tables in the cluster folder.
@@ -262,7 +285,7 @@ class Cluster:
 
         if os.path.exists(stars_in_region_path) and (not allTables):
             stars_in_region = Table.read(stars_in_region_path,format='ascii.ecsv')
-            print(f'{stars_in_region_path} exists in {self.name} with {len(stars_in_region)} stars')
+            # print(f'{stars_in_region_path} exists in {self.name} with {len(stars_in_region)} stars')
 
             return stars_in_region
 
@@ -301,38 +324,50 @@ class Cluster:
         
         
         stars_in_region = join(stars_fromDR3,stars_fromDR3_dis,keys='Source',join_type='inner')
-        dias_members=self.dias_members()
-        rmRA = stars_in_region['pmRA']-dias_members['pmRA'].mean()
-        rmDE = stars_in_region['pmDE']-dias_members['pmDE'].mean()
 
-        e_rmRA = stars_in_region['e_pmRA']+np.sqrt((dias_members['e_pmRA']**2).mean())
-        e_rmDE = stars_in_region['e_pmDE']+np.sqrt((dias_members['e_pmDE']**2).mean())
+        # relative to the cluster stuff
+        if not no_rmRArmDE:
+            dias_members= self.members
+            rmRA = stars_in_region['pmRA']-dias_members['pmRA'].mean()
+            rmDE = stars_in_region['pmDE']-dias_members['pmDE'].mean()
 
-        e_rmRA = stars_in_region['e_pmRA']+self.all['e_pmRA']
-        e_rmDE = stars_in_region['e_pmDE']+self.all['e_pmDE']
+            e_rmRA = stars_in_region['e_pmRA']+np.sqrt((dias_members['e_pmRA']**2).mean())
+            e_rmDE = stars_in_region['e_pmDE']+np.sqrt((dias_members['e_pmDE']**2).mean())
 
-        µ_pec = np.sqrt(rmRA**2+rmDE**2)
-        D = stars_in_region['rgeo']/1000
+            e_rmRA = stars_in_region['e_pmRA']+self.all['e_pmRA']
+            e_rmDE = stars_in_region['e_pmDE']+self.all['e_pmDE']
 
-        stars_in_region.add_column(µ_pec, name='µ_pec', index=0)
-        stars_in_region.add_column(µ_pec*D*4.74,name='v_pec',index=0)
-        stars_in_region.add_column(rmRA,name='rmRA',index=5)
-        stars_in_region.add_column(e_rmRA,name='e_rmRA',index=6)
-        stars_in_region.add_column(rmDE,name='rmDE',index=7)
-        stars_in_region.add_column(e_rmDE,name='e_rmDE',index=8)
-        stars_in_region['v_pec'].unit = u.km / u.s
-        stars_in_region.sort('Gmag')
-        fs = stars_in_region[stars_in_region['v_pec'] >= config['v_runaway']]
-        nsfs = stars_in_region[np.array(stars_in_region['v_pec'] >= config['v_walkaway']) & np.array(stars_in_region['v_pec'] < config['v_runaway'])]
+            µ_pec = np.sqrt(rmRA**2+rmDE**2)
+            D = stars_in_region['rgeo']/1000
 
-        #save the tables
+            stars_in_region.add_column(µ_pec, name='µ_pec', index=0)
+            stars_in_region.add_column(µ_pec*D*4.74,name='v_pec',index=0)
+            stars_in_region.add_column(rmRA,name='rmRA',index=5)
+            stars_in_region.add_column(e_rmRA,name='e_rmRA',index=6)
+            stars_in_region.add_column(rmDE,name='rmDE',index=7)
+            stars_in_region.add_column(e_rmDE,name='e_rmDE',index=8)
+            stars_in_region['v_pec'].unit = u.km / u.s
+            stars_in_region.sort('Gmag')
+
+            stars_in_region = stars_in_region['RA_ICRS_1','DE_ICRS_1','e_RA_ICRS','e_DE_ICRS','_r_1',
+                                            'HIP','TYC2','Source','rgeo','Plx','e_Plx',
+                                            'v_pec','µ_pec','rmRA','e_rmRA','rmDE','e_rmDE','pmRA','pmDE','e_pmRA','e_pmDE',
+                                            'RUWE','Teff','logg','Gmag','BP-RP','BPmag','RPmag','RV','e_RV',
+                                            'b_rgeo','B_rgeo','RAVE5','RAVE6']
+
+            fs = stars_in_region[stars_in_region['v_pec'] >= config['v_runaway']]
+            nsfs = stars_in_region[np.array(stars_in_region['v_pec'] >= config['v_walkaway']) & np.array(stars_in_region['v_pec'] < config['v_runaway'])]
+
+            #save the tables
+            fs.write(f'{self.name}/{self.name}_fs.tsv',format='ascii.ecsv',overwrite=True)
+            nsfs.write(f'{self.name}/{self.name}_nsfs.tsv',format='ascii.ecsv',overwrite=True)
+
         stars_in_region.write(f'{self.name}/{self.name}_stars_in_region.tsv',format='ascii.ecsv',overwrite=True)
         stars_fromDR3.write(f'{self.name}/{self.name}_stars_fromDR3.tsv',format='ascii.ecsv',overwrite=True)
         stars_fromDR3_dis.write(f'{self.name}/{self.name}_stars_fromDR3_dis.tsv',format='ascii.ecsv',overwrite=True)
-        fs.write(f'{self.name}/{self.name}_fs.tsv',format='ascii.ecsv',overwrite=True)
-        nsfs.write(f'{self.name}/{self.name}_nsfs.tsv',format='ascii.ecsv',overwrite=True)
 
-        if allTables:
+
+        if allTables and not no_rmRArmDE:
             print(f'{len(stars_in_region)} stars in the region')
             return stars_in_region,stars_fromDR3,stars_fromDR3_dis,fs,nsfs
         else:
@@ -432,7 +467,7 @@ def cluster_v_dispersion(cluster_name,memb_prob=config['memb_prob'],parallax_qua
 
 
     cluster = Cluster(cluster_name)
-    cluster_members = cluster.dias_members(memb_prob,parallax_quality_threshold)
+    cluster_members = cluster.members
     µ_pec = np.sqrt(cluster_members['pmRA']**2+cluster_members['pmRA']**2)
     v_pec = µ_pec.value*cluster.distance.value*4.74*(u.km/u.s)/1000
     mean_velocity = np.mean(v_pec)
@@ -702,6 +737,7 @@ def get_runaways(cluster,fs,theoretical_data):
         # make a list of stars that were inside the cluster 
         selected_stars_dict = {}
         threshold_separation = cluster.diameter.value/2
+        # threshold_separation = cluster.diameter.value #deleteme
         for source_id, separations in sep_dict.items():
             # Check if any separation is less than the threshold
             if any(sep < threshold_separation for sep in np.array(separations)):
@@ -782,7 +818,7 @@ def plot_cmd(cluster,save=False):
     ax1.scatter(sir_bp_rp,sir_gmag,s=2, color='grey',label=f'{len(sir)} stars in the region {cluster.calculate_search_arcmin()}')
 
     # Scatter dias members
-    dias_members = cluster.dias_members(memb_prob=config["memb_prob"])
+    dias_members = cluster.members
     dias_gmag,dias_bp_rp = dias_members['Gmag'],dias_members['BP-RP']
     ax1.scatter(dias_bp_rp,dias_gmag,s=15, color='black',label=f'{len(dias_members)} Dias Members P > {config["memb_prob"]}')
 
@@ -798,7 +834,7 @@ def plot_cmd(cluster,save=False):
         [r'Metallicity $[Fe/H]$',cluster.FeH],
         ['Logage',cluster.logage],
         ['Av',cluster.Av],
-        ['Distance (pc)',cluster.distance]
+        ['Distance (pc)',str(round(cluster.distance.value))+"$\pm$"+f'{cluster.all["e_Dist"]}'+'pc']
     ]
     table_bbox = [0.0, 0.84, 0.44, 0.16]  # [left, bottom, width, height]
 
@@ -892,24 +928,188 @@ def plot_cmd(cluster,save=False):
 
 
 
-def runCode(clustername,save=False):
-    print(f'{clustername:=>50}'+f'{"":=<50}')
-    cluster = Cluster(clustername)
+def runCode(cluster,save='png',psr=False):
+    if isinstance(cluster,str):
+        cluster = Cluster(cluster)
+
+    elif isinstance(cluster,Cluster):
+        cluster=cluster
+    print(f'{cluster.name:=>50}'+f'{"":=<50}')
+    cluster = Cluster(cluster.name)
     cluster.generate_tables()
     theoretical_data = theoretical_isochrone(cluster,output="table",printing=False)
-    print(f'{clustername+": traceback":->50}'+f'{"":-<50}')
+    print(f'{cluster.name+": traceback":->50}'+f'{"":-<50}')
     fs = cluster.read_table('fs')
     runaways_all = get_runaways(cluster,fs,theoretical_data)
     # display(runaways_all)
     mask = [T > config['runaway_temp'] for T in runaways_all['Temp. Est']]
     runaways = runaways_all[mask]
-    print(f'{clustername+": runaways and isochrone plot":->50}'+f'{"":-<50}')
+    print(f'{cluster.name+": runaways and isochrone plot":->50}'+f'{"":-<50}')
     plot_cmd(cluster,save=save)
-    plot_traceback(cluster,save=save)
+    if psr:
+        plot_traceback(cluster,save=save)
+    plot_traceback_clean(cluster,save=save)
     display(f"{len(runaways)} Runaway(s) found",runaways)
 
-    return cluster
-def plot_traceback(cluster,save=False):
+
+def plot_traceback_clean(cluster,save=False):
+    search_arcmin = cluster.calculate_search_arcmin()
+    cluster.plot_search_region(display=None,pixels='800')
+    fits_path = f'{cluster.name}/{cluster.name}_extra10pc.fits'
+    fits_file = fits.open(fits_path)
+    image = fits_file[0]
+    wcs = WCS(image.header)
+
+    fig, ax2 = plt.subplots(subplot_kw={'projection': wcs}, figsize=(10, 8.8))
+    ax2.imshow(image.data, cmap='gray')
+
+    # Add a circle representing the cluster radius
+    circle_cluster = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*cluster.diameter/(2*search_arcmin),
+                    edgecolor='red', facecolor='none', ls='dashed', label=f'Cluster Diameter = {cluster.diameter}',linewidth=1)
+    circle_search_region = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*search_arcmin/search_arcmin,
+                edgecolor='green', facecolor='none', ls='dashed', label=f'Search Region Diameter = {2*search_arcmin}',linewidth=1.5)
+    ax2.add_artist(circle_cluster)
+    ax2.add_artist(circle_search_region)
+    # Read runaways
+    runaways_all = cluster.read_table('runaways') #changing this to runaways_all plots all the runaways, not just the >10000K ones
+    runaways_all['Source'] = runaways_all['Source'].astype(str)
+    runaways_all['Gmag'] = (runaways_all['Gmag'].round(2)).astype(str)
+    runaways_all_coords = SkyCoord(ra=runaways_all['RA_ICRS_1'], dec=runaways_all['DE_ICRS_1'])
+    runaways_all_pix_coords = wcs.world_to_pixel_values(runaways_all_coords.ra, runaways_all_coords.dec)
+    _ = search_arcmin.round(-1)/2 #round to the nearest 5 (by round first to nearest 10 and then divide by 2
+    scalebar_length = ((_.to(u.rad))*(cluster.distance.to(u.m)).to(u.pc)).round(2)
+    __ = cluster.distance.value/1000
+    add_scalebar(ax2, _, color="yellow", label=f"or {scalebar_length.value}pc (at dist {__:.2f}kpc)", size_vertical=0.5)
+    x_min, x_max = ax2.get_xlim()
+    y_min, y_max = ax2.get_ylim()
+    ax2.annotate(f"{_:.2f}", xy=(0.83*x_max,0.08*y_max), color='yellow', ha='center',fontsize=12,fontweight='bold')
+
+    ax2.set_xlabel('Right Ascension (hms)')
+    ax2.set_ylabel('Declination (degrees)')
+    nam = f"{(cluster.name).replace('_',' ')}"
+    ax2.set_title(f"{nam} with a {config['Cluster']['search_extent']} pc search region")
+    ax2.grid(color='lightgrey', ls='dotted')
+    #######################################
+    if len(runaways_all)>0:
+        runaway_00, runaway_apdp,runaway_apdm,runaway_amdp,runaway_amdm = [coord.SkyCoord(ra=runaways_all['RA_ICRS_1'],dec=runaways_all['DE_ICRS_1'], pm_ra_cosdec=runaways_all['rmRA'],pm_dec=runaways_all['rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                            coord.SkyCoord(ra=runaways_all['RA_ICRS_1'],dec=runaways_all['DE_ICRS_1'], pm_ra_cosdec=(runaways_all['rmRA']+runaways_all['e_rmRA']),pm_dec=runaways_all['rmDE']+runaways_all['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                            coord.SkyCoord(ra=runaways_all['RA_ICRS_1'],dec=runaways_all['DE_ICRS_1'], pm_ra_cosdec=(runaways_all['rmRA']+runaways_all['e_rmRA']),pm_dec=runaways_all['rmDE']-runaways_all['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                            coord.SkyCoord(ra=runaways_all['RA_ICRS_1'],dec=runaways_all['DE_ICRS_1'], pm_ra_cosdec=(runaways_all['rmRA']-runaways_all['e_rmRA']),pm_dec=runaways_all['rmDE']+runaways_all['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                            coord.SkyCoord(ra=runaways_all['RA_ICRS_1'],dec=runaways_all['DE_ICRS_1'], pm_ra_cosdec=(runaways_all['rmRA']-runaways_all['e_rmRA']),pm_dec=runaways_all['rmDE']-runaways_all['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr))]
+
+        earlier_runaway_00 = runaway_00.apply_space_motion(dt = -100_000*u.year)
+        earlier_runaway_apdp = runaway_apdp.apply_space_motion(dt = -100_000*u.year)
+        earlier_runaway_apdm = runaway_apdm.apply_space_motion(dt = -100_000*u.year)
+        earlier_runaway_amdp = runaway_amdp.apply_space_motion(dt = -100_000*u.year)
+        earlier_runaway_amdm = runaway_amdm.apply_space_motion(dt = -100_000*u.year)
+
+        earlier_runaway_00_px = wcs.world_to_pixel_values(earlier_runaway_00.ra, earlier_runaway_00.dec)
+        earlier_runaway_apdp_px = wcs.world_to_pixel_values(earlier_runaway_apdp.ra, earlier_runaway_apdp.dec)
+        earlier_runaway_apdm_px = wcs.world_to_pixel_values(earlier_runaway_apdm.ra, earlier_runaway_apdm.dec)
+        earlier_runaway_amdp_px = wcs.world_to_pixel_values(earlier_runaway_amdp.ra, earlier_runaway_amdp.dec)
+        earlier_runaway_amdm_px = wcs.world_to_pixel_values(earlier_runaway_amdm.ra, earlier_runaway_amdm.dec)
+        runaway_00_px = wcs.world_to_pixel_values(runaway_00.ra, runaway_00.dec)
+        # Calculate the displacement vectors
+        delta_x = earlier_runaway_apdp_px[0]-earlier_runaway_amdp_px[0]
+        delta_y = earlier_runaway_apdp_px[1]-earlier_runaway_apdm_px[1]
+
+        for pxx, pxy, dx, dy in zip(earlier_runaway_00_px[0], earlier_runaway_00_px[1], delta_x, delta_y):
+            ellipse = patches.Ellipse(
+                (pxx, pxy),
+                width=1.5*dx,
+                height=1.5*dy,
+                fill=True,
+                color='g',
+                alpha=0.2
+            )
+            ax2.add_patch(ellipse)
+
+        for c in [earlier_runaway_apdp_px,earlier_runaway_apdm_px,earlier_runaway_amdp_px,earlier_runaway_amdm_px]:
+            delta_x = c[0] - runaway_00_px[0]
+            delta_y = c[1] - runaway_00_px[1]
+            # Draw the vectors
+            ax2.quiver(runaway_00_px[0], runaway_00_px[1], delta_x, delta_y, angles='xy', scale_units='xy', scale=1, color='limegreen', width=0.001)
+    ############################
+    else:
+        print("No runaways found")
+    # Scatter runaways
+    scatter_runaways_all = ax2.scatter(runaways_all_pix_coords[0], runaways_all_pix_coords[1], s=30,picker=True,pickradius=20,
+                                    c=runaways_all['Temp. Est'], cmap='spring_r', norm=plt.Normalize(4000, 23000), 
+                                    label=f'{len(runaways_all)} Runaway(s)')
+    legend = ax2.legend(loc='upper right')
+
+    global annotations
+    annotations = []
+
+    def on_release(event):
+        global annotations, table2
+        try:
+            if table2:
+                table2.remove()
+        except:
+            pass
+        fig.canvas.draw() # for the release to remove functionality
+
+    def onpick3(event):
+        global annotations, table2
+        
+        ind = event.ind
+        
+        # print(ind,type(ind),len(ind),event.artist)
+        # print(result)
+        import matplotlib
+        if isinstance(event.artist, matplotlib.collections.PathCollection) and len(ind) == 1:
+            for index in ind:
+                index = ind[0]
+                temp_est = runaways_all['Temp. Est'][index]
+                # ann = ax2.annotate(f'{temp_est:,.0f} K', (0,0), xytext=(0, 0), textcoords='offset points', fontsize=12, color='black', ha='center', fontweight='bold')
+                # ann.set_path_effects([pe.withStroke(linewidth=4, foreground='white')])
+                # annotations.append(ann)
+                # Add the table below the annotation
+                if (runaways_all[index]["Source"][:3] == 'PSR'): #then this is a psr, table has different format
+                    table_data = [
+                        ['JNAME', f'{runaways_all[index]["Source"]}'],
+                        ['Separation', f'{runaways_all[index]["RAVE6"]} arcmin'],
+                        ['Coord.', f'{runaways_all["RA_ICRS_1"][index]:.4f} {"+" if runaways_all["DE_ICRS_1"][index] >= 0 else ""}{runaways_all["DE_ICRS_1"][index]:.4f}'],
+                        ['Age', f'{runaways_all["Gmag"][index]}'], #this contains the age
+                        ['Dist.', f'{runaways_all["rgeo"][index]:.0f}'+' pc'], #this contains the distance
+                        ['Dist_DM', f'{runaways_all["RAVE5"][index]}'] #this contains the dist_dm #dispersion measured distance
+                        # Add more rows with actual values
+                    ]
+                else: #it is a runaway star
+                    # Add the table below the annotation
+                    table_data = [
+                        ['SourceID', f'{runaways_all[index]["Source"]}'],
+                        ['Temp. Est.', f'{runaways_all[index]["Temp. Est"]:,.0f} K'],
+                        ['Coord.', f'{runaways_all["RA_ICRS_1"][index]:.4f} {"+" if runaways_all["DE_ICRS_1"][index] >= 0 else ""}{runaways_all["DE_ICRS_1"][index]:.4f}'],
+                        ['Gmag', f'{runaways_all["Gmag"][index]}'+' mag'],
+                        ['Dist.', f'{runaways_all["rgeo"][index]:.0f}'+'$\pm$'+f'{(runaways_all["rgeo"][index]-runaways_all["b_rgeo"][index]):.0f}'+' pc']
+                        # Add more rows with actual values
+                    ]
+
+                table_bbox = [0.0, 0.0, 0.45, 0.2]  # [left, bottom, width, height]
+                table2 = ax2.table(cellText=table_data, cellLoc='right', loc='lower center', bbox=table_bbox)
+                table2.auto_set_column_width(col=[0,1])
+                for key, cell in table2._cells.items():
+                    cell.set_linewidth(0.5)  # Set the border width
+                    cell.set_edgecolor('lightgray')  # Set the border color
+                    # cell.get_text().set_weight('bold')
+            
+            fig.canvas.draw()
+    # Connect the pick_event to the onpick3 function
+    fig.canvas.mpl_connect('pick_event', onpick3)
+    fig.canvas.mpl_connect('button_release_event', on_release)
+
+
+
+    # colorbar = fig.colorbar(scatter_runaways_all,ax=ax2,label='Temperature (K)')
+    plt.tight_layout()
+
+    if save:
+        plt.savefig(f'{cluster.name}/{cluster.name}_traceback.{save}')
+
+
+def plot_traceback(cluster,save=False,psr_circles=True):
     search_arcmin = cluster.calculate_search_arcmin()
     cluster.plot_search_region(display=None,pixels='800')
     fits_path = f'{cluster.name}/{cluster.name}_extra10pc.fits'
@@ -923,8 +1123,8 @@ def plot_traceback(cluster,save=False):
     ax2.imshow(image.data, cmap='gray')
     stars_in_region_coords = SkyCoord(ra=stars_in_region['RA_ICRS_1'], dec=stars_in_region['DE_ICRS_1'])
     stars_in_region_pix_coords = wcs.world_to_pixel_values(stars_in_region_coords.ra, stars_in_region_coords.dec)
-
-    dias_members_coords = SkyCoord(ra=cluster.dias_members()['RAdeg']*u.deg, dec=cluster.dias_members()['DEdeg']*u.deg)
+    members = cluster.members
+    dias_members_coords = SkyCoord(ra=members['RA_ICRS_1'], dec=members['DE_ICRS_1'])
     dias_members_pix_coords = wcs.world_to_pixel_values(dias_members_coords.ra, dias_members_coords.dec)
     # Add a circle representing the cluster radius
     circle_cluster = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*cluster.diameter/(2*search_arcmin),
@@ -938,7 +1138,7 @@ def plot_traceback(cluster,save=False):
                                         '.',markersize=2, color='grey',label=f'{len(stars_in_region)} Stars in the region')
     # Scatter dias members
     scatter_dias_members, = ax2.plot(dias_members_pix_coords[0], dias_members_pix_coords[1], '.',markersize=10, color='grey',
-                                    markeredgecolor='lightgrey',label=f'{len(cluster.dias_members())} Dias Members')
+                                    markeredgecolor='lightgrey',label=f'{len(cluster.members)} Dias Members')
     # ax2.legend()
     # Scatter my members
     my_members =find_cluster(stars_in_region,refCluster=cluster.name)
@@ -952,10 +1152,11 @@ def plot_traceback(cluster,save=False):
     # Read runaways
     runaways_all = cluster.read_table('runaways') #changing this to runaways_all plots all the runaways, not just the >10000K ones
     runaways_all['Source'] = runaways_all['Source'].astype(str)
-    runaways_all['Gmag'] = runaways_all['Gmag'].astype(str)
+    runaways_all['Gmag'] = (runaways_all['Gmag'].round(2)).astype(str)
+    # runaways_all['RAVE5'] = runaways_all['RAVE5'].astype(str)
 
     psrs = search_psr(cluster.name)
-    # psrs['AGE'] = psrs['AGE'].astype(str)
+    n_psr = len(psrs)
 
     display(psrs)
     for i in range(len(psrs)):
@@ -964,15 +1165,15 @@ def plot_traceback(cluster,save=False):
         new_row['RA_ICRS_1'] = psrs['RAJD'][i]
         new_row['DE_ICRS_1'] = psrs['DECJD'][i]
         new_row['rgeo'] = psrs['DIST'][i]*1000
+        new_row['RAVE5'] = f"{psrs['DIST_DM'][i]*1000:.2f}" ###################this takes the dist_dm
+        new_row['RAVE6'] = f"{psrs['Separation'][i]:.2f}" ###################this takes the dist_dm
 
         new_row['pmRA'] = psrs['PMRA'][i]
         new_row['pmDE'] = psrs['PMDEC'][i]
         new_row['rmRA'] = psrs['PMRA'][i] - cluster.all['pmRA']
         new_row['rmDE'] = psrs['PMDEC'][i] - cluster.all['pmDE']
 
-        new_row['Temp. Est'] = 42069 ###################
-        new_row['Gmag'] = f"{psrs['AGE'][i]:.2f}"+" kyr" ###################
-        new_row['b_rgeo'] = new_row['rgeo']-420 ###################
+        new_row['Gmag'] = f"{psrs['AGE'][i]:.2f}"+" kyr" ###################this takes the age
 
 
         µ_pec = np.sqrt(new_row['rmRA']**2+new_row['rmDE']**2)
@@ -1042,10 +1243,27 @@ def plot_traceback(cluster,save=False):
     else:
         print("No runaways found")
     # Scatter runaways
-    scatter_runaways_all = ax2.scatter(runaways_all_pix_coords[0], runaways_all_pix_coords[1], s=60,picker=True,pickradius=20,
+    scatter_runaways_all = ax2.scatter(runaways_all_pix_coords[0], runaways_all_pix_coords[1], s=30,picker=True,pickradius=20,
                                     c=runaways_all['Temp. Est'], cmap='spring_r', norm=plt.Normalize(4000, 23000), 
-                                    label=f'{len(runaways_all)} Runaway(s)')
-
+                                    label=f'{len(runaways_all)-n_psr} Runaway(s)')
+    if n_psr>0:
+        scatter_psrs = ax2.scatter(runaways_all_pix_coords[0][-n_psr:], runaways_all_pix_coords[1][-n_psr:], s=20,
+                                        c='cyan', 
+                                        label=f'{n_psr} Pulsar(s)')
+        if psr_circles:
+            for ra_pix_psr,dec_pix_psr,ra_psr,dec_psr in zip(runaways_all_pix_coords[0][-n_psr:], runaways_all_pix_coords[1][-n_psr:],
+                                            runaways_all_coords[-n_psr:].ra, runaways_all_coords[-n_psr:].dec):
+                print(ra_pix_psr,dec_pix_psr)
+                center = SkyCoord(ra_psr, dec_psr, unit='deg')
+                t = 100*u.kyr
+                vs_psr = [300,400,500,600]*u.km/u.s
+                for v_psr in vs_psr:
+                    v_psr_arcmin = np.arctan(v_psr.to(u.pc/u.kyr)*t/cluster.distance)
+                    radius = v_psr_arcmin.to(u.arcmin)
+                    sky_reg = CircleSkyRegion(center, radius)
+                    pix_reg = sky_reg.to_pixel(wcs)
+                    circle_v_spr = patches.Circle((ra_pix_psr,dec_pix_psr),radius=pix_reg.radius,edgecolor='azure', facecolor='aqua',alpha = 0.1)
+                    ax2.add_patch(circle_v_spr)
 
     global annotations
     annotations = []
@@ -1074,16 +1292,28 @@ def plot_traceback(cluster,save=False):
                 # ann = ax2.annotate(f'{temp_est:,.0f} K', (0,0), xytext=(0, 0), textcoords='offset points', fontsize=12, color='black', ha='center', fontweight='bold')
                 # ann.set_path_effects([pe.withStroke(linewidth=4, foreground='white')])
                 # annotations.append(ann)
-                
                 # Add the table below the annotation
-                table_data = [
-                    ['SourceID', f'{runaways_all[index]["Source"]}'],
-                    ['Temp. Est.', f'{runaways_all[index]["Temp. Est"]:,.0f} K'],
-                    ['Coord.', f'{runaways_all["RA_ICRS_1"][index]:.4f} {"+" if runaways_all["DE_ICRS_1"][index] >= 0 else ""}{runaways_all["DE_ICRS_1"][index]:.4f}'],
-                    ['Gmag', f'{runaways_all["Gmag"][index]}'],
-                    ['Dist.', f'{runaways_all["rgeo"][index]:.0f}'+'$\pm$'+f'{(runaways_all["rgeo"][index]-runaways_all["b_rgeo"][index]):.0f}']
-                    # Add more rows with actual values
-                ]
+                if (runaways_all[index]["Source"][:3] == 'PSR'): #then this is a psr, table has different format
+                    table_data = [
+                        ['JNAME', f'{runaways_all[index]["Source"]}'],
+                        ['Separation', f'{runaways_all[index]["RAVE6"]} arcmin'],
+                        ['Coord.', f'{runaways_all["RA_ICRS_1"][index]:.4f} {"+" if runaways_all["DE_ICRS_1"][index] >= 0 else ""}{runaways_all["DE_ICRS_1"][index]:.4f}'],
+                        ['Age', f'{runaways_all["Gmag"][index]}'], #this contains the age
+                        ['Dist.', f'{runaways_all["rgeo"][index]:.0f}'+' pc'], #this contains the distance
+                        ['Dist_DM', f'{runaways_all["RAVE5"][index]}'] #this contains the dist_dm #dispersion measured distance
+                        # Add more rows with actual values
+                    ]
+                else: #it is a runaway star
+                    # Add the table below the annotation
+                    table_data = [
+                        ['SourceID', f'{runaways_all[index]["Source"]}'],
+                        ['Temp. Est.', f'{runaways_all[index]["Temp. Est"]:,.0f} K'],
+                        ['Coord.', f'{runaways_all["RA_ICRS_1"][index]:.4f} {"+" if runaways_all["DE_ICRS_1"][index] >= 0 else ""}{runaways_all["DE_ICRS_1"][index]:.4f}'],
+                        ['Gmag', f'{runaways_all["Gmag"][index]}'+' mag'],
+                        ['Dist.', f'{runaways_all["rgeo"][index]:.0f}'+'$\pm$'+f'{(runaways_all["rgeo"][index]-runaways_all["b_rgeo"][index]):.0f}'+' pc']
+                        # Add more rows with actual values
+                    ]
+
                 table_bbox = [0.0, 0.0, 0.45, 0.2]  # [left, bottom, width, height]
                 table2 = ax2.table(cellText=table_data, cellLoc='right', loc='lower center', bbox=table_bbox)
                 table2.auto_set_column_width(col=[0,1])
@@ -1131,6 +1361,7 @@ def plot_traceback(cluster,save=False):
     fits_file.close()
     if save:
         plt.savefig(f'{cluster.name}/{cluster.name}_traceback.{save}')
+    
 
 
 def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_radial_tolerance']):
@@ -1168,6 +1399,10 @@ def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_ra
 
     return dist_filtered_psr_table['Separation','NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX']
     #add distance from cluster column
+
+
+
+
 #plot the find_members and dias_members on the search region fits
 #find out the reason why some clusters were not searched. probably because of the search distance
 #3D visualisation
