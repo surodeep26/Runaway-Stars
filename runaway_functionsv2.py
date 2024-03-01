@@ -75,12 +75,17 @@ class Cluster:
         self.cluster_table = cluster_list[cluster_list['Cluster'] == cluster_name]
         self.all = self.cluster_table[0]
         self.name = self.cluster_table['Cluster'][0]
-
+        ti = (Time('J2000')+1*u.Myr)
+        self.coordinates = SkyCoord(ra=self.cluster_table['RA_ICRS'],dec=self.cluster_table['DE_ICRS'],pm_ra_cosdec=self.cluster_table['pmRA'],pm_dec=self.cluster_table['pmDE'],obstime=ti)
+        self.diameter = self.cluster_table['Diameter'][0]*u.arcmin
+        self.N = self.cluster_table['N'][0] #no. of members
+        self.diameter_dias = (self.cluster_table['r50'][0]*u.deg*2).to(u.arcmin)
+        self.distance = self.cluster_table['Dist'][0]*u.pc
 
         if len(self.cluster_table) == 0:
             raise ValueError(f"No data found for cluster '{cluster_name}' in the cluster list.")
         if version == 'dr3':
-            d = self.dias_members()
+            d = self.dias_members(memb_prob=0.5,parallax_quality_threshold=5)
             d.sort('Gmag')
             dm = d[d['Gmag']<config['gmag_lim']]['Source','RAdeg','DEdeg','Gmag','e_Gmag','Plx','e_Plx','Pmemb']
             # print(len(dm))
@@ -89,6 +94,7 @@ class Cluster:
             sr=self.stars_in_region(no_rmRArmDE=True)
             sr = sr[sr['RUWE']<config['ruwe_lim']]
             mask = np.isin(sr['Source'], sources_int)
+            # print(sources_int)
             dr3dias = sr[mask]
             # print(dr3dias['rgeo'].mean(),dr3dias['rgeo'].std())
             self.all['Dist'] = dr3dias['rgeo'].mean()
@@ -101,16 +107,11 @@ class Cluster:
             self.all['Plx'] = dr3dias['Plx'].mean()
             self.all['e_Plx'] = dr3dias['Plx'].std()
         elif version == 'dr2':
-            dr3dias = self.dias_members()
+            dr3dias = self.dias_members(memb_prob=0.5,parallax_quality_threshold=5)
         # Extracting values from the table and setting attributes
         if not os.path.exists(f'{self.name}'):
             os.mkdir(f'{self.name}')
-        ti = (Time('J2000')+1*u.Myr)
-        self.coordinates = SkyCoord(ra=self.cluster_table['RA_ICRS'],dec=self.cluster_table['DE_ICRS'],pm_ra_cosdec=self.cluster_table['pmRA'],pm_dec=self.cluster_table['pmDE'],obstime=ti)
-        self.diameter = self.cluster_table['Diameter'][0]*u.arcmin
-        self.N = self.cluster_table['N'][0] #no. of members
-        self.diameter_dias = (self.cluster_table['r50'][0]*u.deg*2).to(u.arcmin)
-        self.distance = self.cluster_table['Dist'][0]*u.pc
+        self.distance = self.all['Dist']*u.pc
         self.RV = self.cluster_table['RV'][0]*u.km/u.s
         self.Av = self.cluster_table['Av'][0]
         self.logage = self.cluster_table['logage'][0]
@@ -584,6 +585,7 @@ def theoretical_isochrone(cluster,Av=None,logage=None,metallicity=None,output=No
         if printing:
             print('Getting theoretical isochrone')
         s = Service()
+        print("getting isochroneform cmd3.7")
         options = webdriver.ChromeOptions()
         browser = webdriver.Chrome(service=s, options=options)
         browser.get('http://stev.oapd.inaf.it/cgi-bin/cmd')
@@ -767,10 +769,23 @@ def get_runaways(cluster,fs,theoretical_data):
         sources_to_mask = list(selected_stars_dict_with_temp.keys())
         mask = [source in sources_to_mask for source in fs['Source']]
         run = fs[mask]
-        run.add_column(np.array(list(selected_stars_dict_with_temp.values()),dtype=object)[:,1],name='Temp. Est',index =1)
+        run.add_column(np.array(list(selected_stars_dict_with_temp.values()),dtype=object)[:,1],name='Temp. Est',index =0)
         run['Temp. Est'] = run['Temp. Est']*u.K
         run.sort('Temp. Est',reverse=True)
         # Save
+        def check_intersection(range1, range2):
+            return max(range1[0], range2[0]) <= min(range1[1], range2[1])
+
+        # Given range
+        range2 = (cluster.all['Dist']-cluster.all['e_Dist'], cluster.all['Dist']+cluster.all['e_Dist'])
+
+        mask = [check_intersection((row['b_rgeo'], row['B_rgeo']), range2) for row in run]
+
+        mask = np.array(mask)
+        # Select stars which are not likele foreground or background
+        run= run[mask]
+
+
         run.write(file_path,format='ascii.ecsv',overwrite=True)
         run.to_pandas().to_excel(os.path.join(cluster.name,f'{cluster.name}_{name}_all.xlsx'), index=False)
 
@@ -822,10 +837,10 @@ def plot_cmd(cluster,save=False):
     dias_gmag,dias_bp_rp = dias_members['Gmag'],dias_members['BP-RP']
     ax1.scatter(dias_bp_rp,dias_gmag,s=15, color='black',label=f'{len(dias_members)} Dias Members P > {config["memb_prob"]}')
 
-    # Scatter my members
-    my_members = find_cluster(sir,refCluster=cluster.name)
-    my_gmag,my_bp_rp = my_members['Gmag'],my_members['BP-RP']
-    ax1.scatter(my_bp_rp,my_gmag,s=15,alpha =0.7,marker='x', color='blue',label=rf'{len(my_members)} My Members $\sigma$ < {np.std(my_members["v_pec"]):.2f}')
+    # # Scatter my members
+    # my_members = find_cluster(sir,refCluster=cluster.name)
+    # my_gmag,my_bp_rp = my_members['Gmag'],my_members['BP-RP']
+    # ax1.scatter(my_bp_rp,my_gmag,s=15,alpha =0.7,marker='x', color='blue',label=rf'{len(my_members)} My Members $\sigma$ < {np.std(my_members["v_pec"]):.2f}')
 
 
     # Table for cluster parameters
@@ -855,10 +870,14 @@ def plot_cmd(cluster,save=False):
     runaways = runaways_all[mask]
     runaways_gmag,runaways_bp_rp = runaways['Gmag'],runaways['BP-RP']
     ## all runaways
+    try:
+        label_all_run = rf'{len(runaways_all)} Runaway(s) $T_{{max}}$ = {max(runaways_all["Temp. Est"]):,.0f} K'
+    except:
+        label_all_run = rf'{len(runaways_all)} Runaway(s)'
     ax1.scatter(_runaways_bp_rp,_runaways_gmag,s=8,alpha=0.5, 
                 c=runaways_all['Temp. Est'],
                 cmap='spring_r',norm=plt.Normalize(4000, 23000),
-                label=rf'{len(runaways_all)} Runaway(s) $T_{{max}}$ = {max(runaways_all["Temp. Est"]):,.0f} K')
+                label=label_all_run)
 
     ## main runaways T > 10,000K
     global annotations
@@ -1159,6 +1178,9 @@ def plot_traceback(cluster,save=False,psr_circles=True):
     n_psr = len(psrs)
 
     display(psrs)
+    if len(runaways_all)<0:
+        return None
+
     for i in range(len(psrs)):
         new_row = {col_name: '0' for col_name in runaways_all.colnames}
         new_row['Source'] = 'PSR'+f'{psrs["JNAME"][i]}'
@@ -1257,6 +1279,7 @@ def plot_traceback(cluster,save=False,psr_circles=True):
                 center = SkyCoord(ra_psr, dec_psr, unit='deg')
                 t = 100*u.kyr
                 vs_psr = [300,400,500,600]*u.km/u.s
+                vs_psr = [340]*u.km/u.s #deleteme
                 for v_psr in vs_psr:
                     v_psr_arcmin = np.arctan(v_psr.to(u.pc/u.kyr)*t/cluster.distance)
                     radius = v_psr_arcmin.to(u.arcmin)
@@ -1399,7 +1422,35 @@ def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_ra
 
     return dist_filtered_psr_table['Separation','NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX']
     #add distance from cluster column
+def nearest_cluster(objectname):
+    result_table = Simbad.query_object(objectname)
+    cluster_table = cluster_list['Cluster','RA_ICRS','DE_ICRS']
+    ra = result_table['RA'].value.data[0]
+    dec = result_table['DEC'].value.data[0]
 
+    # Create a SkyCoord object
+    coord = SkyCoord(ra=ra, dec=dec, unit=(u.hourangle, u.deg))
+
+    # Input coordinate
+    input_coord = coord
+
+    # Convert the input coordinate to a SkyCoord object
+    target_coord = coord
+
+    # Calculate the angular separation for each cluster in the table
+    separations = []
+    for row in cluster_table:
+        cluster_coord = SkyCoord(ra=row['RA_ICRS'], dec=row['DE_ICRS'], unit=(u.deg, u.deg), frame='icrs')
+        separation = target_coord.separation(cluster_coord).deg
+        separations.append(separation)
+
+    # Find the index of the minimum separation
+    min_index = separations.index(min(separations))
+
+    # Get the nearest cluster
+    nearest_cluster = cluster_table[min_index]['Cluster']
+
+    print(f"The nearest cluster to the {objectname} is: {nearest_cluster}"+f' at a separation of {min(separations)*u.deg.to(u.arcmin):.2f} arcmin')
 
 
 
