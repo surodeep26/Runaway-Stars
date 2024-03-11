@@ -120,7 +120,23 @@ class Cluster:
         self.members = dr3dias #gets dias_members with the default settings for memb_prob and parallax_threshold_quality
         #to change the memb_prob and parallax_threshold_quality filters for member selection, use something like dias_members(0.6,11)
 
-    
+    def clean(self,what='runaways'):
+        folder_path = f'{self.name}'
+
+        # List all files in the folder
+        files = os.listdir(folder_path)
+        
+        # Iterate over each file and delete it
+        for file_name in files:
+            file_path = os.path.join(folder_path, file_name)
+            if what=='everything' and os.path.isfile(file_path):
+                os.remove(file_path)
+                print(f'{file_path} removed')
+
+            if what=='runaways' and os.path.isfile(file_path) and 'runaway' in file_path:
+                print(f'{file_path} removed')
+                os.remove(file_path)
+
     def calculate_search_arcmin(self, extra=config['Cluster']['search_extent'], output=False):
         """
         Calculate the search arcminute for the cluster.
@@ -1123,6 +1139,7 @@ def plot_traceback_clean(cluster,save=False):
 
     # colorbar = fig.colorbar(scatter_runaways_all,ax=ax2,label='Temperature (K)')
     plt.tight_layout()
+    fits_file.close()
 
     if save:
         plt.savefig(f'{cluster.name}/{cluster.name}_traceback.{save}')
@@ -1404,7 +1421,7 @@ def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_ra
 
     psr_search_deg = cluster.calculate_search_arcmin(extra=extra).to(u.deg).value
     c = [cluster_coord_ra_str,cluster_coord_dec_str,psr_search_deg]
-    query = QueryATNF(params=['NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX'], circular_boundary=c)
+    query = QueryATNF(params=['NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX','P0','P1'], circular_boundary=c)
     print(f'{len(query.table)} Pulsar(s) within {psr_search_deg:.2f} degrees ({extra} pc)')
 
     r_close = (1-radial_tolerance)*cluster.distance.to(u.kpc).value
@@ -1422,7 +1439,7 @@ def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_ra
 
     return dist_filtered_psr_table['Separation','NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX']
     #add distance from cluster column
-def nearest_cluster(objectname):
+def nearest_cluster(objectname, output=False):
     result_table = Simbad.query_object(objectname)
     cluster_table = cluster_list['Cluster','RA_ICRS','DE_ICRS']
     ra = result_table['RA'].value.data[0]
@@ -1449,11 +1466,221 @@ def nearest_cluster(objectname):
 
     # Get the nearest cluster
     nearest_cluster = cluster_table[min_index]['Cluster']
+    if output:
+        print(f"The nearest cluster to the {objectname} is: {nearest_cluster}"+f' at a separation of {min(separations)*u.deg.to(u.arcmin):.2f} arcmin')
+    return nearest_cluster
 
-    print(f"The nearest cluster to the {objectname} is: {nearest_cluster}"+f' at a separation of {min(separations)*u.deg.to(u.arcmin):.2f} arcmin')
+def what_line_is_it(line):
+    illss = Table.read('spectra/illss_stellar.tsv', format='ascii.ecsv')
+    wavelengths = illss['lambda']
+
+    closest_index = np.abs(wavelengths - line).argmin()
+    closest_wa = illss[closest_index]  # Corrected line
+    return closest_wa
+
+def observe_from_gsh(clustername,obstime=None):
+    import astropy
+    print('='*50)
+    clusters = Table.read('Clusters_from_dias_and_a99', format='ascii.ecsv')
+    mask = (clusters['Cluster']==f'{clustername}')
+    plt.style.use(astropy_mpl_style)
+    quantity_support()
+    # Define the Earth location
+    gsh = EarthLocation(lon=11.482463*u.deg, lat=50.928449*u.deg, height=370*u.m)
+    utcoffset = 1*u.hour  # Eastern Daylight Time
+    # Get the current time
+    if obstime is not None:
+        time = Time(f'{obstime}')- utcoffset
+        print('Observation for given time (utc):', time)
+    elif obstime is None:
+        time = Time.now()
+        print('Observation for current time (utc):', time)
+    # Define M33 coordinates
+    if type(clustername) == astropy.coordinates.sky_coordinate.SkyCoord:
+        print('given coordinates')
+        m33 = clustername
+        label = (round(coord.ra.value,2),round(coord.dec.value,2))
+    elif type(clustername) == str:
+        print('given cluster name')
+        m33 = SkyCoord(clusters[mask][0]['RA_ICRS']*u.deg,clusters[mask][0]['DE_ICRS']*u.deg,frame='icrs')
+        label = f'{clustername}'
+    print('Coordinates in deg:',m33.to_string('decimal'))
+    print('Coordinates in hms:',m33.to_string('hmsdms'))
+    # Transform M33 to AltAz coordinates
+    m33altaz = m33.transform_to(AltAz(obstime=time, location=gsh))
+    print(f"{clustername}'s Altitude = {m33altaz.alt:.2}")
+    # Plot the first subplot (Airmass vs. Hours from EDT Midnight)
+    fig, axs = plt.subplots(1, 2, figsize=(12, 5))
+    # Plot Airmass vs. Hours from EDT Midnight
+    midnight = Time(str((time+1*u.day).datetime.date()))
+    print('Midnight:', midnight)
+    midnight = midnight - utcoffset
+    delta_midnight = np.linspace(-2, 10, 100)*u.hour
+    frame_July13night = AltAz(obstime=midnight+delta_midnight, location=gsh)
+    m33altazs_July13night = m33.transform_to(frame_July13night)
+    m33airmasss_July13night = m33altazs_July13night.secz
+    axs[0].plot(delta_midnight, m33airmasss_July13night)
+    axs[0].set_xlim(-2, 10)
+    axs[0].set_ylim(1, 4)
+    axs[0].set_xlabel('Hours from gsh Midnight')
+    axs[0].set_ylabel('Airmass [Sec(z)]')
+    axs[0].set_title('Airmass vs. Hours from Midnight')
+    # Plot the second subplot (Altitude vs. Hours from EDT Midnight)
+    delta_midnight = np.linspace(-12, 12, 1000)*u.hour
+    times_July12_to_13 = midnight + delta_midnight
+    frame_July12_to_13 = AltAz(obstime=times_July12_to_13, location=gsh)
+    sunaltazs_July12_to_13 = get_sun(times_July12_to_13).transform_to(frame_July12_to_13)
+    moon_July12_to_13 = get_body("moon", times_July12_to_13)
+    moonaltazs_July12_to_13 = moon_July12_to_13.transform_to(frame_July12_to_13)
+    m33altazs_July12_to_13 = m33.transform_to(frame_July12_to_13)
+    observable = (max(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -12*u.deg)]) > 30*u.deg)
+    print('Max elevation:',max(m33altazs_July12_to_13.alt))
+    print('Observable:',observable)
+
+    axs[1].plot(delta_midnight, sunaltazs_July12_to_13.alt, color='r', label='Sun')
+    axs[1].plot(delta_midnight, moonaltazs_July12_to_13.alt, color=[0.75]*3, ls='--', label='Moon')
+    sc = axs[1].scatter(delta_midnight, m33altazs_July12_to_13.alt,
+                    c=m33altazs_July12_to_13.az.value, label=label, lw=0, s=8,
+                    cmap='twilight')
+    axs[1].fill_between(delta_midnight, 0*u.deg, 90*u.deg,
+                    sunaltazs_July12_to_13.alt < -0*u.deg, color='0.5', zorder=0) #sunset
+    axs[1].fill_between(delta_midnight, 0*u.deg, 90*u.deg,
+                    sunaltazs_July12_to_13.alt < -18*u.deg, color='k', zorder=0) #astronomical twilight
+    cbar = plt.colorbar(sc, ax=axs[1], label='Azimuth [deg]')
+    axs[1].legend(loc='upper left')
+    axs[1].set_xlim(-12*u.hour, 12*u.hour)
+    axs[1].set_xticks((np.arange(13)*2-12)*u.hour)
+    axs[1].set_ylim(0*u.deg, 90*u.deg)
+    axs[1].set_xlabel('Hours from gsh Midnight')
+    axs[1].set_ylabel('Altitude [deg]')
+    axs[1].set_title('Altitude vs. Hours from Midnight')
+    # Adjust layout
+    plt.tight_layout()
+    # Show the plot
+    plt.show()
+    # print(sunaltazs_July12_to_13.alt < -0*u.deg,len(sunaltazs_July12_to_13.alt < -0*u.deg))
+    # print(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -0*u.deg)],len(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -0*u.deg)]))
+    # print(delta_midnight[(sunaltazs_July12_to_13.alt < -0*u.deg)],len(delta_midnight[(sunaltazs_July12_to_13.alt < -0*u.deg)]))
+    # print((delta_midnight[(sunaltazs_July12_to_13.alt < -0*u.deg)])[(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -0*u.deg)])>30*u.deg],len((delta_midnight[(sunaltazs_July12_to_13.alt < -0*u.deg)])[(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -0*u.deg)])>30*u.deg]))
+    sunset = (sunaltazs_July12_to_13.alt < -0*u.deg)
+    astro_twilight = (sunaltazs_July12_to_13.alt < -18*u.deg)
+
+    # print(len(((delta_midnight[sunset])[(m33altazs_July12_to_13.alt[sunset])>30*u.deg])),len(astro_twilight))
+    try:
+        print('Total Observation time (elevation >30 and sunset):',(delta_midnight[sunset])[(m33altazs_July12_to_13.alt[sunset])>30*u.deg][-1]-(delta_midnight[sunset])[(m33altazs_July12_to_13.alt[sunset])>30*u.deg][0])
+    except:
+        print('Not Observable during sunset')
+    try:    
+        print('Good Observation time (elevation >30 and astronomical twilight):',(delta_midnight[astro_twilight])[(m33altazs_July12_to_13.alt[astro_twilight])>30*u.deg][-1]-(delta_midnight[astro_twilight])[(m33altazs_July12_to_13.alt[astro_twilight])>30*u.deg][0])
+    except:
+        print('Not Observable during astro twilight')
+
+    # print('Good Observation time (elevation >30 and astronomical twilight):',(((delta_midnight[sunset])[(m33altazs_July12_to_13.alt[sunset])>30*u.deg]) and ((delta_midnight[sunset])[astro_twilight]))[-1]-(((delta_midnight[sunset])[(m33altazs_July12_to_13.alt[sunset])>30*u.deg]) and ((delta_midnight[sunset])[astro_twilight]))[0])
+    # print(max(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -0*u.deg)]))
+    return observable
 
 
 
+def observe_from_gsh_clean(clustername,obstime=None):
+    import astropy
+    # print('='*50)
+    clusters = Table.read('Clusters_from_dias_and_a99', format='ascii.ecsv')
+    mask = (clusters['Cluster']==f'{clustername}')
+    # plt.style.use(astropy_mpl_style)
+    quantity_support()
+    # Define the Earth location
+    gsh = EarthLocation(lon=11.482463*u.deg, lat=50.928449*u.deg, height=370*u.m)
+    utcoffset = 1*u.hour  # Eastern Daylight Time
+    # Get the current time
+    if obstime is not None:
+        time = Time(f'{obstime}')- utcoffset
+        # print('Observation for given time (utc):', time)
+    elif obstime is None:
+        time = Time.now()
+        # print('Observation for current time (utc):', time)
+    # Define M33 coordinates
+    if type(clustername) == astropy.coordinates.sky_coordinate.SkyCoord:
+        # print('given coordinates')
+        m33 = clustername
+        label = (round(coord.ra.value,2),round(coord.dec.value,2))
+    elif type(clustername) == str:
+        # print('given cluster name')
+        m33 = SkyCoord(clusters[mask][0]['RA_ICRS']*u.deg,clusters[mask][0]['DE_ICRS']*u.deg,frame='icrs')
+        label = f'{clustername}'
+    # print('Coordinates in deg:',m33.to_string('decimal'))
+    # print('Coordinates in hms:',m33.to_string('hmsdms'))
+    # Transform M33 to AltAz coordinates
+    m33altaz = m33.transform_to(AltAz(obstime=time, location=gsh))
+    print(f"{clustername}'s Altitude = {m33altaz.alt:.2}")
+    # Plot the first subplot (Airmass vs. Hours from EDT Midnight)
+    # fig, axs = plt.subplots(1, 2, figsize=(12, 5))
+    # Plot Airmass vs. Hours from EDT Midnight
+    midnight = Time(str((time+1*u.day).datetime.date()))
+    # print('Midnight:', midnight)
+    midnight = midnight - utcoffset
+    delta_midnight = np.linspace(-2, 10, 100)*u.hour
+    frame_July13night = AltAz(obstime=midnight+delta_midnight, location=gsh)
+    m33altazs_July13night = m33.transform_to(frame_July13night)
+    m33airmasss_July13night = m33altazs_July13night.secz
+    # axs[0].plot(delta_midnight, m33airmasss_July13night)
+    # axs[0].set_xlim(-2, 10)
+    # axs[0].set_ylim(1, 4)
+    # axs[0].set_xlabel('Hours from gsh Midnight')
+    # axs[0].set_ylabel('Airmass [Sec(z)]')
+    # axs[0].set_title('Airmass vs. Hours from Midnight')
+    # Plot the second subplot (Altitude vs. Hours from EDT Midnight)
+    delta_midnight = np.linspace(-12, 12, 1000)*u.hour
+    times_July12_to_13 = midnight + delta_midnight
+    frame_July12_to_13 = AltAz(obstime=times_July12_to_13, location=gsh)
+    sunaltazs_July12_to_13 = get_sun(times_July12_to_13).transform_to(frame_July12_to_13)
+    moon_July12_to_13 = get_body("moon", times_July12_to_13)
+    moonaltazs_July12_to_13 = moon_July12_to_13.transform_to(frame_July12_to_13)
+    m33altazs_July12_to_13 = m33.transform_to(frame_July12_to_13)
+    observable = (max(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -12*u.deg)]) > 30*u.deg)
+    # print('Max elevation:',max(m33altazs_July12_to_13.alt))
+    print('Observable:',observable)
+
+    # axs[1].plot(delta_midnight, sunaltazs_July12_to_13.alt, color='r', label='Sun')
+    # axs[1].plot(delta_midnight, moonaltazs_July12_to_13.alt, color=[0.75]*3, ls='--', label='Moon')
+    # sc = axs[1].scatter(delta_midnight, m33altazs_July12_to_13.alt,
+    #                 c=m33altazs_July12_to_13.az.value, label=label, lw=0, s=8,
+    #                 cmap='twilight')
+    # axs[1].fill_between(delta_midnight, 0*u.deg, 90*u.deg,
+    #                 sunaltazs_July12_to_13.alt < -0*u.deg, color='0.5', zorder=0) #sunset
+    # axs[1].fill_between(delta_midnight, 0*u.deg, 90*u.deg,
+    #                 sunaltazs_July12_to_13.alt < -18*u.deg, color='k', zorder=0) #astronomical twilight
+    # cbar = plt.colorbar(sc, ax=axs[1], label='Azimuth [deg]')
+    # axs[1].legend(loc='upper left')
+    # axs[1].set_xlim(-12*u.hour, 12*u.hour)
+    # axs[1].set_xticks((np.arange(13)*2-12)*u.hour)
+    # axs[1].set_ylim(0*u.deg, 90*u.deg)
+    # axs[1].set_xlabel('Hours from gsh Midnight')
+    # axs[1].set_ylabel('Altitude [deg]')
+    # axs[1].set_title('Altitude vs. Hours from Midnight')
+    # # Adjust layout
+    # plt.tight_layout()
+    # # Show the plot
+    # plt.show()
+    # print(sunaltazs_July12_to_13.alt < -0*u.deg,len(sunaltazs_July12_to_13.alt < -0*u.deg))
+    # print(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -0*u.deg)],len(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -0*u.deg)]))
+    # print(delta_midnight[(sunaltazs_July12_to_13.alt < -0*u.deg)],len(delta_midnight[(sunaltazs_July12_to_13.alt < -0*u.deg)]))
+    # print((delta_midnight[(sunaltazs_July12_to_13.alt < -0*u.deg)])[(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -0*u.deg)])>30*u.deg],len((delta_midnight[(sunaltazs_July12_to_13.alt < -0*u.deg)])[(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -0*u.deg)])>30*u.deg]))
+    sunset = (sunaltazs_July12_to_13.alt < -0*u.deg)
+    astro_twilight = (sunaltazs_July12_to_13.alt < -18*u.deg)
+
+    # # print(len(((delta_midnight[sunset])[(m33altazs_July12_to_13.alt[sunset])>30*u.deg])),len(astro_twilight))
+    # try:
+    #     print('Total Observation time (elevation >30 and sunset):',(delta_midnight[sunset])[(m33altazs_July12_to_13.alt[sunset])>30*u.deg][-1]-(delta_midnight[sunset])[(m33altazs_July12_to_13.alt[sunset])>30*u.deg][0])
+    # except:
+    #     print('Not Observable during sunset')
+    # try:    
+    #     print('Good Observation time (elevation >30 and astronomical twilight):',(delta_midnight[astro_twilight])[(m33altazs_July12_to_13.alt[astro_twilight])>30*u.deg][-1]-(delta_midnight[astro_twilight])[(m33altazs_July12_to_13.alt[astro_twilight])>30*u.deg][0])
+    # except:
+    #     print('Not Observable during astro twilight')
+
+    # print('Good Observation time (elevation >30 and astronomical twilight):',(((delta_midnight[sunset])[(m33altazs_July12_to_13.alt[sunset])>30*u.deg]) and ((delta_midnight[sunset])[astro_twilight]))[-1]-(((delta_midnight[sunset])[(m33altazs_July12_to_13.alt[sunset])>30*u.deg]) and ((delta_midnight[sunset])[astro_twilight]))[0])
+    # print(max(m33altazs_July12_to_13.alt[(sunaltazs_July12_to_13.alt < -0*u.deg)]))
+    return observable
 #plot the find_members and dias_members on the search region fits
 #find out the reason why some clusters were not searched. probably because of the search distance
 #3D visualisation
