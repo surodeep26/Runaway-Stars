@@ -815,50 +815,26 @@ def get_runaways(cluster,fs,theoretical_data):
 
 def get_coord(runaway):
     return coord.SkyCoord(ra=runaway['RA_ICRS_1']*u.deg,dec=runaway['DE_ICRS_1']*u.deg, pm_ra_cosdec=runaway['rmRA']*u.mas/u.year,pm_dec=runaway['rmDE']*u.mas/u.year, frame='icrs')
-def plot_cmd(cluster,save=False):
+def plot_cmd(cluster,save=False,multiple=False,**kwargs):
+
     # Plot CMD
-    BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster)
-
-    # fig = plt.figure(figsize=(19, 17))
-    # # fig = plt.figure()
-    # gs = GridSpec(1, 1, width_ratios=[1, 1])
-
-    # # Line Theorietical curve
-    # # ax1 = fig.add_subplot(gs[0, 0])
-    # ax1 = fig.subplots()
-
+    BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,**kwargs)
     fig,ax1 = plt.subplots(figsize=(10, 8.8))
-
-    # plt.rcParams['figure.figsize'] = (10, 8.8)
-
-
-
-
     ax1.set_ylim(bottom= min(Gmag_theo)-4,top=18)
     ax1.set_xlim(left=min(BP_RP_theo)-0.5, right=max(BP_RP_theo))
-
     ax1.plot(BP_RP_theo, Gmag_theo, label='Theoretical Isochrone')
     ax1.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)", fontsize=14)
     ax1.set_ylabel(r"$G$ (mag)", fontsize=14)
     ax1.set_title(f"CMD for {cluster.name}", fontsize=14)
     ax1.invert_yaxis()
-
     #Scatter stars in the region
     sir = cluster.stars_in_region()
     sir_gmag,sir_bp_rp = sir['Gmag'],sir['BP-RP']
     ax1.scatter(sir_bp_rp,sir_gmag,s=2, color='grey',label=f'{len(sir)} stars in the region {cluster.calculate_search_arcmin()}')
-
     # Scatter dias members
     dias_members = cluster.members
     dias_gmag,dias_bp_rp = dias_members['Gmag'],dias_members['BP-RP']
     ax1.scatter(dias_bp_rp,dias_gmag,s=15, color='black',label=f'{len(dias_members)} Dias Members P > {config["memb_prob"]}')
-
-    # # Scatter my members
-    # my_members = find_cluster(sir,refCluster=cluster.name)
-    # my_gmag,my_bp_rp = my_members['Gmag'],my_members['BP-RP']
-    # ax1.scatter(my_bp_rp,my_gmag,s=15,alpha =0.7,marker='x', color='blue',label=rf'{len(my_members)} My Members $\sigma$ < {np.std(my_members["v_pec"]):.2f}')
-
-
     # Table for cluster parameters
     cluster_table = [
         ['Members',len(dias_members)],
@@ -868,17 +844,12 @@ def plot_cmd(cluster,save=False):
         ['Distance (pc)',str(round(cluster.distance.value))+"$\pm$"+f'{cluster.all["e_Dist"]}'+'pc']
     ]
     table_bbox = [0.0, 0.84, 0.44, 0.16]  # [left, bottom, width, height]
-
     table = ax1.table(cellText=cluster_table, cellLoc='right', loc='upper left',bbox=table_bbox)
     table.auto_set_font_size(False)
     table.set_fontsize(10)
     for key, cell in table._cells.items():
         cell.set_linewidth(0.5)  # Set the border width
         cell.set_edgecolor('lightgray')  # Set the border color
-
-
-
-
     # Scatter runaways
     runaways_all = cluster.read_table('runaways_all')
     _runaways_gmag,_runaways_bp_rp = runaways_all['Gmag'],runaways_all['BP-RP']
@@ -894,11 +865,9 @@ def plot_cmd(cluster,save=False):
                 c=runaways_all['Temp. Est'],
                 cmap='spring_r',norm=plt.Normalize(4000, 23000),
                 label=label_all_run)
-
-    ## main runaways T > 10,000K
+    # main runaways T > 10,000K
     global annotations
     annotations = []
-
     def on_release(event):
         global annotations, table2
         for ann in annotations:
@@ -911,7 +880,6 @@ def plot_cmd(cluster,save=False):
         except:
             pass
         plt.draw() # for the release to remove functionality
-
     def onpick3(event):
         global annotations, table2
         for ann in annotations:
@@ -946,8 +914,6 @@ def plot_cmd(cluster,save=False):
                 cell.set_edgecolor('lightgray')  # Set the border color
             
         plt.draw()
-
-
     scatter_main = ax1.scatter(runaways_bp_rp,runaways_gmag,picker=True,s=30, 
                             c=runaways['Temp. Est'],cmap='spring_r',norm=plt.Normalize(4000, 23000),
                             label=rf'{len(runaways)} Runaway(s) with T > {config["runaway_temp"]:,} K')
@@ -960,8 +926,6 @@ def plot_cmd(cluster,save=False):
     ax1.legend(loc='upper right')
     if save:
         plt.savefig(f'{cluster.name}/{cluster.name}_cmd.{save}')
-
-
 
 def runCode(cluster,save='png',psr=False):
     if isinstance(cluster,str):
