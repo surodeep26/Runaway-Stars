@@ -1499,7 +1499,97 @@ def plot_traceback(cluster,save=False,psr_circles=True):
     if save:
         plt.savefig(f'{cluster.name}/{cluster.name}_traceback.{save}')
     
+def plot_pm(cluster):
+    fig, ax3 = plt.subplots(figsize=(8, 8))
+    #Plot 3: proper motions
+    ax3.grid('True')
+    #Scatter stars in the region
+    sir = cluster.stars_in_region()
+    sir_pmRA,sir_pmDE = sir['pmRA'],sir['pmDE']
+    ax3.scatter(sir_pmRA,sir_pmDE,s=2, color='grey',label=f'{len(sir)} stars in the region {cluster.calculate_search_arcmin()}')
+    # Scatter dias members
+    dias_members = cluster.members
+    dias_pmRA,dias_pmDE = dias_members['pmRA'],dias_members['pmDE']
+    ax3.scatter(dias_pmRA,dias_pmDE,s=15, color='black',label=rf'{len(dias_members)} Dias Members P $\geq$ {config["memb_prob"]}, Q $\geq$ {config["parallax_quality_threshold"]}')
 
+    #Scatter runaways
+    runaways_all = cluster.read_table('runaways_all')
+    runaways = cluster.read_table('runaways')
+    try:
+        label_all_run = rf'{len(runaways_all)} Runaway(s) $T_{{max}}$ = {max(runaways_all["Temp. Est"]):,.0f} K'
+    except:
+        label_all_run = rf'{len(runaways_all)} Runaway(s)'
+    ax3.scatter(runaways_all['pmRA'],runaways_all['pmDE'],s=12,alpha=0.7, 
+            c=runaways_all['Temp. Est'],
+            cmap='spring_r',norm=plt.Normalize(4000, 23000),
+            label=label_all_run)
+    scatter_main = ax3.scatter(runaways['pmRA'],runaways['pmDE'],picker=True,s=30, 
+                            c=runaways['Temp. Est'],cmap='spring_r',norm=plt.Normalize(4000, 23000),
+                            label=rf'{len(runaways)} Runaway(s) with T > {config["runaway_temp"]:,} K')
+    
+    global annotations
+    annotations = []
+
+    def on_release(event):
+        global annotations, table2
+        for ann in annotations:
+            ann.remove()
+        annotations = []
+
+        try:
+            if table2:
+                table2.remove()
+        except:
+            pass
+        plt.draw() # for the release to remove functionality
+
+
+    def onpick3(event):
+        if isinstance(event.artist,matplotlib.lines.Line2D):
+            return
+        global annotations, table2
+        for ann in annotations:
+            ann.remove()
+        annotations = []
+        
+        ind = event.ind
+        for index in ind:
+            index = ind[0]
+            temp_est = runaways['Temp. Est'][index]
+            ann = ax3.annotate(f'{temp_est:,.0f} K', (runaways['pmRA'][index], runaways['pmDE'][index]), xytext=(0, -25), textcoords='offset points', fontsize=12, color='black', ha='center', fontweight='bold')
+            ann.set_path_effects([pe.withStroke(linewidth=4, foreground='white')])
+            annotations.append(ann)
+            
+            # Add the table below the annotation
+            table_data = [
+                ['SourceID', f'{runaways[index]["Source"]}'],
+                ['Temp. Est.', f'{runaways[index]["Temp. Est"]:,.0f} K'],
+                ['Coord.', f'{runaways["RA_ICRS_1"][index]:.4f} {"+" if runaways["DE_ICRS_1"][index] >= 0 else ""}{runaways["DE_ICRS_1"][index]:.4f}'],
+                ['Gmag', f'{runaways["Gmag"][index]}'],
+                ['Dist.', f'{runaways["rgeo"][index]:.0f}'+'$\pm$'+f'{(runaways["rgeo"][index]-runaways["b_rgeo"][index]):.0f}']
+
+                # Add more rows with actual values
+            ]
+            table_bbox = [0.55, 0.0, 0.45, 0.2]  # [left, bottom, width, height]
+            table2 = ax3.table(cellText=table_data, cellLoc='right', loc='lower center', bbox=table_bbox)
+            table2.auto_set_font_size(False)
+            table2.auto_set_column_width(col=[0,1])
+            table2.set_fontsize(8)
+            for key, cell in table2._cells.items():
+                cell.set_linewidth(0.5)  # Set the border width
+                cell.set_edgecolor('lightgray')  # Set the border color
+            
+        plt.draw()
+    
+    fig.canvas.mpl_connect('pick_event', onpick3)
+    fig.canvas.mpl_connect('button_release_event', on_release)
+
+    
+    
+    ax3.set_xlabel(r"$\mu_{\alpha}^*$ (mas/yr)",fontsize=14)
+    ax3.set_ylabel(r"$\mu_{\delta}$ (mas/yr)",fontsize=14)
+    ax3.set_title("Proper Motions",fontsize=14)
+    ax3.legend(loc="upper left")
 
 def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_radial_tolerance']):
     if isinstance(cluster,str):
