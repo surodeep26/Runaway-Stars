@@ -32,10 +32,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.chrome.options import Options
 
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from astropy.io import fits
-from astroquery.skyview import SkyView
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
@@ -570,18 +570,23 @@ def theoretical_isochrone(cluster,Av=None,logage=None,metallicity=None,output=No
     Also generates a file {cluster.name}\{cluster.name}_compare_data_out_Av3.1_age6.9_FeH-0.1.dat
     
     """
+
     # Accessing cluster parameters
     if Av is None:
         Av = cluster.all['Av']
+    else:
+        Av = float(Av)
     if logage is None:
         logage = cluster.all['logage']
+    else:
+        logage = float(logage)
     if metallicity is None:
         metallicity = cluster.all['__Fe_H_']
-
-
+    else:
+        metallicity = float(metallicity)
 
     #Check if parameters are unchanged
-    if (str(Av) == str(cluster.all['Av'])) and (str(logage) == str(cluster.all['logage'])):
+    if (str(Av) == str(cluster.all['Av'])) and (str(logage) == str(cluster.all['logage'])) and (str(metallicity) == str(cluster.all['__Fe_H_'])):
         compate_data_out_path = os.path.join(cluster.name,(cluster.name+'_compare_data_out.dat'))
         if printing:
             print(f'{cluster.name}')
@@ -844,15 +849,13 @@ def test_isochrones(cluster):
 
 
 
-def plot_cmd(cluster,save=False,multiple=False,**kwargs):
-
-
-
-
+def plot_cmd(cluster,save=False,multiple=True,**kwargs):
     # Plot CMD
-    BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,**kwargs)
+    BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,printing=False)
     fig,ax1 = plt.subplots(figsize=(10, 8.8))
-    ax1.plot(BP_RP_theo, Gmag_theo, label='Theoretical Isochrone')
+    lines = []
+    line, = ax1.plot(BP_RP_theo, Gmag_theo, label='Dias Theoretical Isochrone', alpha=0.99)
+    lines.append(line)
     ax1.set_ylim(bottom= min(Gmag_theo)-4,top=18)
     ax1.set_xlim(left=min(BP_RP_theo)-0.5, right=max(BP_RP_theo))
     if multiple:
@@ -860,7 +863,8 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         for isoc in all_isochrones:
             BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,**isoc)
             _lbl =  f'{isoc}'.replace("{'Av': ", "Av:").replace(", 'logage': ", ", age:").replace(", 'metallicity': ", ", FeH:").replace("}", "")
-            ax1.plot(BP_RP_theo, Gmag_theo, label=_lbl,alpha=0.5)
+            line, = ax1.plot(BP_RP_theo, Gmag_theo, label=_lbl,alpha=1)
+            lines.append(line)
 
     ax1.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)", fontsize=14)
     ax1.set_ylabel(r"$G$ (mag)", fontsize=14)
@@ -888,7 +892,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         cluster_table[1][1] = f'{cluster.FeH:.2f} --> {kwargs["metallicity"]}'
 
     # Update Logage if changed
-    if 'logage' in kwargs and kwargs['Logage'] != cluster.logage:
+    if 'logage' in kwargs and kwargs['logage'] != cluster.logage:
         cluster_table[2][1] = f'{cluster.logage:.2f} --> {kwargs["logage"]}'
 
     # Update Av if changed
@@ -943,7 +947,13 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         except:
             pass
         plt.draw() # for the release to remove functionality
+
+
+
+
     def onpick3(event):
+        if isinstance(event.artist,matplotlib.lines.Line2D):
+            return
         global annotations, table2
         for ann in annotations:
             ann.remove()
@@ -977,16 +987,49 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
                 cell.set_edgecolor('lightgray')  # Set the border color
             
         plt.draw()
+
     scatter_main = ax1.scatter(runaways_bp_rp,runaways_gmag,picker=True,s=30, 
                             c=runaways['Temp. Est'],cmap='spring_r',norm=plt.Normalize(4000, 23000),
                             label=rf'{len(runaways)} Runaway(s) with T > {config["runaway_temp"]:,} K')
+    
+    # Create interactive legend    
+    map_legend_to_ax = {} 
+    pickradius = 5
+
+    leg = ax1.legend(loc='upper right', fancybox=True, shadow=True)
+    for legend_line, ax_line in zip(leg.get_lines(), lines):
+        legend_line.set_picker(pickradius)  # Enable picking on the legend line.
+        map_legend_to_ax[legend_line] = ax_line
+        if ax_line.get_alpha()==1:
+            ax_line.set_visible(False)
+            legend_line.set_alpha(0.1)
+
+    def on_pick(event):
+        # On the pick event, find the original line corresponding to the legend
+        # proxy line, and toggle its visibility.
+        legend_line = event.artist
+        # Do nothing if the source of the event is not a legend line.
+        if legend_line not in map_legend_to_ax:
+            return
+
+        ax_line = map_legend_to_ax[legend_line]
+        visible = not ax_line.get_visible()
+        ax_line.set_visible(visible)
+        # Change the alpha on the line in the legend, so we can see what lines
+        # have been toggled.
+        legend_line.set_alpha(1.0 if visible else 0.2)
+        fig.canvas.draw()
+
+
     # Connect the pick_event to the onpick3 function
     fig.canvas.mpl_connect('pick_event', onpick3)
+    fig.canvas.mpl_connect('pick_event', on_pick)
     fig.canvas.mpl_connect('button_release_event', on_release)
+
 
     colorbar = fig.colorbar(scatter_main,ax=ax1)
     colorbar.set_label('Temperature (K)')
-    ax1.legend(loc='upper right')
+    # ax1.legend(loc='upper right')
     if save:
         plt.savefig(f'{cluster.name}/{cluster.name}_cmd.{save}')
 
