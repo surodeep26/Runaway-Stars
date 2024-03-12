@@ -606,7 +606,7 @@ def theoretical_isochrone(cluster,Av=None,logage=None,metallicity=None,output=No
         if printing:
             print('Getting theoretical isochrone')
         s = Service()
-        print("getting isochroneform cmd3.7")
+        print(f"getting isochrone form cmd3.7 with Av:{Av:.2f}, logage:{logage:.2f}, metallicity:{metallicity:.2f}")
         options = webdriver.ChromeOptions()
         browser = webdriver.Chrome(service=s, options=options)
         browser.get('http://stev.oapd.inaf.it/cgi-bin/cmd')
@@ -849,20 +849,46 @@ def test_isochrones(cluster):
 
 
 
-def plot_cmd(cluster,save=False,multiple=True,**kwargs):
+def plot_cmd(cluster,save=False,multiple=False,**kwargs):
+    td = theoretical_isochrone(cluster,output='table',**kwargs,printing=False)
+
     # Plot CMD
     BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,printing=False)
+    if not multiple:
+        BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,printing=False,**kwargs)
+
+
     fig,ax1 = plt.subplots(figsize=(10, 8.8))
     lines = []
-    line, = ax1.plot(BP_RP_theo, Gmag_theo, label='Dias Theoretical Isochrone', alpha=0.99)
+    line, = ax1.plot(BP_RP_theo, Gmag_theo, label='Dias Theoretical Isochrone (for Teff.)', alpha=0.99)
     lines.append(line)
+
+    iso_4_temp0 = f'Av:{str(cluster.Av)}, logage:{str(cluster.logage)}, FeH:{str(cluster.FeH)}'
+    # Split the input string into key-value pairs
+    pairs = iso_4_temp0.split(', ')
+    # Update the values using the dictionary
+    for i, pair in enumerate(pairs):
+        key, value = pair.split(':')
+        if key in kwargs:
+            pairs[i] = f"{key}:{kwargs[key]}"
+    # Reconstruct the string
+    iso_4_temp = ', '.join(pairs)
+
+    if (not multiple) and (iso_4_temp0!=iso_4_temp):
+        lines[0].set_label('Dias Theoretical Isochrone (modified)')
+    if (not multiple) and (iso_4_temp0==iso_4_temp):
+        lines[0].set_label('Dias Theoretical Isochrone')
     ax1.set_ylim(bottom= min(Gmag_theo)-4,top=18)
     ax1.set_xlim(left=min(BP_RP_theo)-0.5, right=max(BP_RP_theo))
     if multiple:
         all_isochrones = test_isochrones(cluster)
+
         for isoc in all_isochrones:
-            BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,**isoc)
-            _lbl =  f'{isoc}'.replace("{'Av': ", "Av:").replace(", 'logage': ", ", age:").replace(", 'metallicity': ", ", FeH:").replace("}", "")
+            BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,**isoc, printing=False)
+            _lbl =  f'{isoc}'.replace("{'Av': ", "Av:").replace(", 'logage': ", ", logage:").replace(", 'metallicity': ", ", FeH:").replace("}", "")
+            if _lbl == iso_4_temp:
+                _lbl += ' (for Teff.)'
+                lines[0].set_label('Dias Theoretical Isochrone')
             line, = ax1.plot(BP_RP_theo, Gmag_theo, label=_lbl,alpha=1)
             lines.append(line)
 
