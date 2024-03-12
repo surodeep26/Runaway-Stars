@@ -85,7 +85,7 @@ class Cluster:
         if len(self.cluster_table) == 0:
             raise ValueError(f"No data found for cluster '{cluster_name}' in the cluster list.")
         if version == 'dr3':
-            d = self.dias_members(memb_prob=0.5,parallax_quality_threshold=5)
+            d = self.dias_members(memb_prob=config['memb_prob'],parallax_quality_threshold=config['parallax_quality_threshold'])
             d.sort('Gmag')
             dm = d[d['Gmag']<config['gmag_lim']]['Source','RAdeg','DEdeg','Gmag','e_Gmag','Plx','e_Plx','Pmemb']
             # print(len(dm))
@@ -107,7 +107,7 @@ class Cluster:
             self.all['Plx'] = dr3dias['Plx'].mean()
             self.all['e_Plx'] = dr3dias['Plx'].std()
         elif version == 'dr2':
-            dr3dias = self.dias_members(memb_prob=0.5,parallax_quality_threshold=5)
+            dr3dias = self.dias_members(memb_prob=config['memb_prob'],parallax_quality_threshold=config['parallax_quality_threshold'])
         # Extracting values from the table and setting attributes
         if not os.path.exists(f'{self.name}'):
             os.mkdir(f'{self.name}')
@@ -254,7 +254,7 @@ class Cluster:
         dias_members.sort('Source')
 
         mask1 = [value >= memb_prob for value in dias_members['Pmemb']]
-        mask2 = [value > parallax_quality_threshold for value in dias_members['Plx']/dias_members['e_Plx']]
+        mask2 = [value >= parallax_quality_threshold for value in (dias_members['Plx']/dias_members['e_Plx'])]
         final_mask = (np.array(mask1) & np.array(mask2))
         dias_members = dias_members[final_mask]
         #create a filter to get rid of the stars which don't have a Bp-Rp value in the .dat table
@@ -815,14 +815,53 @@ def get_runaways(cluster,fs,theoretical_data):
 
 def get_coord(runaway):
     return coord.SkyCoord(ra=runaway['RA_ICRS_1']*u.deg,dec=runaway['DE_ICRS_1']*u.deg, pm_ra_cosdec=runaway['rmRA']*u.mas/u.year,pm_dec=runaway['rmDE']*u.mas/u.year, frame='icrs')
+
+
+def test_isochrones(cluster):
+    folder_path = f'{cluster.name}'
+    # List all files in the folder
+    files = os.listdir(folder_path)
+    # Initialize list to store dictionaries
+    result = []
+    # Iterate over each file
+    for file_name in files:
+        file_path = os.path.join(folder_path, file_name)
+        if "compare_data_out_" in file_path:
+            st = file_path.replace('.dat', '').split("_")[-3:]
+            # Initialize dictionary to store extracted values
+            extracted_values = {}
+            # Iterate through the strings
+            for string in st:
+                if 'Av' in string:
+                    extracted_values['Av'] = float(string[2:])
+                elif 'age' in string:
+                    extracted_values['logage'] = float(string[3:])
+                elif 'FeH' in string:
+                    extracted_values['metallicity'] = float(string[3:])
+            # Append dictionary to result list
+            result.append(extracted_values)
+    return result
+
+
+
 def plot_cmd(cluster,save=False,multiple=False,**kwargs):
+
+
+
 
     # Plot CMD
     BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,**kwargs)
     fig,ax1 = plt.subplots(figsize=(10, 8.8))
+    ax1.plot(BP_RP_theo, Gmag_theo, label='Theoretical Isochrone')
     ax1.set_ylim(bottom= min(Gmag_theo)-4,top=18)
     ax1.set_xlim(left=min(BP_RP_theo)-0.5, right=max(BP_RP_theo))
-    ax1.plot(BP_RP_theo, Gmag_theo, label='Theoretical Isochrone')
+    if multiple:
+        all_isochrones = test_isochrones(cluster)
+        for isoc in all_isochrones:
+            BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,**isoc)
+            _lbl =  f'{isoc}'.replace("{'Av': ", "Av:").replace(", 'logage': ", ", age:").replace(", 'metallicity': ", ", FeH:").replace("}", "")
+            ax1.plot(BP_RP_theo, Gmag_theo, label=_lbl,alpha=0.5)
+
     ax1.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)", fontsize=14)
     ax1.set_ylabel(r"$G$ (mag)", fontsize=14)
     ax1.set_title(f"CMD for {cluster.name}", fontsize=14)
@@ -834,7 +873,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     # Scatter dias members
     dias_members = cluster.members
     dias_gmag,dias_bp_rp = dias_members['Gmag'],dias_members['BP-RP']
-    ax1.scatter(dias_bp_rp,dias_gmag,s=15, color='black',label=f'{len(dias_members)} Dias Members P > {config["memb_prob"]}')
+    ax1.scatter(dias_bp_rp,dias_gmag,s=15, color='black',label=rf'{len(dias_members)} Dias Members P $\geq$ {config["memb_prob"]}, Q $\geq$ {config["parallax_quality_threshold"]}')
     # Table for cluster parameters
     cluster_table = [
         ['Members',len(dias_members)],
@@ -843,6 +882,20 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         ['Av',cluster.Av],
         ['Distance (pc)',str(round(cluster.distance.value))+"$\pm$"+f'{cluster.all["e_Dist"]}'+'pc']
     ]
+
+    # Update Metallicity if changed
+    if 'metallicity' in kwargs and kwargs['metallicity'] != cluster.FeH:
+        cluster_table[1][1] = f'{cluster.FeH:.2f} --> {kwargs["metallicity"]}'
+
+    # Update Logage if changed
+    if 'logage' in kwargs and kwargs['Logage'] != cluster.logage:
+        cluster_table[2][1] = f'{cluster.logage:.2f} --> {kwargs["logage"]}'
+
+    # Update Av if changed
+    if 'Av' in kwargs and kwargs['Av'] != cluster.Av:
+        cluster_table[3][1] = f'{cluster.Av:.2f} --> {kwargs["Av"]}'
+
+
     table_bbox = [0.0, 0.84, 0.44, 0.16]  # [left, bottom, width, height]
     table = ax1.table(cellText=cluster_table, cellLoc='right', loc='upper left',bbox=table_bbox)
     table.auto_set_font_size(False)
@@ -852,6 +905,16 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         cell.set_edgecolor('lightgray')  # Set the border color
     # Scatter runaways
     runaways_all = cluster.read_table('runaways_all')
+    #recalculate temperatures for different theoretical isochrone
+    td = theoretical_isochrone(cluster,output='table',**kwargs,printing=False)
+    Ttheo = td['Teff0']
+    bprptheo = td['BP-RP']
+    for star in runaways_all:
+        differences = np.abs(bprptheo - star['BP-RP'])
+        closest_star_index = np.argmin(differences)
+        new_closest_star_temperature = Ttheo[closest_star_index]
+        star['Temp. Est']=new_closest_star_temperature
+
     _runaways_gmag,_runaways_bp_rp = runaways_all['Gmag'],runaways_all['BP-RP']
     mask = [T > config['runaway_temp'] for T in runaways_all['Temp. Est']]
     runaways = runaways_all[mask]
@@ -927,7 +990,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     if save:
         plt.savefig(f'{cluster.name}/{cluster.name}_cmd.{save}')
 
-def runCode(cluster,save='png',psr=False):
+def runCode(cluster,save='png',psr=False,**kwargs):
     if isinstance(cluster,str):
         cluster = Cluster(cluster)
 
@@ -936,7 +999,7 @@ def runCode(cluster,save='png',psr=False):
     print(f'{cluster.name:=>50}'+f'{"":=<50}')
     cluster = Cluster(cluster.name)
     cluster.generate_tables()
-    theoretical_data = theoretical_isochrone(cluster,output="table",printing=False)
+    theoretical_data = theoretical_isochrone(cluster,output="table",printing=False,**kwargs)
     print(f'{cluster.name+": traceback":->50}'+f'{"":-<50}')
     fs = cluster.read_table('fs')
     runaways_all = get_runaways(cluster,fs,theoretical_data)
@@ -944,11 +1007,12 @@ def runCode(cluster,save='png',psr=False):
     mask = [T > config['runaway_temp'] for T in runaways_all['Temp. Est']]
     runaways = runaways_all[mask]
     print(f'{cluster.name+": runaways and isochrone plot":->50}'+f'{"":-<50}')
-    plot_cmd(cluster,save=save)
+    plot_cmd(cluster,save=save,**kwargs)
+    # print(kwargs)
     if psr:
         plot_traceback(cluster,save=save)
     plot_traceback_clean(cluster,save=save)
-    display(f"{len(runaways)} Runaway(s) found",runaways)
+    print(f"{len(runaways)} Runaway(s) found",runaways)
 
 
 def plot_traceback_clean(cluster,save=False):
