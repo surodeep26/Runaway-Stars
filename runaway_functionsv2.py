@@ -1,4 +1,5 @@
 import os
+import astropy
 from astropy.table import Table, Column, QTable, join
 import yaml
 import pandas  # Renamed for clarity
@@ -55,6 +56,8 @@ from astropy import units as u
 from IPython.display import display, Math
 import yaml
 from astropy.stats import sigma_clip
+matplotlib.rcParams.update({'font.size': 12})
+
 
 
 
@@ -119,6 +122,7 @@ class Cluster:
         self.FeH = self.cluster_table['__Fe_H_'][0]
         self.members = dr3dias #gets dias_members with the default settings for memb_prob and parallax_threshold_quality
         #to change the memb_prob and parallax_threshold_quality filters for member selection, use something like dias_members(0.6,11)
+        self.all['N'] = len(dr3dias)
 
     def clean(self,what='runaways'):
         folder_path = f'{self.name}'
@@ -228,7 +232,7 @@ class Cluster:
         add_scalebar(ax, _,color="yellow",label=f"or {scalebar_length.value}pc (at dist {__:.2f}kpc)",size_vertical=0.5)
         x_min, x_max = ax.get_xlim()
         y_min, y_max = ax.get_ylim()
-        ax.annotate(f"{_:.2f}", xy=(0.83*x_max,0.08*y_max), color='yellow', ha='center',fontsize=12,fontweight='bold')
+        ax.annotate(f"{_:.2f}", xy=(0.83*x_max,0.08*y_max), color='yellow', ha='center',fontweight='bold')
         ax.legend()
         images[0].close()  # Close the opened FITS file
 
@@ -433,11 +437,42 @@ class Cluster:
 
         ax = fig.add_subplot()
         ax.plot(BP_RP_theo,Gmag_theo,label='Theoretical Isochrone')
-        ax.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)",fontsize=14)
-        ax.set_ylabel(r"$G$ (mag)",fontsize=14)
-        ax.set_title(f"CMD for {self.name}",fontsize=14)
+        ax.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)")
+        ax.set_ylabel(r"$G$ (mag)")
+        ax.set_title(f"CMD for {self.name}")
         ax.invert_yaxis()
         ax.legend()
+    def latex_table_kinematics(self):
+        t_dict = {
+            # 'Name':[self.name.replace('_',' ')],
+            r'$\alpha (^\circ)$': [f"{(self.coordinates.ra[0]):.2f}".replace(' deg','')],
+            r'$\delta (^\circ)$': [f"{(self.coordinates.dec[0]):.2f}".replace(' deg','')],
+            "Diam. (')":[self.diameter.value],
+            "N":[len(self.members)],
+            r"$\mu_{\alpha}^*$ (mas/yr)":[f"{self.all['pmRA']:.2f}"+"$\pm$"+f"{self.all['e_pmRA']:.2f}"],
+            r"$\mu_{\delta}$ (mas/yr)":[f"{self.all['pmDE']:.2f}"+"$\pm$"+f"{self.all['e_pmDE']:.2f}"],
+            r"$v_R$ (km/s)":[f"{self.all['RV']:.2f}"+"$\pm$"+f"{self.all['e_RV']:.2f}"] if not isinstance(self.all['RV'],np.ma.core.MaskedConstant) else ['N/A'],
+            r"$d$ (pc)":[f"{self.all['Dist']:.0f}"+"$\pm$"+f"{self.all['e_Dist']:.0f}"],
+
+        }
+        latexdict={'tabletype':'table*','tablealign':'ht',
+                   'header_start':r'\hline','data_start':r'\hline','data_end': r'\hline', 
+                   'caption':f'Kinematic parameters of {self.name.replace("_"," ")}',
+                   'preamble':'\label{tab:'+f'{self.name}-kinematics'+'}'}
+        latexdict['tablehead'] = r'head'
+        # Convert the dictionary to an Astropy table
+        astropy_table = Table(t_dict)
+        astropy.io.ascii.write(astropy_table, format='latex',output='text.txt',overwrite=True,
+                    latexdict=latexdict)
+        with open('text.txt', 'r+') as f:
+            lines = f.readlines()
+            lines[1], lines[2] = lines[2], lines[1]
+            f.seek(0)
+            f.writelines(lines)
+            print(''.join(lines))
+
+        os.remove('text.txt')
+
 
 
 def find_cluster(stars_in_region,refCluster,sigma = config['sigma_clip'],plx_quality = config['plx_quality']):
@@ -859,6 +894,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
 
 
     fig,ax1 = plt.subplots(figsize=(10, 8.8))
+
     lines = []
     line, = ax1.plot(BP_RP_theo, Gmag_theo, label='Dias Theoretical Isochrone (for Teff.)', alpha=0.99)
     lines.append(line)
@@ -892,9 +928,9 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
             line, = ax1.plot(BP_RP_theo, Gmag_theo, label=_lbl,alpha=1)
             lines.append(line)
 
-    ax1.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)", fontsize=14)
-    ax1.set_ylabel(r"$G$ (mag)", fontsize=14)
-    ax1.set_title(f"CMD for {cluster.name}", fontsize=14)
+    ax1.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)")
+    ax1.set_ylabel(r"$G$ (mag)")
+    ax1.set_title(f"CMD for {cluster.name}")
     ax1.invert_yaxis()
     #Scatter stars in the region
     sir = cluster.stars_in_region()
@@ -928,8 +964,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
 
     table_bbox = [0.0, 0.84, 0.44, 0.16]  # [left, bottom, width, height]
     table = ax1.table(cellText=cluster_table, cellLoc='right', loc='upper left',bbox=table_bbox)
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
+
     for key, cell in table._cells.items():
         cell.set_linewidth(0.5)  # Set the border width
         cell.set_edgecolor('lightgray')  # Set the border color
@@ -989,7 +1024,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         for index in ind:
             index = ind[0]
             temp_est = runaways['Temp. Est'][index]
-            ann = ax1.annotate(f'{temp_est:,.0f} K', (runaways_bp_rp[index], runaways_gmag[index]), xytext=(0, -25), textcoords='offset points', fontsize=12, color='black', ha='center', fontweight='bold')
+            ann = ax1.annotate(f'{temp_est:,.0f} K', (runaways_bp_rp[index], runaways_gmag[index]), xytext=(0, -25), textcoords='offset points', color='black', ha='center', fontweight='bold')
             ann.set_path_effects([pe.withStroke(linewidth=4, foreground='white')])
             annotations.append(ann)
             
@@ -1005,9 +1040,8 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
             ]
             table_bbox = [0.55, 0.0, 0.45, 0.2]  # [left, bottom, width, height]
             table2 = ax1.table(cellText=table_data, cellLoc='right', loc='lower center', bbox=table_bbox)
-            table2.auto_set_font_size(False)
-            table2.auto_set_column_width(col=[0,1])
-            table2.set_fontsize(8)
+            # table2.auto_set_column_width(col=[0,1])
+
             for key, cell in table2._cells.items():
                 cell.set_linewidth(0.5)  # Set the border width
                 cell.set_edgecolor('lightgray')  # Set the border color
@@ -1114,7 +1148,7 @@ def plot_traceback_clean(cluster,save=False):
     add_scalebar(ax2, _, color="yellow", label=f"or {scalebar_length.value}pc (at dist {__:.2f}kpc)", size_vertical=0.5)
     x_min, x_max = ax2.get_xlim()
     y_min, y_max = ax2.get_ylim()
-    ax2.annotate(f"{_:.2f}", xy=(0.83*x_max,0.08*y_max), color='yellow', ha='center',fontsize=12,fontweight='bold')
+    ax2.annotate(f"{_:.2f}", xy=(0.83*x_max,0.08*y_max), color='yellow', ha='center',fontweight='bold')
 
     ax2.set_xlabel('Right Ascension (hms)')
     ax2.set_ylabel('Declination (degrees)')
@@ -1194,9 +1228,7 @@ def plot_traceback_clean(cluster,save=False):
             for index in ind:
                 index = ind[0]
                 temp_est = runaways_all['Temp. Est'][index]
-                # ann = ax2.annotate(f'{temp_est:,.0f} K', (0,0), xytext=(0, 0), textcoords='offset points', fontsize=12, color='black', ha='center', fontweight='bold')
-                # ann.set_path_effects([pe.withStroke(linewidth=4, foreground='white')])
-                # annotations.append(ann)
+
                 # Add the table below the annotation
                 if (runaways_all[index]["Source"][:3] == 'PSR'): #then this is a psr, table has different format
                     table_data = [
@@ -1327,7 +1359,7 @@ def plot_traceback(cluster,save=False,psr_circles=True):
     add_scalebar(ax2, _, color="yellow", label=f"or {scalebar_length.value}pc (at dist {__:.2f}kpc)", size_vertical=0.5)
     x_min, x_max = ax2.get_xlim()
     y_min, y_max = ax2.get_ylim()
-    ax2.annotate(f"{_:.2f}", xy=(0.83*x_max,0.08*y_max), color='yellow', ha='center',fontsize=12,fontweight='bold')
+    ax2.annotate(f"{_:.2f}", xy=(0.83*x_max,0.08*y_max), color='yellow', ha='center',fontweight='bold')
 
     ax2.set_xlabel('Right Ascension (degrees)')
     ax2.set_ylabel('Declination (degrees)')
@@ -1426,9 +1458,7 @@ def plot_traceback(cluster,save=False,psr_circles=True):
             for index in ind:
                 index = ind[0]
                 temp_est = runaways_all['Temp. Est'][index]
-                # ann = ax2.annotate(f'{temp_est:,.0f} K', (0,0), xytext=(0, 0), textcoords='offset points', fontsize=12, color='black', ha='center', fontweight='bold')
-                # ann.set_path_effects([pe.withStroke(linewidth=4, foreground='white')])
-                # annotations.append(ann)
+
                 # Add the table below the annotation
                 if (runaways_all[index]["Source"][:3] == 'PSR'): #then this is a psr, table has different format
                     table_data = [
@@ -1556,7 +1586,7 @@ def plot_pm(cluster):
         for index in ind:
             index = ind[0]
             temp_est = runaways['Temp. Est'][index]
-            ann = ax3.annotate(f'{temp_est:,.0f} K', (runaways['pmRA'][index], runaways['pmDE'][index]), xytext=(0, -25), textcoords='offset points', fontsize=12, color='black', ha='center', fontweight='bold')
+            ann = ax3.annotate(f'{temp_est:,.0f} K', (runaways['pmRA'][index], runaways['pmDE'][index]), xytext=(0, -25), textcoords='offset points', color='black', ha='center', fontweight='bold')
             ann.set_path_effects([pe.withStroke(linewidth=4, foreground='white')])
             annotations.append(ann)
             
@@ -1572,9 +1602,7 @@ def plot_pm(cluster):
             ]
             table_bbox = [0.55, 0.0, 0.45, 0.2]  # [left, bottom, width, height]
             table2 = ax3.table(cellText=table_data, cellLoc='right', loc='lower center', bbox=table_bbox)
-            table2.auto_set_font_size(False)
             table2.auto_set_column_width(col=[0,1])
-            table2.set_fontsize(8)
             for key, cell in table2._cells.items():
                 cell.set_linewidth(0.5)  # Set the border width
                 cell.set_edgecolor('lightgray')  # Set the border color
@@ -1586,9 +1614,9 @@ def plot_pm(cluster):
 
     
     
-    ax3.set_xlabel(r"$\mu_{\alpha}^*$ (mas/yr)",fontsize=14)
-    ax3.set_ylabel(r"$\mu_{\delta}$ (mas/yr)",fontsize=14)
-    ax3.set_title("Proper Motions",fontsize=14)
+    ax3.set_xlabel(r"$\mu_{\alpha}^*$ (mas/yr)")
+    ax3.set_ylabel(r"$\mu_{\delta}$ (mas/yr)")
+    ax3.set_title("Proper Motions")
     ax3.legend(loc="upper left")
 
 def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_radial_tolerance']):
