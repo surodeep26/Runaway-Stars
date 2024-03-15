@@ -1,6 +1,6 @@
 import os
 import astropy
-from astropy.table import Table, Column, QTable, join
+from astropy.table import Table, Column, QTable, join,vstack
 import yaml
 import pandas  # Renamed for clarity
 import numpy as np
@@ -73,7 +73,12 @@ def read_yaml_file(file_path):
 config = read_yaml_file('config.yaml')
 
 class Cluster:
-    def __init__(self, cluster_name,version='dr3'):
+    from typing import List
+
+    def __init__(self, cluster_name,version='dr3', add_members: List[int]=[]):
+        '''
+        add_members: Gaia sourceIDs of new members to be added to the cluster, only works with the default `version='dr3'`
+        '''
         # Assuming 'cluster_list' is a predefined list containing your Astropy table
         self.cluster_table = cluster_list[cluster_list['Cluster'] == cluster_name]
         self.all = self.cluster_table[0]
@@ -81,7 +86,6 @@ class Cluster:
         ti = (Time('J2000')+1*u.Myr)
         self.coordinates = SkyCoord(ra=self.cluster_table['RA_ICRS'],dec=self.cluster_table['DE_ICRS'],pm_ra_cosdec=self.cluster_table['pmRA'],pm_dec=self.cluster_table['pmDE'],obstime=ti)
         self.diameter = self.cluster_table['Diameter'][0]*u.arcmin
-        self.N = self.cluster_table['N'][0] #no. of members
         self.diameter_dias = (self.cluster_table['r50'][0]*u.deg*2).to(u.arcmin)
         self.distance = self.cluster_table['Dist'][0]*u.pc
 
@@ -89,16 +93,21 @@ class Cluster:
             raise ValueError(f"No data found for cluster '{cluster_name}' in the cluster list.")
         if version == 'dr3':
             d = self.dias_members(memb_prob=config['memb_prob'],parallax_quality_threshold=config['parallax_quality_threshold'])
-            d.sort('Gmag')
+            
             dm = d[d['Gmag']<config['gmag_lim']]['Source','RAdeg','DEdeg','Gmag','e_Gmag','Plx','e_Plx','Pmemb']
-            # print(len(dm))
             sources = np.array(dm['Source'])
-            sources_int = sources.astype(np.int64)
+            sources = np.insert(sources,0,np.array(add_members))
+
+            sources_int_list = sources.astype(np.int64)
             sr=self.stars_in_region(no_rmRArmDE=True)
-            sr = sr[sr['RUWE']<config['ruwe_lim']]
-            mask = np.isin(sr['Source'], sources_int)
-            # print(sources_int)
+            mruwe = (sr['RUWE']<config['ruwe_lim'])
+            madd = np.isin(sr['Source'],np.array(add_members))
+            sr = sr[mruwe | madd]
+            mask = np.isin(sr['Source'], sources_int_list)
+            # print(sources_int_list)
             dr3dias = sr[mask]
+            # dr3dias.add_row()
+            dr3dias.sort('Gmag')
             # print(dr3dias['rgeo'].mean(),dr3dias['rgeo'].std())
             self.all['Dist'] = dr3dias['rgeo'].mean()
             self.all['e_Dist'] = dr3dias['rgeo'].std()
@@ -111,6 +120,8 @@ class Cluster:
             self.all['e_Plx'] = dr3dias['Plx'].std()
         elif version == 'dr2':
             dr3dias = self.dias_members(memb_prob=config['memb_prob'],parallax_quality_threshold=config['parallax_quality_threshold'])
+            self.N = self.cluster_table['N'][0] #no. of members
+
         # Extracting values from the table and setting attributes
         if not os.path.exists(f'{self.name}'):
             os.mkdir(f'{self.name}')
@@ -122,7 +133,9 @@ class Cluster:
         self.FeH = self.cluster_table['__Fe_H_'][0]
         self.members = dr3dias #gets dias_members with the default settings for memb_prob and parallax_threshold_quality
         #to change the memb_prob and parallax_threshold_quality filters for member selection, use something like dias_members(0.6,11)
-        self.all['N'] = len(dr3dias)
+        self.N = len(dr3dias)
+        self.runaways = self.read_table('runaways')
+        self.runaways_all = self.read_table('runaways_all')
 
     def clean(self,what='runaways'):
         folder_path = f'{self.name}'
@@ -374,8 +387,16 @@ class Cluster:
                                             'HIP','TYC2','Source','rgeo','Plx','e_Plx',
                                             'v_pec','µ_pec','rmRA','e_rmRA','rmDE','e_rmDE','pmRA','pmDE','e_pmRA','e_pmDE',
                                             'RUWE','Teff','logg','Gmag','BP-RP','BPmag','RPmag','RV','e_RV',
-                                            'b_rgeo','B_rgeo','RAVE5','RAVE6']
-
+                                            'b_rgeo','B_rgeo','FG','e_FG','FBP','e_FBP','FRP','e_FRP','RAVE5','RAVE6']
+            # Adding row for uncertainties in Gmag and BPmag and RPmag
+            # values for Gaia G, G_BP, G_RP zero point uncertainties
+            sigmaG_0 = 0.0027553202
+            sigmaGBP_0 = 0.0027901700
+            sigmaGRP_0 = 0.0037793818
+            stars_in_region['e_Gmag'] = np.sqrt((-2.5/np.log(10)*stars_in_region['e_FG']/stars_in_region['FG'])**2 + sigmaG_0**2)
+            stars_in_region['e_BPmag'] = np.sqrt((-2.5/np.log(10)*stars_in_region['e_FBP']/stars_in_region['FBP'])**2 + sigmaGBP_0**2)
+            stars_in_region['e_RPmag'] = np.sqrt((-2.5/np.log(10)*stars_in_region['e_FRP']/stars_in_region['FRP'])**2 + sigmaGRP_0**2)
+            stars_in_region['e_BP-RP'] = stars_in_region['e_BPmag']+stars_in_region['e_RPmag']
             fs = stars_in_region[stars_in_region['v_pec'] >= config['v_runaway']]
             nsfs = stars_in_region[np.array(stars_in_region['v_pec'] >= config['v_walkaway']) & np.array(stars_in_region['v_pec'] < config['v_runaway'])]
 
@@ -807,14 +828,19 @@ def get_runaways(cluster,fs,theoretical_data):
 
         for source_id, separations in selected_stars_dict.items():
             new_star_bp_rp = fs[fs['Source']==source_id]['BP-RP']
+            new_star_gmag = fs[fs['Source']==source_id]['Gmag']
 
             # Get the BP-RP and Temperature columns from the table
             temperature_column = theoretical_data['logTe']
             bp_rp_column = theoretical_data['BP-RP']
+            gmag_column = theoretical_data['Gmag']
             # Calculate the differences between the new star's BP-RP value and all values in the table
-            differences = np.abs(bp_rp_column - new_star_bp_rp)
+            differences_bp_rp = (bp_rp_column - new_star_bp_rp)
+            # Calculate the differences between the new star's Gmag value and all values in the table
+            differences_gmag = (gmag_column - new_star_gmag)
+            iso_dist = differences_bp_rp**2+differences_gmag**2
             # Find the index of the star with the closest BP-RP value
-            closest_star_index = np.argmin(differences)
+            closest_star_index = np.argmin(iso_dist)
             # Get the temperature of the closest star
             closest_star_temperature = temperature_column[closest_star_index]
             closest_star_temperature = 10 ** closest_star_temperature
@@ -939,7 +965,8 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     # Scatter dias members
     dias_members = cluster.members
     dias_gmag,dias_bp_rp = dias_members['Gmag'],dias_members['BP-RP']
-    ax1.scatter(dias_bp_rp,dias_gmag,s=15, color='black',label=rf'{len(dias_members)} Dias Members P $\geq$ {config["memb_prob"]}, Q $\geq$ {config["parallax_quality_threshold"]}')
+    ax1.errorbar(dias_bp_rp,dias_gmag, color='black',fmt='o',xerr=dias_members['e_BP-RP']+0.02,yerr=dias_members['e_Gmag'],
+                 label=rf'{len(dias_members)} Dias Members P $\geq$ {config["memb_prob"]}, Q $\geq$ {config["parallax_quality_threshold"]}')
     # Table for cluster parameters
     cluster_table = [
         ['Members',len(dias_members)],
@@ -974,8 +1001,11 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     td = theoretical_isochrone(cluster,output='table',**kwargs,printing=False)
     Ttheo = td['Teff0']
     bprptheo = td['BP-RP']
+    gmagtheo = td['Gmag']
     for star in runaways_all:
-        differences = np.abs(bprptheo - star['BP-RP'])
+        differences_bprp = (bprptheo - star['BP-RP'])
+        differences_gmag = (gmagtheo - star['Gmag'])
+        differences = differences_bprp**2+differences_gmag**2
         closest_star_index = np.argmin(differences)
         new_closest_star_temperature = Ttheo[closest_star_index]
         star['Temp. Est']=new_closest_star_temperature
@@ -1047,10 +1077,11 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
                 cell.set_edgecolor('lightgray')  # Set the border color
             
         plt.draw()
-
+    errorbar_runaways = ax1.errorbar(runaways['BP-RP'],runaways['Gmag'],linestyle="None",xerr=runaways['e_BP-RP']+0.02,yerr=runaways['e_Gmag'],color='red')
     scatter_main = ax1.scatter(runaways_bp_rp,runaways_gmag,picker=True,s=30, 
                             c=runaways['Temp. Est'],cmap='spring_r',norm=plt.Normalize(4000, 23000),
                             label=rf'{len(runaways)} Runaway(s) with T > {config["runaway_temp"]:,} K')
+    
     
     # Create interactive legend    
     map_legend_to_ax = {} 
@@ -1100,7 +1131,6 @@ def runCode(cluster,save='png',psr=False,**kwargs):
     elif isinstance(cluster,Cluster):
         cluster=cluster
     print(f'{cluster.name:=>50}'+f'{"":=<50}')
-    cluster = Cluster(cluster.name)
     cluster.generate_tables()
     theoretical_data = theoretical_isochrone(cluster,output="table",printing=False,**kwargs)
     print(f'{cluster.name+": traceback":->50}'+f'{"":-<50}')
