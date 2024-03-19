@@ -118,6 +118,7 @@ class Cluster:
             self.all['Dist'] = dr3dias['rgeo'].mean()
             self.all['Plx'] = dr3dias['Plx'].mean()
             self.all['e_Plx'] = dr3dias['Plx'].std()
+            self.all['N'] = len(dr3dias)
         elif version == 'dr2':
             dr3dias = self.dias_members(memb_prob=config['memb_prob'],parallax_quality_threshold=config['parallax_quality_threshold'])
             self.N = self.cluster_table['N'][0] #no. of members
@@ -137,7 +138,7 @@ class Cluster:
         self.runaways = self.read_table('runaways')
         self.runaways_all = self.read_table('runaways_all')
 
-    def clean(self,what='runaways'):
+    def clean(self,what='except_downloads'):
         folder_path = f'{self.name}'
 
         # List all files in the folder
@@ -153,6 +154,10 @@ class Cluster:
             if what=='runaways' and os.path.isfile(file_path) and 'runaway' in file_path:
                 print(f'{file_path} removed')
                 os.remove(file_path)
+            if what=='except_downloads' and os.path.isfile(file_path) and not (('compare_data' in file_path) or ('stars_from' in file_path) or ('extra' in file_path)):
+                print(f'{file_path} removed')
+                os.remove(file_path)
+
 
     def calculate_search_arcmin(self, extra=config['Cluster']['search_extent'], output=False):
         """
@@ -480,6 +485,79 @@ class Cluster:
                    'header_start':r'\hline','data_start':r'\hline','data_end': r'\hline', 
                    'caption':f'Kinematic parameters of {self.name.replace("_"," ")}',
                    'preamble':'\label{tab:'+f'{self.name}-kinematics'+'}'}
+        latexdict['tablehead'] = r'head'
+        # Convert the dictionary to an Astropy table
+        astropy_table = Table(t_dict)
+        astropy.io.ascii.write(astropy_table, format='latex',output='text.txt',overwrite=True,
+                    latexdict=latexdict)
+        with open('text.txt', 'r+') as f:
+            lines = f.readlines()
+            lines[1], lines[2] = lines[2], lines[1]
+            f.seek(0)
+            f.writelines(lines)
+            print(''.join(lines))
+
+        os.remove('text.txt')
+    
+    def latex_table_members(self,n=None):
+        """
+        Prints a LaTeX table for the cluster members of the cluster object. The members are the same as what you 
+        get from `cluster.members`. Table is sorted according to the Gmag of the stars.
+        Parameters:
+        - n (int): number of cluster members to be returned
+        Example usage:
+        cluster = Cluster('IC_2395')
+        latex_table_members(cluster,n=10)
+        """
+        table = self.members
+        table.sort('Gmag')
+        table = table[:n]
+        # Create an empty list to store the formatted distances
+        formatted_distances = []
+        formatted_parallaxes = []
+        formatted_gmags = []
+        formatted_bprps = []
+        # Iterate over each row in the table
+        for row in table:
+            distance = row['rgeo']
+            plx = row['Plx']
+            e_plx = row['e_Plx']
+            upper_error = row['B_rgeo']-row['rgeo']
+            lower_error = -row['b_rgeo']+row['rgeo']
+            gmag = row['Gmag']
+            e_gmag = row['e_Gmag']
+            bprp = row['BP-RP']
+            e_bprp = row['e_BP-RP']
+            # Format strings
+            formatted_distance = f"${distance:.0f}^{{+{upper_error:.0f}}}_{{-{lower_error:.0f}}}$"
+            formatted_parallax = f"${plx:.4f}\pm{e_plx:.4f}$"
+            formatted_gmag = f"${gmag:.3f}\pm{e_gmag:.3f}$"
+            formatted_bprp = f"${bprp:.3f}\pm{e_bprp:.3f}$"
+            # Append the formatted distance to the list
+            formatted_distances.append(formatted_distance)
+            formatted_parallaxes.append(formatted_parallax)
+            formatted_gmags.append(formatted_gmag)
+            formatted_bprps.append(formatted_bprp)
+
+        # Add a new column to the table with the formatted distances
+        table['formatted_distance'] = formatted_distances
+        table['formatted_parallax'] = formatted_parallaxes
+        table['formatted_gmag'] = formatted_gmags
+        table['formatted_bprp'] = formatted_bprps
+        t_dict = {
+            'Gaia DR3 Source':table['Source'],
+            r"$r_{\text{geo}}$ (pc)":table['formatted_distance'],
+            r"$\pi$ (mas)":table['formatted_parallax'],
+            r"$G$ (mag)":table['formatted_gmag'],
+            r"$G_{\text{BP}}-G_{\text{RP}}$ (mag)":table['formatted_bprp']
+            # r"$v_R$ (km/s)":[f"{self.all['RV']:.2f}"+"$\pm$"+f"{self.all['e_RV']:.2f}"] if not isinstance(self.all['RV'],np.ma.core.MaskedConstant) else ['N/A'],
+            # r"$d$ (pc)":[f"{self.all['Dist']:.0f}"+"$\pm$"+f"{self.all['e_Dist']:.0f}"],
+
+        }
+        latexdict={'tabletype':'table*','tablealign':'ht',
+                    'header_start':r'\hline','data_start':r'\hline','data_end': r'\hline', 
+                    'caption':f'Selected members of {self.name.replace("_"," ")}',
+                    'preamble':'\label{tab:'+f'{self.name}-members'+'}'}
         latexdict['tablehead'] = r'head'
         # Convert the dictionary to an Astropy table
         astropy_table = Table(t_dict)
@@ -831,19 +909,19 @@ def get_runaways(cluster,fs,theoretical_data):
             new_star_gmag = fs[fs['Source']==source_id]['Gmag']
 
             # Get the BP-RP and Temperature columns from the table
-            temperature_column = theoretical_data['logTe']
+            temperature_column = theoretical_data['Teff0']
             bp_rp_column = theoretical_data['BP-RP']
             gmag_column = theoretical_data['Gmag']
             # Calculate the differences between the new star's BP-RP value and all values in the table
-            differences_bp_rp = (bp_rp_column - new_star_bp_rp)
+            differences_bp_rp = abs(bp_rp_column - new_star_bp_rp)
             # Calculate the differences between the new star's Gmag value and all values in the table
-            differences_gmag = (gmag_column - new_star_gmag)
-            iso_dist = differences_bp_rp**2+differences_gmag**2
+            differences_gmag = abs(gmag_column - new_star_gmag)
+            # iso_dist = differences_bp_rp**2+differences_gmag**2 #method 1
+            iso_dist = differences_bp_rp #method 2
             # Find the index of the star with the closest BP-RP value
             closest_star_index = np.argmin(iso_dist)
             # Get the temperature of the closest star
             closest_star_temperature = temperature_column[closest_star_index]
-            closest_star_temperature = 10 ** closest_star_temperature
 
             selected_stars_dict_with_temp[source_id] = (selected_stars_dict[source_id],closest_star_temperature)
 
@@ -961,11 +1039,11 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     #Scatter stars in the region
     sir = cluster.stars_in_region()
     sir_gmag,sir_bp_rp = sir['Gmag'],sir['BP-RP']
-    ax1.scatter(sir_bp_rp,sir_gmag,s=2, color='grey',label=f'{len(sir)} stars in the region {cluster.calculate_search_arcmin()}')
+    ax1.scatter(sir_bp_rp,sir_gmag,s=2, color='grey',zorder=1,label=f'{len(sir)} stars in the region {cluster.calculate_search_arcmin()}')
     # Scatter dias members
     dias_members = cluster.members
     dias_gmag,dias_bp_rp = dias_members['Gmag'],dias_members['BP-RP']
-    ax1.errorbar(dias_bp_rp,dias_gmag, color='black',fmt='o',xerr=dias_members['e_BP-RP']+0.02,yerr=dias_members['e_Gmag'],
+    ax1.errorbar(dias_bp_rp,dias_gmag, color='black',zorder=2,fmt='o',xerr=dias_members['e_BP-RP']+0.02,yerr=dias_members['e_Gmag'],
                  label=rf'{len(dias_members)} Dias Members P $\geq$ {config["memb_prob"]}, Q $\geq$ {config["parallax_quality_threshold"]}')
     # Table for cluster parameters
     cluster_table = [
@@ -1003,9 +1081,10 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     bprptheo = td['BP-RP']
     gmagtheo = td['Gmag']
     for star in runaways_all:
-        differences_bprp = (bprptheo - star['BP-RP'])
-        differences_gmag = (gmagtheo - star['Gmag'])
-        differences = differences_bprp**2+differences_gmag**2
+        differences_bprp = abs(bprptheo - star['BP-RP'])
+        differences_gmag = abs(gmagtheo - star['Gmag'])
+        # differences = differences_bprp**2+differences_gmag**2 #method 1
+        differences = differences_bprp #method 2
         closest_star_index = np.argmin(differences)
         new_closest_star_temperature = Ttheo[closest_star_index]
         star['Temp. Est']=new_closest_star_temperature
@@ -1019,7 +1098,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         label_all_run = rf'{len(runaways_all)} Runaway(s) $T_{{max}}$ = {max(runaways_all["Temp. Est"]):,.0f} K'
     except:
         label_all_run = rf'{len(runaways_all)} Runaway(s)'
-    ax1.scatter(_runaways_bp_rp,_runaways_gmag,s=8,alpha=0.5, 
+    ax1.scatter(_runaways_bp_rp,_runaways_gmag,s=8,alpha=0.5, zorder=3,
                 c=runaways_all['Temp. Est'],
                 cmap='spring_r',norm=plt.Normalize(4000, 23000),
                 label=label_all_run)
@@ -1060,7 +1139,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
             
             # Add the table below the annotation
             table_data = [
-                ['SourceID', f'{runaways[index]["Source"]}'],
+                ['ID', f'{runaways[index]["Source"]}'],
                 ['Temp. Est.', f'{runaways[index]["Temp. Est"]:,.0f} K'],
                 ['Coord.', f'{runaways["RA_ICRS_1"][index]:.4f} {"+" if runaways["DE_ICRS_1"][index] >= 0 else ""}{runaways["DE_ICRS_1"][index]:.4f}'],
                 ['Gmag', f'{runaways["Gmag"][index]}'],
@@ -1068,7 +1147,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
 
                 # Add more rows with actual values
             ]
-            table_bbox = [0.55, 0.0, 0.45, 0.2]  # [left, bottom, width, height]
+            table_bbox = [0.50, 0.0, 0.50, 0.2]  # [left, bottom, width, height]
             table2 = ax1.table(cellText=table_data, cellLoc='right', loc='lower center', bbox=table_bbox)
             # table2.auto_set_column_width(col=[0,1])
 
@@ -1079,7 +1158,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         plt.draw()
     errorbar_runaways = ax1.errorbar(runaways['BP-RP'],runaways['Gmag'],linestyle="None",xerr=runaways['e_BP-RP']+0.02,yerr=runaways['e_Gmag'],color='red')
     scatter_main = ax1.scatter(runaways_bp_rp,runaways_gmag,picker=True,s=30, 
-                            c=runaways['Temp. Est'],cmap='spring_r',norm=plt.Normalize(4000, 23000),
+                            c=runaways['Temp. Est'],cmap='spring_r',zorder=4,norm=plt.Normalize(4000, 23000),
                             label=rf'{len(runaways)} Runaway(s) with T > {config["runaway_temp"]:,} K')
     
     
@@ -1140,6 +1219,7 @@ def runCode(cluster,save='png',psr=False,**kwargs):
     mask = [T > config['runaway_temp'] for T in runaways_all['Temp. Est']]
     runaways = runaways_all[mask]
     print(f'{cluster.name+": runaways and isochrone plot":->50}'+f'{"":-<50}')
+    cluster = Cluster(cluster.name)
     plot_cmd(cluster,save=save,**kwargs)
     # print(kwargs)
     if psr:
