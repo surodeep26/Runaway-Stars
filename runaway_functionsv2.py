@@ -84,7 +84,7 @@ class Cluster:
         self.all = self.cluster_table[0]
         self.name = self.cluster_table['Cluster'][0]
         ti = (Time('J2000')+1*u.Myr)
-        self.coordinates = SkyCoord(ra=self.cluster_table['RA_ICRS'],dec=self.cluster_table['DE_ICRS'],pm_ra_cosdec=self.cluster_table['pmRA'],pm_dec=self.cluster_table['pmDE'],obstime=ti)
+        self.coordinates = SkyCoord(ra=self.cluster_table['RA_ICRS'],dec=self.cluster_table['DE_ICRS'],pm_ra_cosdec=self.cluster_table['pmRA'],pm_dec=self.cluster_table['pmDE'],obstime=ti)[0]
         self.diameter = self.cluster_table['Diameter'][0]*u.arcmin
         self.diameter_dias = (self.cluster_table['r50'][0]*u.deg*2).to(u.arcmin)
         self.distance = self.cluster_table['Dist'][0]*u.pc
@@ -139,6 +139,7 @@ class Cluster:
         self.runaways_all = self.read_table('runaways_all')
 
     def clean(self,what='except_downloads'):
+        print(f"Deleting: {what}")
         folder_path = f'{self.name}'
 
         # List all files in the folder
@@ -433,7 +434,8 @@ class Cluster:
         Run genetate_tables() to generate the tables.
 
         Parameters:
-        - tables (str): Variable number of table names to be read.
+        - tables (str): Variable number of table names to be read. The name of the table is the text after the last "_". 
+        For eg., "NGC_4103_psrs.tsv" is called "psrs"
 
         Returns:
         - table (astropy.table.table.Table or list): If a single table is provided, returns the corresponding table.
@@ -468,11 +470,20 @@ class Cluster:
         ax.set_title(f"CMD for {self.name}")
         ax.invert_yaxis()
         ax.legend()
+
+    def latex_text(self):
+        ra, dec = self.coordinates.ra, self.coordinates.dec
+        ra_str, dec_str = ra.to_string(format='latex')[1:-1], dec.to_string(format='latex')[1:-1]
+        dist_str = str(self.all['Dist'])+r"\pm"+str(self.all['e_Dist'])
+        print(rf"{self.name.replace('_', ' ')} is located at $\alpha = {ra_str}, \delta = {dec_str}$ at a distance of ${dist_str}$ pc.")
+
+
+
     def latex_table_kinematics(self):
         t_dict = {
             # 'Name':[self.name.replace('_',' ')],
-            r'$\alpha (^\circ)$': [f"{(self.coordinates.ra[0]):.2f}".replace(' deg','')],
-            r'$\delta (^\circ)$': [f"{(self.coordinates.dec[0]):.2f}".replace(' deg','')],
+            r'$\alpha (^\circ)$': [f"{(self.coordinates.ra):.2f}".replace(' deg','')],
+            r'$\delta (^\circ)$': [f"{(self.coordinates.dec):.2f}".replace(' deg','')],
             "Diam. (')":[self.diameter.value],
             "N":[len(self.members)],
             r"$\mu_{\alpha}^*$ (mas/yr)":[f"{self.all['pmRA']:.2f}"+"$\pm$"+f"{self.all['e_pmRA']:.2f}"],
@@ -481,7 +492,7 @@ class Cluster:
             r"$d$ (pc)":[f"{self.all['Dist']:.0f}"+"$\pm$"+f"{self.all['e_Dist']:.0f}"],
 
         }
-        latexdict={'tabletype':'table*','tablealign':'ht',
+        latexdict={'tabletype':'table*','tablealign':'h',
                    'header_start':r'\hline','data_start':r'\hline','data_end': r'\hline', 
                    'caption':f'Kinematic parameters of {self.name.replace("_"," ")}',
                    'preamble':'\label{tab:'+f'{self.name}-kinematics'+'}'}
@@ -554,7 +565,7 @@ class Cluster:
             # r"$d$ (pc)":[f"{self.all['Dist']:.0f}"+"$\pm$"+f"{self.all['e_Dist']:.0f}"],
 
         }
-        latexdict={'tabletype':'table*','tablealign':'ht',
+        latexdict={'tabletype':'table*','tablealign':'h',
                     'header_start':r'\hline','data_start':r'\hline','data_end': r'\hline', 
                     'caption':f'Selected members of {self.name.replace("_"," ")}',
                     'preamble':'\label{tab:'+f'{self.name}-members'+'}'}
@@ -1616,7 +1627,7 @@ def plot_traceback(cluster,save=False,psr_circles=True):
     graphs[scatter_my_members_legend] = scatter_my_members
 
 
-    colorbar = fig.colorbar(scatter_runaways_all,ax=ax2)
+    # colorbar = fig.colorbar(scatter_runaways_all,ax=ax2)
     # Connect the pick_event to the onpick3 function
     fig.canvas.mpl_connect('pick_event', onpick3)
     fig.canvas.mpl_connect('button_release_event', on_release)
@@ -1729,7 +1740,7 @@ def plot_pm(cluster):
     ax3.set_title("Proper Motions")
     ax3.legend(loc="upper left")
 
-def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_radial_tolerance']):
+def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_radial_tolerance'],save=True):
     if isinstance(cluster,str):
         cluster = Cluster(cluster)
         print(f'{"Searching pulsars near":->50}'+f' {cluster.name:-<50}')
@@ -1761,8 +1772,11 @@ def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_ra
     dist_filtered_psr_table['AGE_I'] = dist_filtered_psr_table['AGE_I'].to(u.kyr)
     print(f'Of which {len(dist_filtered_psr_table)} Pulsar(s) from {r_close:.2f} kpc to {r_far:.2f} kpc')
     # display(dist_filtered_psr_table['Separation','NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX'])
-
-    return dist_filtered_psr_table['Separation','NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX']
+    maintable = dist_filtered_psr_table['Separation','NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX']
+    if save:
+        maintable.write(f'{cluster.name}/{cluster.name}_psrs.tsv',format='ascii.ecsv',overwrite=True)
+        maintable.to_pandas().to_excel(os.path.join(cluster.name,f'{cluster.name}_psrs.xlsx'), index=False)
+    return maintable
     #add distance from cluster column
 def nearest_cluster(objectname, output=False):
     result_table = Simbad.query_object(objectname)
