@@ -8,33 +8,23 @@ import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
 from IPython.display import IFrame
 from matplotlib.widgets import CheckButtons
-
 from astroquery.vizier import Vizier
 from scipy.stats import norm
-
 from astropy.visualization import astropy_mpl_style, quantity_support
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 from astropy.time import Time
-import astropy.units as u
 from astropy.coordinates import get_sun, get_body
 from IPython.display import Math
 from astropy.wcs import WCS
 from astroquery.skyview import SkyView
-import os
-# from runaway_functions import *
-# import pandas as pd
 import shutil
 from regions import CircleSkyRegion
-
-
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.chrome.options import Options
-
 import matplotlib
-import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from astropy.io import fits
 import astropy.units as u
@@ -45,22 +35,15 @@ import matplotlib.patches as patches
 from astropy.visualization.wcsaxes import add_scalebar
 from astropy.coordinates import Angle
 from psrqpy import QueryATNF
-
 from astroquery.simbad import Simbad
 import astropy.coordinates as coord
-
-
 from astropy.table import Table
 from astropy.coordinates import SkyCoord
-from astropy import units as u
 from IPython.display import display, Math
 import yaml
 from astropy.stats import sigma_clip
+
 matplotlib.rcParams.update({'font.size': 12})
-
-
-
-
 cluster_list = Table.read('Clusters_from_dias_and_a99', format='ascii.ecsv')
 def read_yaml_file(file_path):
     '''
