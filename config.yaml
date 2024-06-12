@@ -3,9 +3,13 @@ Cluster:
   clustername: 'Berkeley_97'
   #search
   search_extent: 10 #pc
+
+#dr3dias
+gmag_lim: 17
+ruwe_lim: 1.4
 #search stars from DR3
 cat_stars: 'I/355/gaiadr3'
-cat_stars_filters: {'Gmag':'<17'} #mag
+cat_stars_filters: {'Gmag':'<17','Plx':'>0.3'} #mag
 #search star distances from DR3
 cat_star_distances: 'I/352/gedr3dis'
 distance_tolerance: 0.2 # 20percent
@@ -15,10 +19,13 @@ memb_prob: 0.8
 parallax_quality_threshold: 10
 #refine stars_in_region for my cluster
 v_dispersion: 3
-sigma_clip: 1.41 #for b97
+sigma_clip: 1.6 #for b97
 # sigma_clip: 1.2
 plx_quality: 10
-dist_tolerance: 20
+
+#PSR search:
+psr_extra: 70 #pc around the cluster edge
+psr_radial_tolerance: 0.4 # i.e., 40% distance tolerance
 
 
 #runaways
@@ -36,8 +43,8 @@ Bools:
 
 #Paths
 Paths:
-  main: "C:\\Users\\Surodeep\\Desktop\\Runawayv14"
-  path_Clusters: "C:\\Users\\Surodeep\\Desktop\\Runawayv10\\Clusters" #main cluster folder from Dias2021
+  main: "C:\\Users\\Surodeep\\Desktop\\Thesis\\Runawayv15"
+  path_Clusters: "C:\\Users\\Surodeep\\Desktop\\Thesis\\Runawayv15\\Clusters_Dias" #main cluster folder from Dias2021
   path_clusterlist: "Clusters_from_dias_and_a99"
   key3: value3
   key4: value4
