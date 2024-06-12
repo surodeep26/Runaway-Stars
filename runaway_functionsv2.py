@@ -8,23 +8,33 @@ import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
 from IPython.display import IFrame
 from matplotlib.widgets import CheckButtons
+
 from astroquery.vizier import Vizier
 from scipy.stats import norm
+
 from astropy.visualization import astropy_mpl_style, quantity_support
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 from astropy.time import Time
+import astropy.units as u
 from astropy.coordinates import get_sun, get_body
 from IPython.display import Math
 from astropy.wcs import WCS
 from astroquery.skyview import SkyView
+import os
+# from runaway_functions import *
+# import pandas as pd
 import shutil
 from regions import CircleSkyRegion
+
+
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.chrome.options import Options
+
 import matplotlib
+import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from astropy.io import fits
 import astropy.units as u
@@ -35,15 +45,22 @@ import matplotlib.patches as patches
 from astropy.visualization.wcsaxes import add_scalebar
 from astropy.coordinates import Angle
 from psrqpy import QueryATNF
+
 from astroquery.simbad import Simbad
 import astropy.coordinates as coord
+
+
 from astropy.table import Table
 from astropy.coordinates import SkyCoord
+from astropy import units as u
 from IPython.display import display, Math
 import yaml
 from astropy.stats import sigma_clip
-
 matplotlib.rcParams.update({'font.size': 12})
+
+
+
+
 cluster_list = Table.read('Clusters_from_dias_and_a99', format='ascii.ecsv')
 def read_yaml_file(file_path):
     '''
@@ -58,7 +75,7 @@ config = read_yaml_file('config.yaml')
 class Cluster:
     from typing import List
 
-    def __init__(self, cluster_name,version='dr3', add_members: List[int]=[]):
+    def __init__(self, cluster_name,version='dr3', add_members: List[int]=[], Pmemb = config['memb_prob'], PlxQuality = config['parallax_quality_threshold']):
         '''
         add_members: Gaia sourceIDs of new members to be added to the cluster, only works with the default `version='dr3'`
         '''
@@ -75,7 +92,7 @@ class Cluster:
         if len(self.cluster_table) == 0:
             raise ValueError(f"No data found for cluster '{cluster_name}' in the cluster list.")
         if version == 'dr3':
-            d = self.dias_members(memb_prob=config['memb_prob'],parallax_quality_threshold=config['parallax_quality_threshold'])
+            d = self.dias_members(memb_prob=Pmemb)
             
             dm = d[d['Gmag']<config['gmag_lim']]['Source','RAdeg','DEdeg','Gmag','e_Gmag','Plx','e_Plx','Pmemb']
             sources = np.array(dm['Source'])
@@ -89,8 +106,14 @@ class Cluster:
             mask = np.isin(sr['Source'], sources_int_list)
             # print(sources_int_list)
             dr3dias = sr[mask]
+            print(f"{len(dr3dias)}/{len(d)} members matched in dr3 search region,{len(d)-len(dm)} have > {config['gmag_lim']} Gmag")
             # dr3dias.add_row()
             dr3dias.sort('Gmag')
+
+            mask_plx = [value >= PlxQuality for value in (dr3dias['Plx']/dr3dias['e_Plx'])]
+            dr3dias = dr3dias[mask_plx]
+            print(f"{len(dr3dias)}/{len(dr3dias)+(len(mask_plx)-np.count_nonzero(mask_plx))} members have good parallax")
+
             # print(dr3dias['rgeo'].mean(),dr3dias['rgeo'].std())
             self.all['Dist'] = dr3dias['rgeo'].mean()
             self.all['e_Dist'] = dr3dias['rgeo'].std()
@@ -103,7 +126,12 @@ class Cluster:
             self.all['e_Plx'] = dr3dias['Plx'].std()
             self.all['N'] = len(dr3dias)
         elif version == 'dr2':
-            dr3dias = self.dias_members(memb_prob=config['memb_prob'],parallax_quality_threshold=config['parallax_quality_threshold'])
+            dr3dias = self.dias_members(memb_prob=Pmemb)
+            mask_plx = [value >= PlxQuality for value in (dr3dias['Plx']/dr3dias['e_Plx'])]
+            dr3dias = dr3dias[mask_plx]
+            self.N = self.cluster_table['N'][0] #no. of members
+        elif version == 'dr2raw':
+            dr3dias = self.dias_members(memb_prob=0)
             self.N = self.cluster_table['N'][0] #no. of members
 
         # Extracting values from the table and setting attributes
@@ -120,6 +148,37 @@ class Cluster:
         self.N = len(dr3dias)
         self.runaways = self.read_table('runaways')
         self.runaways_all = self.read_table('runaways_all')
+    
+    def dias_members(self,memb_prob=0):
+        dias_members = Table.read(config['Paths']['path_Clusters']+f'/{self.name}.dat', format='ascii.tab')
+        # dias_members = Table.read(f'Clusters/{self.name}.dat', format='ascii.tab')
+        dias_members.remove_rows([0,1])
+        # Get the column names in the table
+        column_names = dias_members.colnames
+        column_names.remove('Source')
+        # Convert all columns from string to float, replacing non-float values with None
+        for column_name in column_names:
+            column_data = dias_members[column_name]
+            converted_data = []
+            for entry in column_data:
+                try:
+                    converted_data.append(float(entry))
+                except ValueError:
+                    converted_data.append(None)
+            dias_members[column_name] = converted_data
+        dias_members.sort('Source')
+
+        mask1 = [value >= memb_prob for value in dias_members['Pmemb']]
+        # mask2 = [value >= parallax_quality_threshold for value in (dias_members['Plx']/dias_members['e_Plx'])]
+        # final_mask = (np.array(mask1) & np.array(mask2))
+        final_mask = (np.array(mask1))
+        dias_members = dias_members[final_mask]
+        #create a filter to get rid of the stars which don't have a Bp-Rp value in the .dat table
+        mask_bprp = [value is not None for value in dias_members["BP-RP"] ]
+        plottable_members = dias_members[mask_bprp]
+        print(len(dias_members)-len(plottable_members),"memebrs do not have BP-RP from Dias.")
+
+        return plottable_members
 
     def clean(self,what='except_downloads'):
         print(f"Deleting: {what}")
@@ -240,33 +299,6 @@ class Cluster:
 
         # Show the plot
         plt.show()
-
-    def dias_members(self,memb_prob=config['memb_prob'],parallax_quality_threshold=config['parallax_quality_threshold']):
-        dias_members = Table.read(f'Clusters/{self.name}.dat', format='ascii.tab')
-        dias_members.remove_rows([0,1])
-        # Get the column names in the table
-        column_names = dias_members.colnames
-        column_names.remove('Source')
-        # Convert all columns from string to float, replacing non-float values with None
-        for column_name in column_names:
-            column_data = dias_members[column_name]
-            converted_data = []
-            for entry in column_data:
-                try:
-                    converted_data.append(float(entry))
-                except ValueError:
-                    converted_data.append(None)
-            dias_members[column_name] = converted_data
-        dias_members.sort('Source')
-
-        mask1 = [value >= memb_prob for value in dias_members['Pmemb']]
-        mask2 = [value >= parallax_quality_threshold for value in (dias_members['Plx']/dias_members['e_Plx'])]
-        final_mask = (np.array(mask1) & np.array(mask2))
-        dias_members = dias_members[final_mask]
-        #create a filter to get rid of the stars which don't have a Bp-Rp value in the .dat table
-        mask_bprp = [value is not None for value in dias_members["BP-RP"] ]
-        plottable_members = dias_members[mask_bprp]
-        return plottable_members
     
 
     def stars_in_region(self,allTables=False,no_rmRArmDE=False):
@@ -1221,6 +1253,14 @@ def runCode(cluster,save='png',psr=False,**kwargs):
     plot_traceback_clean(cluster,save=save)
     print(f"{len(runaways)} Runaway(s) found",runaways)
 
+def reRunCode(cluster, **kwargs):
+    if isinstance(cluster, str):
+        cluster = Cluster(cluster)
+    elif isinstance(cluster, Cluster):
+        cluster = cluster
+    cluster.clean()
+    runCode(cluster, **kwargs)
+
 
 def plot_traceback_clean(cluster,save=False):
     search_arcmin = cluster.calculate_search_arcmin()
@@ -1235,7 +1275,7 @@ def plot_traceback_clean(cluster,save=False):
 
     # Add a circle representing the cluster radius
     circle_cluster = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*cluster.diameter/(2*search_arcmin),
-                    edgecolor='red', facecolor='none', ls='dashed', label=f'Cluster Diameter = {cluster.diameter}',linewidth=1)
+                    edgecolor='red', facecolor='none', ls='dashed', label=f'Cluster Diameter (r50) = {cluster.diameter}',linewidth=1)
     circle_search_region = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*search_arcmin/search_arcmin,
                 edgecolor='green', facecolor='none', ls='dashed', label=f'Search Region Diameter = {2*search_arcmin}',linewidth=1.5)
     ax2.add_artist(circle_cluster)
@@ -1397,7 +1437,7 @@ def plot_traceback(cluster,save=False,psr_circles=True):
     dias_members_pix_coords = wcs.world_to_pixel_values(dias_members_coords.ra, dias_members_coords.dec)
     # Add a circle representing the cluster radius
     circle_cluster = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*cluster.diameter/(2*search_arcmin),
-                    edgecolor='red', facecolor='none', ls='dashed', label=f'Cluster Diameter = {cluster.diameter}',linewidth=1)
+                    edgecolor='red', facecolor='none', ls='dashed', label=f'Cluster Diameter (r50) = {cluster.diameter}',linewidth=1)
     circle_search_region = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*search_arcmin/search_arcmin,
                 edgecolor='green', facecolor='none', ls='dashed', label=f'Search Region Diameter = {2*search_arcmin}',linewidth=1.5)
     ax2.add_artist(circle_cluster)
@@ -1735,8 +1775,8 @@ def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_ra
 
     print(f'({extra} pc from cluster edge, {radial_tolerance*100:.0f}% radial tolerance around distance {cluster.distance.to(u.kpc)})')
 
-    cluster_coord_ra_str = cluster.coordinates.ra.to_string(unit='hourangle', sep=':', precision=3, pad=True)[0]
-    cluster_coord_dec_str = cluster.coordinates.dec.to_string(unit='degree', sep=':', precision=3, pad=True)[0]
+    cluster_coord_ra_str = cluster.coordinates.ra.to_string(unit='hourangle', sep=':', precision=3, pad=True)
+    cluster_coord_dec_str = cluster.coordinates.dec.to_string(unit='degree', sep=':', precision=3, pad=True)
 
     psr_search_deg = cluster.calculate_search_arcmin(extra=extra).to(u.deg).value
     c = [cluster_coord_ra_str,cluster_coord_dec_str,psr_search_deg]
