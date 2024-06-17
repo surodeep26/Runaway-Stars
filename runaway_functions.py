@@ -1077,8 +1077,8 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     ]
 
     # Update Metallicity if changed
-    if 'metallicity' in kwargs and kwargs['metallicity'] != cluster.FeH:
-        cluster_table[1][1] = f'{cluster.FeH:.2f} --> {kwargs["metallicity"]}'
+    if 'FeH' in kwargs and kwargs['FeH'] != cluster.FeH:
+        cluster_table[1][1] = f'{cluster.FeH:.2f} --> {kwargs["FeH"]}'
 
     # Update Logage if changed
     if 'logage' in kwargs and kwargs['logage'] != cluster.logage:
