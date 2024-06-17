@@ -702,7 +702,8 @@ def columnsplot(columnx,columny, xlabel=None, ylabel=None):
 
 
 
-def theoretical_isochrone(cluster,Av=None,logage=None,metallicity=None,output=None, printing = True):
+def theoretical_isochrone(cluster,Av=None,logage=None,FeH=None,output=None, printing = True):
+    metallicity = FeH 
     """
     Retrieves the theoretical isochrone for a given cluster from CMD interface.
     By default takes the parameters of the cluster as input.
@@ -1001,7 +1002,7 @@ def test_isochrones(cluster):
                 elif 'age' in string:
                     extracted_values['logage'] = float(string[3:])
                 elif 'FeH' in string:
-                    extracted_values['metallicity'] = float(string[3:])
+                    extracted_values['FeH'] = float(string[3:])
             # Append dictionary to result list
             result.append(extracted_values)
     return result
@@ -1009,7 +1010,6 @@ def test_isochrones(cluster):
 
 
 def plot_cmd(cluster,save=False,multiple=False,**kwargs):
-    td = theoretical_isochrone(cluster,output='table',**kwargs,printing=False)
 
     # Plot CMD
     BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,printing=False)
@@ -1033,7 +1033,8 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
             pairs[i] = f"{key}:{kwargs[key]}"
     # Reconstruct the string
     iso_4_temp = ', '.join(pairs)
-
+    print('iso_4_temp0', iso_4_temp0)
+    print('iso_4_temp', iso_4_temp)
     if (not multiple) and (iso_4_temp0!=iso_4_temp):
         lines[0].set_label('Dias Theoretical Isochrone (modified)')
     if (not multiple) and (iso_4_temp0==iso_4_temp):
@@ -1045,8 +1046,9 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
 
         for isoc in all_isochrones:
             BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,**isoc, printing=False)
-            _lbl =  f'{isoc}'.replace("{'Av': ", "Av:").replace(", 'logage': ", ", logage:").replace(", 'metallicity': ", ", FeH:").replace("}", "")
+            _lbl =  f'{isoc}'.replace("{'Av': ", "Av:").replace(", 'logage': ", ", logage:").replace(", 'FeH': ", ", FeH:").replace("}", "")
             if _lbl == iso_4_temp:
+                print(_lbl)
                 _lbl += ' (for Teff.)'
                 lines[0].set_label('Dias Theoretical Isochrone')
             line, = ax1.plot(BP_RP_theo, Gmag_theo, label=_lbl,alpha=1)
@@ -1097,6 +1099,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     runaways_all = cluster.read_table('runaways_all')
     #recalculate temperatures for different theoretical isochrone
     td = theoretical_isochrone(cluster,output='table',**kwargs,printing=False)
+    print(f"calculating temperatures based on: {kwargs}")
     Ttheo = td['Teff0']
     bprptheo = td['BP-RP']
     gmagtheo = td['Gmag']
