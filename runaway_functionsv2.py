@@ -150,7 +150,7 @@ class Cluster:
         self.runaways_all = self.read_table('runaways_all')
     
     def dias_members(self,memb_prob=0):
-        dias_members = Table.read(config['Paths']['path_Clusters']+f'/{self.name}.dat', format='ascii.tab')
+        dias_members = Table.read(f'./Clusters_Dias/{self.name}.dat', format='ascii.tab')
         # dias_members = Table.read(f'Clusters/{self.name}.dat', format='ascii.tab')
         dias_members.remove_rows([0,1])
         # Get the column names in the table
@@ -702,7 +702,8 @@ def columnsplot(columnx,columny, xlabel=None, ylabel=None):
 
 
 
-def theoretical_isochrone(cluster,Av=None,logage=None,metallicity=None,output=None, printing = True):
+def theoretical_isochrone(cluster,Av=None,logage=None,FeH=None,output=None, printing = True):
+    metallicity = FeH 
     """
     Retrieves the theoretical isochrone for a given cluster from CMD interface.
     By default takes the parameters of the cluster as input.
@@ -844,7 +845,7 @@ def theoretical_isochrone(cluster,Av=None,logage=None,metallicity=None,output=No
         return theoretical_data
 
 
-def get_runaways(cluster,fs,theoretical_data):
+def get_runaways(cluster,fs,theoretical_data,separation_factor=2):
     """
     Selects stars from the input astropy table fs which are runaway star candidates by tracing them back to the cluster.
     If the stars happens to be in the cluster in the past 100kyr then it is selected to be a candidate.
@@ -855,7 +856,7 @@ def get_runaways(cluster,fs,theoretical_data):
     -    fs or nsfs (astropy table): A table of the fast stars (relative to the cluster mean proper motion) in the region (`search_arcmin`) 
         around the cluster centre. Can also take `nsfs` and trace them back with the same algorithm.
     -   theoretical_data (astropy table ascii format downloaded from CMD): theoretical isochrone to estimate the temperatures of the runaways (or walkaways)
-
+    - separation_factor: default 2 (since separation<cluster diameter/2 implies within cluster in the past). indicates what is the minimum separation factor to be considered inside cluster.
     Returns:
     - run (astropy table): A table of the selected stars out of fs which can be traced back within 100kyr or less 
         with their temperature estimates added in a column.
@@ -910,30 +911,25 @@ def get_runaways(cluster,fs,theoretical_data):
             # Calculate separation for all time steps at once
             sep = cluster_motion.separation(star_motion).to(u.arcmin)
             sep_array[i, :] = sep
-
         # Convert sep_array to list of lists
         sep_list = sep_array.tolist()
-
         # Create dictionary with star names as keys and separations as values
         sep_dict = {star['Source']: sep_list[i] for i, star in enumerate(fast_stars)}
-
         # make a list of stars that were inside the cluster 
         selected_stars_dict = {}
-        threshold_separation = cluster.diameter.value/2
+        threshold_separation = cluster.diameter.value/separation_factor
         # threshold_separation = cluster.diameter.value #deleteme
         for source_id, separations in sep_dict.items():
             # Check if any separation is less than the threshold
             if any(sep < threshold_separation for sep in np.array(separations)):
                 # Add the source id to the list
                 selected_stars_dict[source_id] = sep_dict[source_id]
-
         # Make list with temp
         selected_stars_dict_with_temp = {}
 
         for source_id, separations in selected_stars_dict.items():
             new_star_bp_rp = fs[fs['Source']==source_id]['BP-RP']
             new_star_gmag = fs[fs['Source']==source_id]['Gmag']
-
             # Get the BP-RP and Temperature columns from the table
             temperature_column = theoretical_data['Teff0']
             bp_rp_column = theoretical_data['BP-RP']
@@ -948,7 +944,6 @@ def get_runaways(cluster,fs,theoretical_data):
             closest_star_index = np.argmin(iso_dist)
             # Get the temperature of the closest star
             closest_star_temperature = temperature_column[closest_star_index]
-
             selected_stars_dict_with_temp[source_id] = (selected_stars_dict[source_id],closest_star_temperature)
 
 
@@ -1007,7 +1002,7 @@ def test_isochrones(cluster):
                 elif 'age' in string:
                     extracted_values['logage'] = float(string[3:])
                 elif 'FeH' in string:
-                    extracted_values['metallicity'] = float(string[3:])
+                    extracted_values['FeH'] = float(string[3:])
             # Append dictionary to result list
             result.append(extracted_values)
     return result
@@ -1015,7 +1010,6 @@ def test_isochrones(cluster):
 
 
 def plot_cmd(cluster,save=False,multiple=False,**kwargs):
-    td = theoretical_isochrone(cluster,output='table',**kwargs,printing=False)
 
     # Plot CMD
     BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,printing=False)
@@ -1039,7 +1033,8 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
             pairs[i] = f"{key}:{kwargs[key]}"
     # Reconstruct the string
     iso_4_temp = ', '.join(pairs)
-
+    print('iso_4_temp0', iso_4_temp0)
+    print('iso_4_temp', iso_4_temp)
     if (not multiple) and (iso_4_temp0!=iso_4_temp):
         lines[0].set_label('Dias Theoretical Isochrone (modified)')
     if (not multiple) and (iso_4_temp0==iso_4_temp):
@@ -1051,8 +1046,9 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
 
         for isoc in all_isochrones:
             BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,**isoc, printing=False)
-            _lbl =  f'{isoc}'.replace("{'Av': ", "Av:").replace(", 'logage': ", ", logage:").replace(", 'metallicity': ", ", FeH:").replace("}", "")
+            _lbl =  f'{isoc}'.replace("{'Av': ", "Av:").replace(", 'logage': ", ", logage:").replace(", 'FeH': ", ", FeH:").replace("}", "")
             if _lbl == iso_4_temp:
+                print(_lbl)
                 _lbl += ' (for Teff.)'
                 lines[0].set_label('Dias Theoretical Isochrone')
             line, = ax1.plot(BP_RP_theo, Gmag_theo, label=_lbl,alpha=1)
@@ -1103,6 +1099,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     runaways_all = cluster.read_table('runaways_all')
     #recalculate temperatures for different theoretical isochrone
     td = theoretical_isochrone(cluster,output='table',**kwargs,printing=False)
+    print(f"calculating temperatures based on: {kwargs}")
     Ttheo = td['Teff0']
     bprptheo = td['BP-RP']
     gmagtheo = td['Gmag']
@@ -1229,7 +1226,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     if save:
         plt.savefig(f'{cluster.name}/{cluster.name}_cmd.{save}')
 
-def runCode(cluster,save='png',psr=False,**kwargs):
+def runCode(cluster,save='png',psr=False,separation_factor=2,**kwargs):
     if isinstance(cluster,str):
         cluster = Cluster(cluster)
 
@@ -1240,7 +1237,7 @@ def runCode(cluster,save='png',psr=False,**kwargs):
     theoretical_data = theoretical_isochrone(cluster,output="table",printing=False,**kwargs)
     print(f'{cluster.name+": traceback":->50}'+f'{"":-<50}')
     fs = cluster.read_table('fs')
-    runaways_all = get_runaways(cluster,fs,theoretical_data)
+    runaways_all = get_runaways(cluster,fs,theoretical_data,separation_factor)
     # display(runaways_all)
     mask = [T > config['runaway_temp'] for T in runaways_all['Temp. Est']]
     runaways = runaways_all[mask]
@@ -1250,19 +1247,19 @@ def runCode(cluster,save='png',psr=False,**kwargs):
     # print(kwargs)
     if psr:
         plot_traceback(cluster,save=save)
-    plot_traceback_clean(cluster,save=save)
+    plot_traceback_clean(cluster,save=save, separation_factor=separation_factor)
     print(f"{len(runaways)} Runaway(s) found",runaways)
 
-def reRunCode(cluster, **kwargs):
+def reRunCode(cluster,separation_factor, **kwargs):
     if isinstance(cluster, str):
         cluster = Cluster(cluster)
     elif isinstance(cluster, Cluster):
         cluster = cluster
     cluster.clean()
-    runCode(cluster, **kwargs)
+    runCode(cluster,separation_factor=separation_factor, **kwargs)
 
 
-def plot_traceback_clean(cluster,save=False):
+def plot_traceback_clean(cluster,save=False, separation_factor=False):
     search_arcmin = cluster.calculate_search_arcmin()
     cluster.plot_search_region(display=None,pixels='800')
     fits_path = f'{cluster.name}/{cluster.name}_extra10pc.fits'
@@ -1272,13 +1269,18 @@ def plot_traceback_clean(cluster,save=False):
 
     fig, ax2 = plt.subplots(subplot_kw={'projection': wcs}, figsize=(10, 8.8))
     ax2.imshow(image.data, cmap='gray')
-
+    # Add a circle representing the cluster radius
+    if separation_factor:
+        test_circle = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), #center
+                                 radius=(image.shape[0]/2)*cluster.diameter/(separation_factor*search_arcmin), #radius
+                                 edgecolor='red', facecolor='none', ls='dashed', label=f'Test Diameter = {cluster.diameter*2/separation_factor}',linewidth=1, alpha=0.6)
     # Add a circle representing the cluster radius
     circle_cluster = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*cluster.diameter/(2*search_arcmin),
                     edgecolor='red', facecolor='none', ls='dashed', label=f'Cluster Diameter (r50) = {cluster.diameter}',linewidth=1)
     circle_search_region = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*search_arcmin/search_arcmin,
                 edgecolor='green', facecolor='none', ls='dashed', label=f'Search Region Diameter = {2*search_arcmin}',linewidth=1.5)
     ax2.add_artist(circle_cluster)
+    ax2.add_artist(test_circle)
     ax2.add_artist(circle_search_region)
     # Read runaways
     runaways_all = cluster.read_table('runaways') #changing this to runaways_all plots all the runaways, not just the >10000K ones
