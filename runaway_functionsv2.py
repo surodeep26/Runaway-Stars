@@ -88,6 +88,8 @@ class Cluster:
         self.diameter = self.cluster_table['Diameter'][0]*u.arcmin
         self.diameter_dias = (self.cluster_table['r50'][0]*u.deg*2).to(u.arcmin)
         self.distance = self.cluster_table['Dist'][0]*u.pc
+        self.Pmemb = Pmemb
+        self.PlxQuality = PlxQuality
 
         if len(self.cluster_table) == 0:
             raise ValueError(f"No data found for cluster '{cluster_name}' in the cluster list.")
@@ -1047,6 +1049,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         for isoc in all_isochrones:
             BP_RP_theo, Gmag_theo = theoretical_isochrone(cluster,**isoc, printing=False)
             _lbl =  f'{isoc}'.replace("{'Av': ", "Av:").replace(", 'logage': ", ", logage:").replace(", 'FeH': ", ", FeH:").replace("}", "")
+            print(_lbl)
             if _lbl == iso_4_temp:
                 print(_lbl)
                 _lbl += ' (for Teff.)'
@@ -1066,7 +1069,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     dias_members = cluster.members
     dias_gmag,dias_bp_rp = dias_members['Gmag'],dias_members['BP-RP']
     ax1.errorbar(dias_bp_rp,dias_gmag, color='black',zorder=2,fmt='o',xerr=dias_members['e_BP-RP']+0.02,yerr=dias_members['e_Gmag'],
-                 label=rf'{len(dias_members)} Dias Members P $\geq$ {config["memb_prob"]}, Q $\geq$ {config["parallax_quality_threshold"]}')
+                 label=rf'{len(dias_members)} Dias Members P $\geq$ {cluster.Pmemb}, Q $\geq$ {cluster.PlxQuality}')
     # Table for cluster parameters
     cluster_table = [
         ['Members',len(dias_members)],
@@ -1077,8 +1080,8 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     ]
 
     # Update Metallicity if changed
-    if 'metallicity' in kwargs and kwargs['metallicity'] != cluster.FeH:
-        cluster_table[1][1] = f'{cluster.FeH:.2f} --> {kwargs["metallicity"]}'
+    if 'FeH' in kwargs and kwargs['FeH'] != cluster.FeH:
+        cluster_table[1][1] = f'{cluster.FeH:.2f} --> {kwargs["FeH"]}'
 
     # Update Logage if changed
     if 'logage' in kwargs and kwargs['logage'] != cluster.logage:
@@ -1225,6 +1228,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     # ax1.legend(loc='upper right')
     if save:
         plt.savefig(f'{cluster.name}/{cluster.name}_cmd.{save}')
+    return ax1
 
 def runCode(cluster,save='png',psr=False,separation_factor=2,**kwargs):
     if isinstance(cluster,str):
@@ -1262,7 +1266,7 @@ def reRunCode(cluster,separation_factor, **kwargs):
 def plot_traceback_clean(cluster,save=False, separation_factor=False):
     search_arcmin = cluster.calculate_search_arcmin()
     cluster.plot_search_region(display=None,pixels='800')
-    fits_path = f'{cluster.name}/{cluster.name}_extra10pc.fits'
+    fits_path = f"{cluster.name}/{cluster.name}_extra{config['Cluster']['search_extent']}pc.fits"
     fits_file = fits.open(fits_path)
     image = fits_file[0]
     wcs = WCS(image.header)
@@ -1270,17 +1274,19 @@ def plot_traceback_clean(cluster,save=False, separation_factor=False):
     fig, ax2 = plt.subplots(subplot_kw={'projection': wcs}, figsize=(10, 8.8))
     ax2.imshow(image.data, cmap='gray')
     # Add a circle representing the cluster radius
-    if separation_factor:
+    if separation_factor!=2 and separation_factor!=False:
         test_circle = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), #center
                                  radius=(image.shape[0]/2)*cluster.diameter/(separation_factor*search_arcmin), #radius
                                  edgecolor='red', facecolor='none', ls='dashed', label=f'Test Diameter = {cluster.diameter*2/separation_factor}',linewidth=1, alpha=0.6)
+        
+        ax2.add_artist(test_circle)
+
     # Add a circle representing the cluster radius
     circle_cluster = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*cluster.diameter/(2*search_arcmin),
                     edgecolor='red', facecolor='none', ls='dashed', label=f'Cluster Diameter (r50) = {cluster.diameter}',linewidth=1)
     circle_search_region = plt.Circle((image.data.shape[1] / 2, image.data.shape[0] / 2), radius=(image.shape[0]/2)*search_arcmin/search_arcmin,
                 edgecolor='green', facecolor='none', ls='dashed', label=f'Search Region Diameter = {2*search_arcmin}',linewidth=1.5)
     ax2.add_artist(circle_cluster)
-    ax2.add_artist(test_circle)
     ax2.add_artist(circle_search_region)
     # Read runaways
     runaways_all = cluster.read_table('runaways') #changing this to runaways_all plots all the runaways, not just the >10000K ones
@@ -1418,6 +1424,8 @@ def plot_traceback_clean(cluster,save=False, separation_factor=False):
 
     if save:
         plt.savefig(f'{cluster.name}/{cluster.name}_traceback.{save}')
+    
+    return ax2,wcs
 
 
 def plot_traceback(cluster,save=False,psr_circles=True):
@@ -1455,8 +1463,7 @@ def plot_traceback(cluster,save=False,psr_circles=True):
     my_members =find_cluster(stars_in_region,refCluster=cluster.name)
     my_members_coords = SkyCoord(ra=my_members['RA_ICRS_1'], dec=my_members['DE_ICRS_1'])
     my_members_pix_coords = wcs.world_to_pixel_values(my_members_coords.ra, my_members_coords.dec)
-    scatter_my_members, = ax2.plot(my_members_pix_coords[0],my_members_pix_coords[1],
-                                    '.',markersize=5, color='blue', label=f'{len(my_members)} My Members')
+    # scatter_my_members, = ax2.plot(my_members_pix_coords[0],my_members_pix_coords[1],'.',markersize=5, color='blue', label=f'{len(my_members)} My Members')
 
 
 
@@ -1501,11 +1508,13 @@ def plot_traceback(cluster,save=False,psr_circles=True):
 
     _ = search_arcmin.round(-1)/2 #round to the nearest 5 (by round first to nearest 10 and then divide by 2
     scalebar_length = ((_.to(u.rad))*(cluster.distance.to(u.m)).to(u.pc)).round(2)
+    # _ = str(round(_.value,2))+"'"
+
     __ = cluster.distance.value/1000
-    add_scalebar(ax2, _, color="yellow", label=f"or {scalebar_length.value}pc (at dist {__:.2f}kpc)", size_vertical=0.5)
+    add_scalebar(ax2, _, color="yellow", label=f"{_.value}' or {scalebar_length.value}pc (at {__:.2f}kpc)", size_vertical=0.5)
     x_min, x_max = ax2.get_xlim()
     y_min, y_max = ax2.get_ylim()
-    ax2.annotate(f"{_:.2f}", xy=(0.83*x_max,0.08*y_max), color='yellow', ha='center',fontweight='bold')
+    # ax2.annotate(f"{_:.2f}", xy=(0.83*x_max,0.08*y_max), color='yellow', ha='center',fontweight='bold')
 
     ax2.set_xlabel('Right Ascension (degrees)')
     ax2.set_ylabel('Declination (degrees)')
@@ -1638,18 +1647,19 @@ def plot_traceback(cluster,save=False,psr_circles=True):
             fig.canvas.draw()
 
     legend = ax2.legend(loc='upper right')
-    scatter_stars_in_region_legend, scatter_dias_members_legend,scatter_my_members_legend = legend.get_lines()
+    # scatter_stars_in_region_legend, scatter_dias_members_legend,scatter_my_members_legend = legend.get_lines()
+    scatter_stars_in_region_legend, scatter_dias_members_legend = legend.get_lines()
     scatter_stars_in_region_legend.set_picker(True)
     scatter_stars_in_region_legend.set_pickradius(10)
     scatter_dias_members_legend.set_picker(True)
     scatter_dias_members_legend.set_pickradius(10)
-    scatter_my_members_legend.set_picker(True)
-    scatter_my_members_legend.set_pickradius(10)
+    # scatter_my_members_legend.set_picker(True)
+    # scatter_my_members_legend.set_pickradius(10)s
 
     graphs = {}
     graphs[scatter_stars_in_region_legend] = scatter_stars_in_region
     graphs[scatter_dias_members_legend] = scatter_dias_members
-    graphs[scatter_my_members_legend] = scatter_my_members
+    # graphs[scatter_my_members_legend] = scatter_my_members
 
 
     # colorbar = fig.colorbar(scatter_runaways_all,ax=ax2)
@@ -1821,7 +1831,7 @@ def nearest_cluster(objectname, output=False):
     # Calculate the angular separation for each cluster in the table
     separations = []
     for row in cluster_table:
-        cluster_coord = SkyCoord(ra=row['RA_ICRS'], dec=row['DE_ICRS'], unit=(u.deg, u.deg), frame='icrs')
+        cluster_coord = SkyCoord(ra=row['RA_ICRS'], dec=row['DE_ICRS'], distance=row['Dist'], unit=(u.deg, u.deg), frame='icrs')
         separation = target_coord.separation(cluster_coord).deg
         separations.append(separation)
 
