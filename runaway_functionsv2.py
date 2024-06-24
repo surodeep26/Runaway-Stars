@@ -780,7 +780,7 @@ def theoretical_isochrone(cluster,Av=None,logage=None,FeH=None,output=None, prin
         #Phtotometric System #from config
         photometricSystem = Select(browser.find_element(By.XPATH,"//select[@name='photsys_file']")) #dropdown list for available photometric systems
         photometricSystem.select_by_value("YBC_tab_mag_odfnew/tab_mag_gaiaEDR3.dat") # Gaia EDR3 bands
-        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[2]/table/tbody/tr[5]/td[1]/input").click() #for PARSEC 2.0 #As above, but adopting revised SED for Vega from Bohlin et al. (2020) (namely CALSPEC alpha_lyr_stis_010.fits).
+        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[2]/table/tbody/tr[5]/td[1]/input").click() # VBC +new Vega for PARSEC 2.0 #As above, but adopting revised SED for Vega from Bohlin et al. (2020) (namely CALSPEC alpha_lyr_stis_010.fits).
         #Phtotometric System #from config
         #Circumstellar Dust 
         browser.find_element(By.XPATH,"/html/body/form/div/fieldset[3]/font/table/tbody/tr[3]/td[1]/input").click() #for M stars: No dust
@@ -847,7 +847,7 @@ def theoretical_isochrone(cluster,Av=None,logage=None,FeH=None,output=None, prin
         return theoretical_data
 
 
-def get_runaways(cluster,fs,theoretical_data,separation_factor=2):
+def get_runaways(cluster,fs,theoretical_data,separation_factor=2,dist_filter_factor=1):
     """
     Selects stars from the input astropy table fs which are runaway star candidates by tracing them back to the cluster.
     If the stars happens to be in the cluster in the past 100kyr then it is selected to be a candidate.
@@ -960,7 +960,11 @@ def get_runaways(cluster,fs,theoretical_data,separation_factor=2):
             return max(range1[0], range2[0]) <= min(range1[1], range2[1])
 
         # Given range
-        range2 = (cluster.all['Dist']-cluster.all['e_Dist'], cluster.all['Dist']+cluster.all['e_Dist'])
+        if dist_filter_factor==1:
+            range2 = (cluster.all['Dist']-cluster.all['e_Dist'], cluster.all['Dist']+cluster.all['e_Dist'])
+        else:
+            range2 = (cluster.all['Dist']-dist_filter_factor*cluster.all['e_Dist'], 
+                      cluster.all['Dist']+dist_filter_factor*cluster.all['e_Dist'])
 
         mask = [check_intersection((row['b_rgeo'], row['B_rgeo']), range2) for row in run]
 
@@ -1230,7 +1234,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         plt.savefig(f'{cluster.name}/{cluster.name}_cmd.{save}')
     return ax1
 
-def runCode(cluster,save='png',psr=False,separation_factor=2,**kwargs):
+def runCode(cluster,save='png',psr=False,separation_factor=2,dist_filter_factor=1,**kwargs):
     if isinstance(cluster,str):
         cluster = Cluster(cluster)
 
@@ -1241,7 +1245,7 @@ def runCode(cluster,save='png',psr=False,separation_factor=2,**kwargs):
     theoretical_data = theoretical_isochrone(cluster,output="table",printing=False,**kwargs)
     print(f'{cluster.name+": traceback":->50}'+f'{"":-<50}')
     fs = cluster.read_table('fs')
-    runaways_all = get_runaways(cluster,fs,theoretical_data,separation_factor)
+    runaways_all = get_runaways(cluster,fs,theoretical_data,separation_factor,dist_filter_factor)
     # display(runaways_all)
     mask = [T > config['runaway_temp'] for T in runaways_all['Temp. Est']]
     runaways = runaways_all[mask]
@@ -1254,13 +1258,13 @@ def runCode(cluster,save='png',psr=False,separation_factor=2,**kwargs):
     plot_traceback_clean(cluster,save=save, separation_factor=separation_factor)
     print(f"{len(runaways)} Runaway(s) found",runaways)
 
-def reRunCode(cluster,separation_factor, **kwargs):
+def reRunCode(cluster,separation_factor=2,dist_filter_factor=1, **kwargs):
     if isinstance(cluster, str):
         cluster = Cluster(cluster)
     elif isinstance(cluster, Cluster):
         cluster = cluster
     cluster.clean()
-    runCode(cluster,separation_factor=separation_factor, **kwargs)
+    runCode(cluster,separation_factor=separation_factor,dist_filter_factor=dist_filter_factor, **kwargs)
 
 
 def plot_traceback_clean(cluster,save=False, separation_factor=False):
