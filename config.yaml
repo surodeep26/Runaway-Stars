@@ -24,8 +24,8 @@ sigma_clip: 1.6 #for b97
 plx_quality: 10
 
 #PSR search:
-psr_extra: 70 #pc around the cluster edge
-psr_radial_tolerance: 0.4 # i.e., 40% distance tolerance
+psr_extra: 80 #pc around the cluster edge
+psr_radial_tolerance: 0.5 # i.e., 40% distance tolerance
 
 
 #runaways
