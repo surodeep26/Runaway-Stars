@@ -57,7 +57,8 @@ from IPython.display import display, Math
 import yaml
 from astropy.stats import sigma_clip
 matplotlib.rcParams.update({'font.size': 12})
-
+def simbad(keyword:str):
+    return IFrame(f"https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={keyword}+&submit=SIMBAD+search", 1400,500)
 
 
 
@@ -87,7 +88,7 @@ class Cluster:
         self.coordinates = SkyCoord(ra=self.cluster_table['RA_ICRS'],dec=self.cluster_table['DE_ICRS'],pm_ra_cosdec=self.cluster_table['pmRA'],pm_dec=self.cluster_table['pmDE'],obstime=ti)[0]
         self.diameter = self.cluster_table['Diameter'][0]*u.arcmin
         self.diameter_dias = (self.cluster_table['r50'][0]*u.deg*2).to(u.arcmin)
-        self.distance = self.cluster_table['Dist'][0]*u.pc
+        self.dias_distance = self.cluster_table['Dist'][0]*u.pc
         self.Pmemb = Pmemb
         self.PlxQuality = PlxQuality
 
@@ -216,7 +217,7 @@ class Cluster:
         Quantity: The search arcminute value.
         """
         theta = self.diameter / 2  # radius of the cluster in arcmin
-        D = self.distance  # Assuming you have a 'distance' attribute in your Cluster class
+        D = self.dias_distance  # Assuming you have a 'distance' attribute in your Cluster class
         r = np.tan(theta) * D
         # display(r)
         search_arcmin = np.arctan((r + extra * u.pc) / D)
@@ -367,8 +368,8 @@ class Cluster:
         else:
             print(f'Querying VizieR {config["cat_star_distances"]} \n at: {self.coordinates.ra}, {self.coordinates.dec} \n within: {self.calculate_search_arcmin()}')
 
-            _l = (1-config['distance_tolerance'])*self.distance.value
-            _u = (1+config['distance_tolerance'])*self.distance.value
+            _l = (1-config['distance_tolerance'])*self.dias_distance.value
+            _u = (1+config['distance_tolerance'])*self.dias_distance.value
             _filter = {'rgeo':f'>{_l} && <{_u}'}
             print(f'Filters: \n {_filter}')
 
@@ -1103,7 +1104,8 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         cell.set_linewidth(0.5)  # Set the border width
         cell.set_edgecolor('lightgray')  # Set the border color
     # Scatter runaways
-    runaways_all = cluster.read_table('runaways_all')
+    # runaways_all = cluster.read_table('runaways_all')
+    runaways_all = cluster.read_table('runaways') #self runaways
     #recalculate temperatures for different theoretical isochrone
     td = theoretical_isochrone(cluster,output='table',**kwargs,printing=False)
     print(f"calculating temperatures based on: {kwargs}")
@@ -1709,11 +1711,11 @@ def plot_pm(cluster):
         label_all_run = rf'{len(runaways_all)} Runaway(s) $T_{{max}}$ = {max(runaways_all["Temp. Est"]):,.0f} K'
     except:
         label_all_run = rf'{len(runaways_all)} Runaway(s)'
-    ax3.scatter(runaways_all['pmRA'],runaways_all['pmDE'],s=12,alpha=0.7, 
+    ax3.scatter(runaways_all['pmRA'],runaways_all['pmDE'],s=10,alpha=0.7, 
             c=runaways_all['Temp. Est'],
             cmap='spring_r',norm=plt.Normalize(4000, 23000),
             label=label_all_run)
-    scatter_main = ax3.scatter(runaways['pmRA'],runaways['pmDE'],picker=True,s=30, 
+    scatter_main = ax3.scatter(runaways['pmRA'],runaways['pmDE'],picker=True,s=40, 
                             c=runaways['Temp. Est'],cmap='spring_r',norm=plt.Normalize(4000, 23000),
                             label=rf'{len(runaways)} Runaway(s) with T > {config["runaway_temp"]:,} K')
     
