@@ -1781,42 +1781,59 @@ def plot_pm(cluster):
     ax3.set_title("Proper Motions")
     ax3.legend(loc="upper left")
 
-def search_psr(cluster,extra=config['psr_extra'],radial_tolerance=config['psr_radial_tolerance'],save=True):
-    if isinstance(cluster,str):
+def search_psr(cluster, extra=config['psr_extra'], radial_tolerance=config['psr_radial_tolerance'], save=True):
+    # Check if cluster is a string
+    if isinstance(cluster, str):
         cluster = Cluster(cluster)
-        print(f'{"Searching pulsars near":->50}'+f' {cluster.name:-<50}')
+        print(f'{"Searching pulsars near":->50}' + f' {cluster.name:-<50} RA:{cluster_coord.ra} DE:{cluster_coord.dec}')
+    
+    # Check if cluster is an instance of Cluster
+    elif isinstance(cluster, Cluster):
+        cluster = cluster
+        print(f'{"Searching pulsars near":->50}' + f' {cluster.name:-<50} RA:{cluster_coord.ra} DE:{cluster_coord.dec}')
+    
+    # Check if cluster is an instance of SkyCoord
+    elif isinstance(cluster, SkyCoord):
+        cluster_coord = cluster
+        print(f'{"Searching pulsars near coordinates":->50}RA:{cluster_coord.ra} DE:{cluster_coord.dec}')
+    
+    # Invalid type for cluster
+    else:
+        raise TypeError("cluster must be a string, Cluster, or SkyCoord object")
 
-    elif isinstance(cluster,Cluster):
-        cluster=cluster
-        print(f'{"Searching pulsars near":->50}'+f' {cluster.name:-<50}')
+    # Handle case when cluster is a Cluster object
+    if isinstance(cluster, Cluster):
+        cluster_coord = cluster.coordinates
+        print(f'({extra} pc from cluster edge, {radial_tolerance * 100:.0f}% radial tolerance around distance {cluster.distance.to(u.kpc)})')
 
+    cluster_coord_ra_str = cluster_coord.ra.to_string(unit='hourangle', sep=':', precision=3, pad=True)
+    cluster_coord_dec_str = cluster_coord.dec.to_string(unit='degree', sep=':', precision=3, pad=True)
 
-    print(f'({extra} pc from cluster edge, {radial_tolerance*100:.0f}% radial tolerance around distance {cluster.distance.to(u.kpc)})')
-
-    cluster_coord_ra_str = cluster.coordinates.ra.to_string(unit='hourangle', sep=':', precision=3, pad=True)
-    cluster_coord_dec_str = cluster.coordinates.dec.to_string(unit='degree', sep=':', precision=3, pad=True)
-
-    psr_search_deg = cluster.calculate_search_arcmin(extra=extra).to(u.deg).value
-    c = [cluster_coord_ra_str,cluster_coord_dec_str,psr_search_deg]
-    query = QueryATNF(params=['NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX','P0','P1'], circular_boundary=c)
+    psr_search_deg = cluster.calculate_search_arcmin(extra=extra).to(u.deg).value if isinstance(cluster, Cluster) else (extra / 60.0)
+    c = [cluster_coord_ra_str, cluster_coord_dec_str, psr_search_deg]
+    query = QueryATNF(params=['NAME', 'JNAME', 'RAJD', 'DECJD', 'DIST', 'DIST_DM', 'AGE', 'PMRA', 'PMDEC', 'S400', 'ASSOC', 'AGE_I', 'PX', 'P0', 'P1'], circular_boundary=c)
     print(f'{len(query.table)} Pulsar(s) within {psr_search_deg:.2f} degrees ({extra} pc)')
 
-    r_close = (1-radial_tolerance)*cluster.distance.to(u.kpc).value
-    r_far = (1+radial_tolerance)*cluster.distance.to(u.kpc).value
+    r_close = (1 - radial_tolerance) * cluster.distance.to(u.kpc).value if isinstance(cluster.distance, astropy.coordinates.distances.Distance) else 0
+    r_far = (1 + radial_tolerance) * cluster.distance.to(u.kpc).value if isinstance(cluster.distance, astropy.coordinates.distances.Distance) else float('inf')
 
-    dist_filtered_psr_table = query.table[(query.table['DIST']>r_close) & (query.table['DIST']<r_far)]
-    psr_coords = SkyCoord(ra = dist_filtered_psr_table['RAJD'], dec = dist_filtered_psr_table['DECJD'],pm_ra_cosdec = dist_filtered_psr_table['PMRA'],pm_dec = dist_filtered_psr_table['PMDEC'])
-    psr_sep = psr_coords.separation(cluster.coordinates).to(u.arcmin)
-    dist_filtered_psr_table.add_column(psr_sep,name='Separation')
+    dist_filtered_psr_table = query.table[(query.table['DIST'] > r_close) & (query.table['DIST'] < r_far)]
+    psr_coords = SkyCoord(ra=dist_filtered_psr_table['RAJD'], dec=dist_filtered_psr_table['DECJD'], pm_ra_cosdec=dist_filtered_psr_table['PMRA'], pm_dec=dist_filtered_psr_table['PMDEC'])
+    psr_sep = psr_coords.separation(cluster_coord).to(u.arcmin)
+    dist_filtered_psr_table.add_column(psr_sep, name='Separation')
     dist_filtered_psr_table.sort('Separation')
     dist_filtered_psr_table['AGE'] = dist_filtered_psr_table['AGE'].to(u.kyr)
     dist_filtered_psr_table['AGE_I'] = dist_filtered_psr_table['AGE_I'].to(u.kyr)
     print(f'Of which {len(dist_filtered_psr_table)} Pulsar(s) from {r_close:.2f} kpc to {r_far:.2f} kpc')
-    # display(dist_filtered_psr_table['Separation','NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX'])
-    maintable = dist_filtered_psr_table['Separation','NAME','JNAME','RAJD','DECJD','DIST','DIST_DM','AGE','PMRA','PMDEC','S400','ASSOC','AGE_I','PX']
+    
+    maintable = dist_filtered_psr_table['Separation', 'NAME', 'JNAME', 'RAJD', 'DECJD', 'DIST', 'DIST_DM', 'AGE', 'PMRA', 'PMDEC', 'S400', 'ASSOC', 'AGE_I', 'PX']
+    
     if save:
-        maintable.write(f'{cluster.name}/{cluster.name}_psrs.tsv',format='ascii.ecsv',overwrite=True)
-        maintable.to_pandas().to_excel(os.path.join(cluster.name,f'{cluster.name}_psrs.xlsx'), index=False)
+        dir_name = cluster.name if isinstance(cluster, Cluster) else 'SkyCoord_Search'
+        os.makedirs(dir_name, exist_ok=True)
+        maintable.write(f'{dir_name}/{dir_name}_psrs.tsv', format='ascii.ecsv', overwrite=True)
+        maintable.to_pandas().to_excel(os.path.join(dir_name, f'{dir_name}_psrs.xlsx'), index=False)
+    
     return maintable
     #add distance from cluster column
 def nearest_cluster(objectname, output=False):
