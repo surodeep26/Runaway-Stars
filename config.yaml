@@ -1,6 +1,9 @@
 # Cluster
+# Dias J/MNRAS/504/356/table12
+# Cantat-Gaudin J/A+A/633/A99/table1
 Cluster:
-  clustername: 'Berkeley_97'
+  clustername: 'Berkeley_97' 
+
   #search
   search_extent: 10 #pc
 
@@ -24,8 +27,8 @@ sigma_clip: 1.6 #for b97
 plx_quality: 10
 
 #PSR search:
-psr_extra: 80 #pc around the cluster edge
-psr_radial_tolerance: 0.5 # i.e., 40% distance tolerance
+psr_extra: 70 #pc around the cluster edge
+psr_radial_tolerance: 0.4 # i.e., 40% distance tolerance
 
 
 #runaways
