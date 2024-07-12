@@ -63,6 +63,7 @@ def simbad(keyword:str):
 
 
 cluster_list = Table.read('Clusters_from_dias_and_a99', format='ascii.ecsv')
+cluster_list_mod = Table.read('Clusters_from_dias_and_a99_mod', format='ascii.ecsv')
 def read_yaml_file(file_path):
     '''
     Read the configuration file for the rest of the code. 
@@ -81,6 +82,15 @@ class Cluster:
         add_members: Gaia sourceIDs of new members to be added to the cluster, only works with the default `version='dr3'`
         '''
         # Assuming 'cluster_list' is a predefined list containing your Astropy table
+        cluster_list = Table.read('Clusters_from_dias_and_a99', format='ascii.ecsv')
+        cluster_list_mod = Table.read('Clusters_from_dias_and_a99_mod', format='ascii.ecsv')
+        if cluster_list[cluster_list['Cluster'] == cluster_name][0] == cluster_list_mod[cluster_list_mod['Cluster'] == cluster_name][0]:
+            cluster_list = cluster_list
+            print('Original Data')
+        else:
+            cluster_list = cluster_list_mod
+            print('Modified Data')
+
         self.cluster_table = cluster_list[cluster_list['Cluster'] == cluster_name]
         self.all = self.cluster_table[0]
         self.name = self.cluster_table['Cluster'][0]
@@ -151,6 +161,43 @@ class Cluster:
         self.N = len(dr3dias)
         self.runaways = self.read_table('runaways')
         self.runaways_all = self.read_table('runaways_all')
+    
+    def changeParam(self,change: tuple):
+        param,new_value = change
+
+        _old_value  = cluster_list[cluster_list['Cluster'] == self.name][0][param]
+        cluster_list_mod[param][cluster_list_mod['Cluster'] == self.name] = new_value
+        cluster_list_mod.write('Clusters_from_dias_and_a99_mod', format='ascii.ecsv', overwrite=True)
+        print(f'Changed {param} from {_old_value} --> {new_value}')
+    
+
+    def restoreParam(self, param: str):
+        # Read the original and modified tables
+        cluster_list_original = Table.read('Clusters_from_dias_and_a99', format='ascii.ecsv')
+        cluster_list_modified = Table.read('Clusters_from_dias_and_a99_mod', format='ascii.ecsv')
+        # Get the name of the cluster
+        cluster_name = self.name
+        if param == 'all':
+            # Iterate over all columns in the original table
+            for column in cluster_list_original.colnames:
+                # Get the original value for the current column
+                original_value = cluster_list_original[cluster_list_original['Cluster'] == cluster_name][0][column]
+                # Get the current value for the current column in the modified table (for logging)
+                current_value = cluster_list_modified[cluster_list_modified['Cluster'] == cluster_name][0][column]
+                # Restore the original value in the modified table
+                cluster_list_modified[column][cluster_list_modified['Cluster'] == cluster_name] = original_value
+                if current_value != original_value:
+                    print(f'Restored {column}: current {current_value} --> {original_value}')
+        else:
+            # Handle the case for a single parameter as before
+            original_value = cluster_list_original[cluster_list_original['Cluster'] == cluster_name][0][param]
+            current_value = cluster_list_modified[cluster_list_modified['Cluster'] == cluster_name][0][param]
+            
+            cluster_list_modified[param][cluster_list_modified['Cluster'] == cluster_name] = original_value
+            print(f'Restored {param}: current {current_value} --> {original_value}')
+        # Save the modified table
+        cluster_list_modified.write('Clusters_from_dias_and_a99_mod', format='ascii.ecsv', overwrite=True)
+
     
     def dias_members(self,memb_prob=0):
         dias_members = Table.read(f'./Clusters_Dias/{self.name}.dat', format='ascii.tab')
@@ -961,8 +1008,9 @@ def get_runaways(cluster,fs,theoretical_data,separation_factor=2,dist_filter_fac
             return max(range1[0], range2[0]) <= min(range1[1], range2[1])
 
         # Given range
-        if dist_filter_factor==1:
-            range2 = (cluster.all['Dist']-cluster.all['e_Dist'], cluster.all['Dist']+cluster.all['e_Dist'])
+        if dist_filter_factor==None:
+            range2 = (0, 
+                      15000)
         else:
             range2 = (cluster.all['Dist']-dist_filter_factor*cluster.all['e_Dist'], 
                       cluster.all['Dist']+dist_filter_factor*cluster.all['e_Dist'])
@@ -1104,8 +1152,8 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
         cell.set_linewidth(0.5)  # Set the border width
         cell.set_edgecolor('lightgray')  # Set the border color
     # Scatter runaways
-    # runaways_all = cluster.read_table('runaways_all')
-    runaways_all = cluster.read_table('runaways') #self runaways
+    runaways_all = cluster.read_table('runaways_all') #plot all runaways
+    # runaways_all = cluster.read_table('runaways') #plot main runaways
     #recalculate temperatures for different theoretical isochrone
     td = theoretical_isochrone(cluster,output='table',**kwargs,printing=False)
     print(f"calculating temperatures based on: {kwargs}")
@@ -1785,7 +1833,7 @@ def search_psr(cluster, extra=config['psr_extra'], radial_tolerance=config['psr_
     # Check if cluster is a string
     if isinstance(cluster, str):
         cluster = Cluster(cluster)
-        print(f'{"Searching pulsars near":->50}' + f' {cluster.name:-<50} RA:{cluster_coord.ra} DE:{cluster_coord.dec}')
+        print(f'{"Searching pulsars near":->50}' + f' {cluster.name:-<50} RA:{cluster.coordinates.ra} DE:{cluster.coordinates.dec}')
     
     # Check if cluster is an instance of Cluster
     elif isinstance(cluster, Cluster):
