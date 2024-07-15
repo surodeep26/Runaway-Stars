@@ -100,7 +100,10 @@
 #   meta: !!omap
 #   - {ucd: CODE_MISC}
 #   - {width: 5}
-# meta: {ID: I_352_gedr3dis, description: Estimating distances from parallaxes (1467744818 sources), name: I/352/gedr3dis}
+# meta: !!omap
+# - {ID: I_352_gedr3dis}
+# - {description: Estimating distances from parallaxes (1467744818 sources)}
+# - {name: I/352/gedr3dis}
 # schema: astropy-2.0
 _r Source RA_ICRS DE_ICRS rgeo b_rgeo B_rgeo rpgeo b_rpgeo B_rpgeo Flag
 0.1428 2008383298101195648 339.85209556637 59.00250623513 2343.69507 2023.15747 2774.23853 2081.80615 1870.45386 2435.6106 10033
