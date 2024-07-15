@@ -222,8 +222,11 @@
 #   - {width: 8}
 #   - {precision: '4'}
 #   - values: {'null': .nan}
-# meta: {ID: J_MNRAS_504_356_table12, description: Results of mean astrometric parameters obtained using the Gaia DR2 stellar proper motion
-#     and parallaxes (table 1) and fundamental parameters obtained from the isochrone fits (table2), name: J/MNRAS/504/356/table12}
+# meta: !!omap
+# - {ID: J_MNRAS_504_356_table12}
+# - {description: Results of mean astrometric parameters obtained using the Gaia DR2 stellar proper motion and parallaxes (table 1) and
+#     fundamental parameters obtained from the isochrone fits (table2)}
+# - {name: J/MNRAS/504/356/table12}
 # schema: astropy-2.0
 Cluster RA_ICRS DE_ICRS r50 N pmRA e_pmRA pmDE e_pmDE Plx e_Plx RV e_RV NRV Dist e_Dist logage e_logage __Fe_H_ e__Fe_H_ Av e_Av FileName SimbadName _RA.icrs _DE.icrs
 ASCC_10 51.8737 35.0113 0.498 31 -1.704 0.168 -1.348 0.141 1.465 0.082 -10.87 5.243 3 643 30 8.178 0.155 0.109 0.1 0.82 0.11 clusters1/ASCC_10.dat "[KPR2005] 10" 51.8737 35.0113
