@@ -1090,7 +1090,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     iso_4_temp = ', '.join(pairs)
     print('iso_4_temp0', iso_4_temp0)
     print('iso_4_temp', iso_4_temp)
-    if (not multiple) and (iso_4_temp0!=iso_4_temp):
+    if ((not multiple) and (iso_4_temp0!=iso_4_temp)) or (cluster_list[cluster_list['Cluster'] == cluster.name][0] != cluster_list_mod[cluster_list_mod['Cluster'] == cluster.name][0]):
         lines[0].set_label('Dias Theoretical Isochrone (modified)')
     if (not multiple) and (iso_4_temp0==iso_4_temp):
         lines[0].set_label('Dias Theoretical Isochrone')

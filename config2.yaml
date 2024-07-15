@@ -1,0 +1,4 @@
+Cluster:
+  clustername: 'Berkeley_97' 
+  search_extent: 10 #pc
+  distance_tolerance: 0.2 #20% for distance tolerance of stars in the region
