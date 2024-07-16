@@ -57,17 +57,30 @@ class ClusterDias:
         self.RV, self.e_RV = cluster_row['RV'],cluster_row['e_RV']
         self.NRV = cluster_row['NRV']
 
-    def members(self, aslist=False):
+    def members(self) -> None:
         members = (Table.read(f'./Clusters_Dias/{self.name}.dat', format='ascii.tab'))[2:] #first two rows removed
+        mask_BPRP_exists = members['BP-RP'] != " ---   "
+        members = members[mask_BPRP_exists]
         members['Source'] = members['Source'].astype(np.int64)
         members['Pmemb'] = members['Pmemb'].astype(float)
-        members['Plx'] = members['Plx'].astype(float)
-        members['e_Plx'] = members['e_Plx'].astype(float)
-        if aslist:
-            members_list = list(members['Source'])
-            return members_list
-        else:
-            return members
+        members['Plx'] = members['Plx'].astype(float)*u.mas
+        members['e_Plx'] = members['e_Plx'].astype(float)*u.mas
+        members['RAdeg'] = members['RAdeg'].astype(float)*u.deg
+        members['DEdeg'] = members['DEdeg'].astype(float)*u.deg
+        members['pmRA'] = members['pmRA'].astype(float)*u.mas/u.yr
+        members['pmDE'] = members['pmDE'].astype(float)*u.mas/u.yr
+        members['e_pmRA'] = members['e_pmRA'].astype(float)*u.mas/u.yr
+        members['e_pmDE'] = members['e_pmDE'].astype(float)*u.mas/u.yr
+        members['Gmag'] = members['Gmag'].astype(float)*u.mag
+        members['e_Gmag'] = members['e_Gmag'].astype(float)*u.mag
+        members['BPmag'] = members['BPmag'].astype(float)*u.mag
+        members['e_BPmag'] = members['e_BPmag'].astype(float)*u.mag
+        members['RPmag'] = members['RPmag'].astype(float)*u.mag
+        members['e_RPmag'] = members['e_RPmag'].astype(float)*u.mag
+        members['BP-RP'] = members['BP-RP'].astype(float)*u.mag
+        members['e_BP-RP'] = members['e_BPmag']+members['e_RPmag']
+        members = members["RAdeg","DEdeg", "Source","Pmemb","Plx","e_Plx","pmRA","e_pmRA","pmDE","e_pmDE","Gmag","e_Gmag","BP-RP","e_BP-RP"]
+        return members
 
     def get_full_catalog() -> Table:
         dias2021 = Vizier.get_catalogs(catalog="J/MNRAS/504/356/table12")[0]
