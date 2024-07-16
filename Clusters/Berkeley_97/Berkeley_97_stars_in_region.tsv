@@ -384,8 +384,26 @@
 #   - {width: 15}
 #   - {precision: '8'}
 #   - values: {'null': .nan}
-# - {name: SkyCoord.pm_ra_cosdec, unit: mas / yr, datatype: float64}
-# - {name: SkyCoord.pm_dec, unit: mas / yr, datatype: float64}
+# - name: SkyCoord.pm_ra_cosdec
+#   unit: mas / yr
+#   datatype: float64
+#   format: '{:15.8f}'
+#   description: '? Median of the geometric distance posterior (r_med_geo)'
+#   meta: !!omap
+#   - {ucd: PHYS_DISTANCE_TRUE}
+#   - {width: 15}
+#   - {precision: '8'}
+#   - values: {'null': .nan}
+# - name: SkyCoord.pm_dec
+#   unit: mas / yr
+#   datatype: float64
+#   format: '{:15.8f}'
+#   description: '? Median of the geometric distance posterior (r_med_geo)'
+#   meta: !!omap
+#   - {ucd: PHYS_DISTANCE_TRUE}
+#   - {width: 15}
+#   - {precision: '8'}
+#   - values: {'null': .nan}
 # meta: !!omap
 # - {ID: I_352_gedr3dis}
 # - {name: I/352/gedr3dis}
@@ -394,7 +412,7 @@
 #     SkyCoord:
 #       __class__: astropy.coordinates.sky_coordinate.SkyCoord
 #       dec: !astropy.table.SerializedColumn
-#         __class__: astropy.coordinates.angles.core.Latitude
+#         __class__: astropy.coordinates.angles.Latitude
 #         unit: &id001 !astropy.units.Unit {unit: deg}
 #         value: !astropy.table.SerializedColumn {name: SkyCoord.dec}
 #       distance: !astropy.table.SerializedColumn
@@ -412,7 +430,7 @@
 #         unit: !astropy.units.Unit {unit: mas / yr}
 #         value: !astropy.table.SerializedColumn {name: SkyCoord.pm_ra_cosdec}
 #       ra: !astropy.table.SerializedColumn
-#         __class__: astropy.coordinates.angles.core.Longitude
+#         __class__: astropy.coordinates.angles.Longitude
 #         unit: *id001
 #         value: !astropy.table.SerializedColumn {name: SkyCoord.ra}
 #         wrap_angle: !astropy.coordinates.Angle
