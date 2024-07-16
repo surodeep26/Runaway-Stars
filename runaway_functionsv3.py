@@ -1,4 +1,5 @@
 import os
+import astropy
 import numpy as np
 from astropy import units as u
 from astroquery.vizier import Vizier
@@ -11,6 +12,7 @@ import time
 import logging
 from typing import List
 import yaml
+from astropy.stats import sigma_clip
 def read_yaml_file(file_path):
     '''
     Read the configuration file for the rest of the code. 
@@ -107,16 +109,17 @@ class ClusterCG:
         
 class Cluster:
     def __init__(self, name:str) -> None:
+        if not os.path.exists(f'Clusters/{name}'):
+            os.mkdir(f'Clusters/{name}')
         clusterDias = ClusterDias(name=name)
         clusterCG = ClusterCG(name=name)
         self.name = name
         self.ra = clusterDias.skycoord.ra
         self.dec = clusterDias.skycoord.dec
-        self.distance = clusterDias.skycoord.distance #to be changed DR3
+        self.distance = clusterDias.skycoord.distance #don't delete, need for calculating and searching stars in the region
         self.r50 = clusterCG.r50
         self.search_arcmin = search_arcmin(self.distance, self.r50)
         # self.r50_phy = np.tan(self.r50) * self.distance #to be changed DR3
-        self.distance =10*u.pc
         if os.path.exists(f"Clusters/{self.name}/{self.name}_members.tsv"):
             self.mymembers = Table.read(f"Clusters/{self.name}/{self.name}_members.tsv", format="ascii.ecsv")
         else:
@@ -249,11 +252,40 @@ class Cluster:
 
 
 
+def find_cluster(stars_in_region: astropy.table.Table, sigma: float = config['find_cluster']['sigma_clip']) -> astropy.table.Table: 
+    """
+    Takes input as an astropy table with one column called SkyCoord conatining the ra,dec,distance,pm_ra_cosdec,pm_dec.
+    Sigma clips the outliers unit the desired sigma value, saving only the cluster members.
+    make sure to put only the ones with >10 plx_quality to ensure effictiveness
+    ## input:
+    astropy table with one column called SkyCoord conatining the ra,dec,distance,pm_ra_cosdec,pm_dec
+    ## returns:
+    astropy table with cluster members, sorted according to decreadsing brightness
+    ## Example Usage:
+    >>> cluster = Cluster('Berkeley_97') 
+    >>> sir = cluster.stars_in_region() #get a stars in region table
+    >>> my_cluster = find_cluster(sir)
+    >>> display(my_cluster)
+    """
+    # mask_clip_RA = ~sigma_clip(stars_in_region['SkyCoord'].ra.value,sigma=sigma).mask
+    # mask_clip_DE = ~sigma_clip(stars_in_region['SkyCoord'].dec.value,sigma=sigma).mask
+    mask_clip_pmRA = ~sigma_clip(stars_in_region['SkyCoord'].pm_ra_cosdec.value,sigma=sigma).mask
+    mask_clip_pmDE = ~sigma_clip(stars_in_region['SkyCoord'].pm_dec.value,sigma=sigma).mask
+    mask_clip_rgeo = ~sigma_clip(stars_in_region['SkyCoord'].distance.value,sigma=sigma).mask
+    # mask_plx_quality = ~sigma_clip(stars_in_region['Plx']/stars_in_region['e_Plx'].value,sigma=sigma).mask
+    my_stars = stars_in_region[
+                            #    mask_plx_quality&
+                            #    mask_clip_RA&
+                            #    mask_clip_DE&
+                               mask_clip_pmRA&
+                               mask_clip_pmDE&
+                               mask_clip_rgeo
+                               ]
+    # print(f"{len(my_stars)} kinematic members")
+    my_stars.sort("Gmag")
+    return my_stars
 
 
-
-
-# Configure logging
 def search_arcmin(distance, radius:Angle, extra=config['Cluster']['search_extent']):
     theta = radius
     D = distance
@@ -327,6 +359,8 @@ def merge_gaia_tables(stars_fromDR3: Table, stars_fromDR3_dist: Table) -> Table:
 
     # Adding row for uncertainties in Gmag and BPmag and RPmag
     # values for Gaia G, G_BP, G_RP zero point uncertainties
+    #refer https://astronomy.stackexchange.com/questions/38371/how-can-i-calculate-the-uncertainties-in-magnitude-like-the-cds-does
+    #refer https://www.cosmos.esa.int/web/gaia/edr3-passbands
     sigmaG_0 = 0.0027553202
     sigmaGBP_0 = 0.0027901700
     sigmaGRP_0 = 0.0037793818

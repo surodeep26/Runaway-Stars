@@ -1,9 +1,13 @@
 Cluster:
   search_extent: 10 #pc
-  distance_tolerance: 0.6 #20% for distance tolerance of stars in the region
+  distance_tolerance: 0.2 #20% for distance tolerance of stars in the region
   pmemb: 0.8
   plxquality: 10
 
 added_members:
   Berkeley_97: [2008383302396655488]
+  Basel_8: [3326048448124872320, 3326023842254469120]
   RSG_8: [2013579250758906240]
+
+find_cluster:
+  sigma_clip: 1.5
