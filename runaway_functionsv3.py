@@ -203,6 +203,51 @@ class Cluster:
             stars_in_region = self.get_stars_in_region()
             stars_in_region.write(stars_in_region_path, format='ascii.ecsv')
         return stars_in_region
+    
+    def fast_stars_in_region(self):
+        sir = self.stars_in_region()
+        sir['rmRA'] = sir['pmRA']-self.pm_ra_cosdec
+        sir['rmDE'] = sir['pmDE']-self.pm_dec
+        sir['v_pec'] = 4.74*sir['rgeo'].value/1000*np.sqrt(((sir['rmRA'].value)**2+(sir['rmDE'].value)**2))*u.km/u.s
+        mask_fast = sir['v_pec'] > 17.6*u.km/u.s
+        return sir[mask_fast]
+    def gießler_input(self):
+        table = self.fast_stars_in_region()
+        g = Table()
+        g['TypeInput'] = np.ones_like(table['e_Plx'].value).astype(int)
+        g['RA'] = table['SkyCoord'].ra.to_string(unit='hourangle', sep=' ', precision=3, pad=True)
+        g['DE'] = table['SkyCoord'].dec.to_string(unit='degree', sep=' ', precision=3, pad=True)
+        g['Plx'] = table['rgeo'].to(u.mas, u.parallax())
+        g['e_Plx'] = table['e_Plx']
+        g['RV'] = np.zeros_like(table['e_Plx'].value).astype(int)
+        g['e_RV'] = np.zeros_like(table['e_Plx'].value).astype(int)
+        g['RVdist'] = np.zeros_like(table['e_Plx'].value).astype(int)
+        g['pmRA'] = table['pmRA']
+        g['e_pmRA'] = table['e_pmRA']
+        g['pmDE'] = table['pmDE']
+        g['e_pmDE'] = table['e_pmDE']
+        g['Source'] = table['Source'].astype(str)
+
+        new_row = [1,
+           self.ra.to_string(unit='hourangle', sep=' ', precision=3, pad=True),
+           self.dec.to_string(unit='degree', sep=' ', precision=3, pad=True),
+           ((self.all['Dist']*u.pc).to(u.mas, u.parallax())).value,
+           self.all['e_Plx'],
+           0,
+           0,
+           0,
+           self.all['pmRA'],
+           self.all['e_pmRA'],
+           self.all['pmDE'],
+           self.all['e_pmDE'],
+           self.name
+           ]
+        new_table = Table(names=g.colnames, dtype=[col.dtype for col in g.columns.values()])
+        new_table.add_row(new_row)
+        g = vstack([new_table,g])
+
+        g.write(f'Clusters/{self.name}/{self.name}_gießler.tsv', format='csv', delimiter='\t', overwrite=True)
+        return g
 
     def get_stars_in_region(self) -> Table:
         c = ClusterDias(self.name).skycoord
