@@ -164,14 +164,18 @@ class Cluster:
 
     def members(self, pmemb:float = config['Cluster']['pmemb'], plxquality:float = config['Cluster']['plxquality'], add_members:List = []):
         sr = self.stars_in_region()
-        diasmembers = ClusterDias(name=self.name).members()['Source','Pmemb']
+        diasmembers = (ClusterDias(name=self.name).members())['Source','Pmemb']
         #add the add_members in this with Pmemb=1
         configmembers = config.get('added_members',{}).get(self.name)
         print(f"{configmembers} found from config file") if configmembers is not None else None
-        add_members += configmembers if configmembers is not None else []
+        add_members = add_members + configmembers if configmembers is not None else []
+        #add_members += configmembers if configmembers is not None else []
+        #print(add_members)
 
         for mem_source in add_members:
+            #print(1)
             diasmembers.add_row([mem_source,1])
+        #display(diasmembers)
         members = join(sr, diasmembers, keys='Source', join_type='inner') #select the ones that dias says is a member
         print(f'{len(members)} out of {len(diasmembers)-len(add_members)} dias members found in search region')
         mask_pmemb = members['Pmemb'] >= pmemb
@@ -211,7 +215,7 @@ class Cluster:
         sir['v_pec'] = 4.74*sir['rgeo'].value/1000*np.sqrt(((sir['rmRA'].value)**2+(sir['rmDE'].value)**2))*u.km/u.s
         mask_fast = sir['v_pec'] > 17.6*u.km/u.s
         return sir[mask_fast]
-    def gießler_input(self):
+    def fs_to_giesler_trace(self):
         table = self.fast_stars_in_region()
         g = Table()
         g['TypeInput'] = np.ones_like(table['e_Plx'].value).astype(int)
@@ -246,7 +250,7 @@ class Cluster:
         new_table.add_row(new_row)
         g = vstack([new_table,g])
 
-        g.write(f'Clusters/{self.name}/{self.name}_gießler.tsv', format='csv', delimiter='\t', overwrite=True)
+        g.write(f'Clusters/{self.name}/{self.name}_fs4giesler.tsv', format='csv', delimiter='\t', overwrite=True)
         return g
 
     def get_stars_in_region(self) -> Table:
