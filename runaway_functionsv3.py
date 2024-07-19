@@ -227,8 +227,10 @@ class Cluster:
         g['DE'] = table['SkyCoord'].dec.to_string(unit='degree', sep=' ', precision=3, pad=True)
         g['Plx'] = table['rgeo'].to(u.mas, u.parallax())
         g['e_Plx'] = table['e_Plx']
-        g['RV'] = np.zeros_like(table['e_Plx'].value).astype(int)
-        g['e_RV'] = np.zeros_like(table['e_Plx'].value).astype(int)
+        # g['RV'] = np.zeros_like(table['e_Plx'].value).astype(int)
+        g['RV'] = table['RV']
+        # g['e_RV'] = np.zeros_like(table['e_Plx'].value).astype(int)
+        g['e_RV'] = table['e_RV']
         g['RVdist'] = np.zeros_like(table['e_Plx'].value).astype(int)
         g['pmRA'] = table['pmRA']
         g['e_pmRA'] = table['e_pmRA']
@@ -236,19 +238,21 @@ class Cluster:
         g['e_pmDE'] = table['e_pmDE']
         g['Source'] = table['Source'].astype(str)
 
+
+        #this is the first row for the cluster's motion
         new_row = [1,
-           self.ra.to_string(unit='hourangle', sep=' ', precision=3, pad=True),
-           self.dec.to_string(unit='degree', sep=' ', precision=3, pad=True),
-           ((self.all['Dist']*u.pc).to(u.mas, u.parallax())).value,
-           self.all['e_Plx'],
-           0,
-           0,
-           0,
-           self.all['pmRA'],
-           self.all['e_pmRA'],
-           self.all['pmDE'],
-           self.all['e_pmDE'],
-           self.name
+           self.ra.to_string(unit='hourangle', sep=' ', precision=3, pad=True), #ra
+           self.dec.to_string(unit='degree', sep=' ', precision=3, pad=True), #dec
+           ((self.all['Dist']*u.pc).to(u.mas, u.parallax())).value, #plx
+           self.all['e_Plx'], #e_plx
+           self.all['RV'], #RV
+           self.all['e_RV'], #e_RV
+           0, #RV_distribution
+           self.all['pmRA'], #pmRA
+           self.all['e_pmRA'], #e_pmRA
+           self.all['pmDE'], #pmDE
+           self.all['e_pmDE'], #e_pmDE
+           self.name #ID
            ]
         new_table = Table(names=g.colnames, dtype=[col.dtype for col in g.columns.values()])
         new_table.add_row(new_row)
@@ -257,6 +261,9 @@ class Cluster:
             g.write(f'Clusters/{self.name}/{self.name}_fs4giesler.tsv', format='csv', delimiter='\t', overwrite=True)
         elif outlocation=='remote':
             g.write(f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}/{self.name}_fs4giesler.tsv", format='csv', delimiter='\t', overwrite=True)
+            
+        g['RV'] = g['RV'].filled(0)
+        g['e_RV'] = g['e_RV'].filled(0) #fill masked values with 0
         return g
 
     def get_stars_in_region(self) -> Table:
