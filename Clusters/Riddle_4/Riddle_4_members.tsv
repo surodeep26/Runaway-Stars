@@ -1,0 +1,444 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - name: RA_ICRS_1
+#   unit: deg
+#   datatype: float64
+#   format: '{:15.11f}'
+#   description: Right ascension (ICRS) at Ep=2016.0 (ra)
+#   meta: !!omap
+#   - {ucd: POS_EQ_RA_MAIN}
+#   - {width: 15}
+#   - {precision: '11'}
+# - name: DE_ICRS_1
+#   unit: deg
+#   datatype: float64
+#   format: '{:15.11f}'
+#   description: Declination (ICRS) at Ep=2016.0 (dec)
+#   meta: !!omap
+#   - {ucd: POS_EQ_DEC_MAIN}
+#   - {width: 15}
+#   - {precision: '11'}
+# - name: e_RA_ICRS
+#   unit: mas
+#   datatype: float64
+#   format: '{:7.4f}'
+#   description: Standard error of right ascension (ra_error)
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 7}
+#   - {precision: '4'}
+# - name: e_DE_ICRS
+#   unit: mas
+#   datatype: float64
+#   format: '{:7.4f}'
+#   description: Standard error of declination (dec_error)
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 7}
+#   - {precision: '4'}
+# - name: _r_1
+#   unit: ''
+#   datatype: float64
+#   format: '{:7.4f}'
+#   description: Distance from center (031.85781692000+60.26269923000)[ICRS], at Epoch=J2016.0
+#   meta: !!omap
+#   - {ucd: POS_ANG_DIST_GENERAL}
+#   - {width: 7}
+#   - {precision: '4'}
+# - name: HIP
+#   datatype: int32
+#   description: '? HIP cross-id number, van Leeuwen, Cat. I/311 (hip_original_ext_source_id)'
+#   meta: !!omap
+#   - {ucd: ID_NUMBER}
+#   - {width: 6}
+#   - values: {'null': -2147483648}
+# - name: TYC2
+#   datatype: string
+#   description: Tycho-2 cross-id name, Hog et al., Cat. I/259 (tyc2_original_ext_source_id)
+#   meta: !!omap
+#   - {ucd: ID_CROSSID}
+#   - {_votable_string_dtype: char}
+# - name: Source
+#   datatype: int64
+#   description: Source identifier, identical to the Gaia-EDR3 source_id (id)
+#   meta: !!omap
+#   - {ucd: ID_MAIN}
+#   - {width: 19}
+# - name: rgeo
+#   unit: pc
+#   datatype: float64
+#   format: '{:15.8f}'
+#   description: '? Median of the geometric distance posterior (r_med_geo)'
+#   meta: !!omap
+#   - {ucd: PHYS_DISTANCE_TRUE}
+#   - {width: 15}
+#   - {precision: '8'}
+#   - values: {'null': .nan}
+# - name: Plx
+#   unit: mas
+#   datatype: float64
+#   format: '{:9.4f}'
+#   description: '? Parallax (parallax)'
+#   meta: !!omap
+#   - {ucd: POS_PARLX_TRIG}
+#   - {width: 9}
+#   - {precision: '4'}
+#   - values: {'null': .nan}
+# - name: e_Plx
+#   unit: mas
+#   datatype: float32
+#   format: '{:7.4f}'
+#   description: '? Standard error of parallax (parallax_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 7}
+#   - {precision: '4'}
+#   - values: {'null': .nan}
+# - name: pmRA
+#   unit: mas / yr
+#   datatype: float64
+#   format: '{:9.3f}'
+#   description: '? Proper motion in right ascension direction, pmRA*cosDE (pmra)'
+#   meta: !!omap
+#   - {ucd: POS_EQ_PMRA}
+#   - {width: 9}
+#   - {precision: '3'}
+#   - values: {'null': .nan}
+# - name: pmDE
+#   unit: mas / yr
+#   datatype: float64
+#   format: '{:9.3f}'
+#   description: '? Proper motion in declination direction (pmdec)'
+#   meta: !!omap
+#   - {ucd: POS_EQ_PMDEC}
+#   - {width: 9}
+#   - {precision: '3'}
+#   - values: {'null': .nan}
+# - name: e_pmRA
+#   unit: mas / yr
+#   datatype: float32
+#   format: '{:6.3f}'
+#   description: '? Standard error of proper motion in right ascension direction (pmra_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 6}
+#   - {precision: '3'}
+#   - values: {'null': .nan}
+# - name: e_pmDE
+#   unit: mas / yr
+#   datatype: float32
+#   format: '{:6.3f}'
+#   description: '? Standard error of proper motion in declination direction (pmdec_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 6}
+#   - {precision: '3'}
+#   - values: {'null': .nan}
+# - name: RUWE
+#   datatype: float64
+#   format: '{:7.3f}'
+#   description: '? Renormalised unit weight error (ruwe)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 7}
+#   - {precision: '3'}
+#   - values: {'null': .nan}
+# - name: Teff
+#   unit: K
+#   datatype: float64
+#   format: '{:7.1f}'
+#   description: '? Effective temperature from GSP-Phot Aeneas best library using BP/RP spectra (teff_gspphot)'
+#   meta: !!omap
+#   - {ucd: PHYS_TEMP_EFFEC}
+#   - {width: 7}
+#   - {precision: '1'}
+#   - values: {'null': .nan}
+# - name: logg
+#   unit: log(cm.s**-2)
+#   datatype: float64
+#   format: '{:7.4f}'
+#   description: '? Surface gravity from GSP-Phot Aeneas best library using BP/RP spectra (logg_gspphot)'
+#   meta: !!omap
+#   - {ucd: PHYS_GRAVITY_SURFACE}
+#   - {width: 7}
+#   - {precision: '4'}
+#   - values: {'null': .nan}
+# - name: Gmag
+#   unit: mag
+#   datatype: float64
+#   format: '{:9.6f}'
+#   description: '? G-band mean magnitude (phot_g_mean_mag)'
+#   meta: !!omap
+#   - {ucd: PHOT_MAG_OPTICAL}
+#   - {width: 9}
+#   - {precision: '6'}
+#   - values: {'null': .nan}
+# - name: BP-RP
+#   unit: mag
+#   datatype: float64
+#   format: '{:9.6f}'
+#   description: '? BP-RP colour (bp_rp)'
+#   meta: !!omap
+#   - {ucd: PHOT_CI_B-R}
+#   - {width: 9}
+#   - {precision: '6'}
+#   - values: {'null': .nan}
+# - name: BPmag
+#   unit: mag
+#   datatype: float64
+#   format: '{:9.6f}'
+#   description: '? Integrated BP mean magnitude (phot_bp_mean_mag)'
+#   meta: !!omap
+#   - {ucd: PHOT_MAG_B}
+#   - {width: 9}
+#   - {precision: '6'}
+#   - values: {'null': .nan}
+# - name: RPmag
+#   unit: mag
+#   datatype: float64
+#   format: '{:9.6f}'
+#   description: '? Integrated RP mean magnitude (phot_rp_mean_mag)'
+#   meta: !!omap
+#   - {ucd: PHOT_MAG_R}
+#   - {width: 9}
+#   - {precision: '6'}
+#   - values: {'null': .nan}
+# - name: RV
+#   unit: km / s
+#   datatype: float64
+#   format: '{:7.2f}'
+#   description: '? Radial velocity (radial_velocity)'
+#   meta: !!omap
+#   - {ucd: VELOC_BARYCENTER}
+#   - {width: 7}
+#   - {precision: '2'}
+#   - values: {'null': .nan}
+# - name: e_RV
+#   unit: km / s
+#   datatype: float32
+#   format: '{:5.2f}'
+#   description: '? Radial velocity error (radial_velocity_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 5}
+#   - {precision: '2'}
+#   - values: {'null': .nan}
+# - name: b_rgeo
+#   unit: pc
+#   datatype: float64
+#   format: '{:14.8f}'
+#   description: '? 16th percentile of the geometric distance posterior (r_lo_geo)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 14}
+#   - {precision: '8'}
+#   - values: {'null': .nan}
+# - name: B_rgeo
+#   unit: pc
+#   datatype: float64
+#   format: '{:14.8f}'
+#   description: '? 84th percentile of the geometric distance posterior (r_hi_geo)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 14}
+#   - {precision: '8'}
+#   - values: {'null': .nan}
+# - name: FG
+#   unit: ''
+#   datatype: float64
+#   format: '{:16.5f}'
+#   description: '? G-band mean flux (phot_g_mean_flux)'
+#   meta: !!omap
+#   - {ucd: PHOT_FLUX_OPTICAL}
+#   - {width: 16}
+#   - {precision: '5'}
+#   - values: {'null': .nan}
+# - name: e_FG
+#   unit: ''
+#   datatype: float32
+#   format: '{:11.4g}'
+#   description: '? Error on G-band mean flux (phot_g_mean_flux_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 11}
+#   - {precision: E4}
+#   - values: {'null': .nan}
+# - name: FBP
+#   unit: ''
+#   datatype: float32
+#   format: '{:11.4g}'
+#   description: '? Integrated BP mean flux (phot_bp_mean_flux)'
+#   meta: !!omap
+#   - {ucd: PHOT_FLUX_B}
+#   - {width: 11}
+#   - {precision: E4}
+#   - values: {'null': .nan}
+# - name: e_FBP
+#   unit: ''
+#   datatype: float32
+#   format: '{:11.4g}'
+#   description: '? Error on the integrated BP mean flux (phot_bp_mean_flux_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 11}
+#   - {precision: E4}
+#   - values: {'null': .nan}
+# - name: FRP
+#   unit: ''
+#   datatype: float32
+#   format: '{:11.4g}'
+#   description: '? Integrated RP mean flux (phot_rp_mean_flux)'
+#   meta: !!omap
+#   - {ucd: PHOT_FLUX_R}
+#   - {width: 11}
+#   - {precision: E4}
+#   - values: {'null': .nan}
+# - name: e_FRP
+#   unit: ''
+#   datatype: float32
+#   format: '{:11.4g}'
+#   description: '? Error on the integrated RP mean flux (phot_rp_mean_flux_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 11}
+#   - {precision: E4}
+#   - values: {'null': .nan}
+# - name: RAVE5
+#   datatype: string
+#   description: RAVE DR5 cross-id name, Kunder et al., Cat. III/279 (rave5_original_ext_source_id)
+#   meta: !!omap
+#   - {ucd: ID_CROSSID}
+#   - {_votable_string_dtype: char}
+# - name: RAVE6
+#   datatype: string
+#   description: RAVE DR6 cross-id name, Steinmetz et al., Cat. III/283 (rave6_original_ext_source_id)
+#   meta: !!omap
+#   - {ucd: ID_CROSSID}
+#   - {_votable_string_dtype: char}
+# - name: e_Gmag
+#   unit: ''
+#   datatype: float64
+#   format: '{:11.4g}'
+#   description: '? Error on G-band mean flux (phot_g_mean_flux_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 11}
+#   - {precision: E4}
+#   - values: {'null': .nan}
+# - name: e_BPmag
+#   unit: ''
+#   datatype: float32
+#   format: '{:11.4g}'
+#   description: '? Error on the integrated BP mean flux (phot_bp_mean_flux_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 11}
+#   - {precision: E4}
+#   - values: {'null': .nan}
+# - name: e_RPmag
+#   unit: ''
+#   datatype: float32
+#   format: '{:11.4g}'
+#   description: '? Error on the integrated RP mean flux (phot_rp_mean_flux_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 11}
+#   - {precision: E4}
+#   - values: {'null': .nan}
+# - name: e_BP-RP
+#   unit: ''
+#   datatype: float32
+#   format: '{:11.4g}'
+#   description: '? Error on the integrated BP mean flux (phot_bp_mean_flux_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 11}
+#   - {precision: E4}
+#   - values: {'null': .nan}
+# - name: SkyCoord.ra
+#   unit: deg
+#   datatype: float64
+#   format: '{:15.11f}'
+#   description: Right ascension (ICRS) at Ep=2016.0 (ra)
+#   meta: !!omap
+#   - {ucd: POS_EQ_RA_MAIN}
+#   - {width: 15}
+#   - {precision: '11'}
+# - name: SkyCoord.dec
+#   unit: deg
+#   datatype: float64
+#   format: '{:15.11f}'
+#   description: Declination (ICRS) at Ep=2016.0 (dec)
+#   meta: !!omap
+#   - {ucd: POS_EQ_DEC_MAIN}
+#   - {width: 15}
+#   - {precision: '11'}
+# - name: SkyCoord.distance
+#   unit: pc
+#   datatype: float64
+#   format: '{:15.8f}'
+#   description: '? Median of the geometric distance posterior (r_med_geo)'
+#   meta: !!omap
+#   - {ucd: PHYS_DISTANCE_TRUE}
+#   - {width: 15}
+#   - {precision: '8'}
+#   - values: {'null': .nan}
+# - {name: SkyCoord.pm_ra_cosdec, unit: mas / yr, datatype: float64}
+# - {name: SkyCoord.pm_dec, unit: mas / yr, datatype: float64}
+# - {name: Pmemb, datatype: float64}
+# meta: !!omap
+# - {ID: I_352_gedr3dis}
+# - {name: I/352/gedr3dis}
+# - {description: Estimating distances from parallaxes (1467744818 sources)}
+# - __serialized_columns__:
+#     SkyCoord:
+#       __class__: astropy.coordinates.sky_coordinate.SkyCoord
+#       dec: !astropy.table.SerializedColumn
+#         __class__: astropy.coordinates.angles.Latitude
+#         unit: &id001 !astropy.units.Unit {unit: deg}
+#         value: !astropy.table.SerializedColumn {name: SkyCoord.dec}
+#       distance: !astropy.table.SerializedColumn
+#         __class__: astropy.coordinates.distances.Distance
+#         unit: !astropy.units.Unit {unit: pc}
+#         value: !astropy.table.SerializedColumn {name: SkyCoord.distance}
+#       frame: icrs
+#       obstime: !astropy.time.Time {format: jyear_str, in_subfmt: '*', jd1: 367701545.0, jd2: 0.0, out_subfmt: '*', precision: 3, scale: tt}
+#       pm_dec: !astropy.table.SerializedColumn
+#         __class__: astropy.units.quantity.Quantity
+#         unit: !astropy.units.Unit {unit: mas / yr}
+#         value: !astropy.table.SerializedColumn {name: SkyCoord.pm_dec}
+#       pm_ra_cosdec: !astropy.table.SerializedColumn
+#         __class__: astropy.units.quantity.Quantity
+#         unit: !astropy.units.Unit {unit: mas / yr}
+#         value: !astropy.table.SerializedColumn {name: SkyCoord.pm_ra_cosdec}
+#       ra: !astropy.table.SerializedColumn
+#         __class__: astropy.coordinates.angles.Longitude
+#         unit: *id001
+#         value: !astropy.table.SerializedColumn {name: SkyCoord.ra}
+#         wrap_angle: !astropy.coordinates.Angle
+#           unit: *id001
+#           value: 360.0
+#       representation_type: spherical
+# schema: astropy-2.0
+RA_ICRS_1 DE_ICRS_1 e_RA_ICRS e_DE_ICRS _r_1 HIP TYC2 Source rgeo Plx e_Plx pmRA pmDE e_pmRA e_pmDE RUWE Teff logg Gmag BP-RP BPmag RPmag RV e_RV b_rgeo B_rgeo FG e_FG FBP e_FBP FRP e_FRP RAVE5 RAVE6 e_Gmag e_BPmag e_RPmag e_BP-RP SkyCoord.ra SkyCoord.dec SkyCoord.distance SkyCoord.pm_ra_cosdec SkyCoord.pm_dec Pmemb
+31.81829502643 60.25420969442 0.0082 0.0127 1.2819 "" 4033-896-1 507212105542439680 2596.00903 0.3553 0.0158 -0.665 -0.401 0.013 0.02 0.968 "" "" 8.436033 2.09536 9.499405 7.404045 -35.96 0.19 2475.34766 2705.17114 7953046.21081 2168.4 2166000.0 963.94 8660400.0 2613.8 "" "" 0.0027711768107407807 0.0028316989 0.0037935611 0.00662526 31.81829502643 60.25420969442 2596.00903 -0.665 -0.401 0.9
+32.00443806378 60.21772244911 0.0055 0.0084 5.1332 "" "" 507574635139395584 2514.104 0.3837 0.0108 -0.739 -0.6 0.009 0.014 0.97 "" "" 12.435743 1.347641 13.030816 11.683175 "" "" 2450.4939 2584.86035 199824.77172 33.298 83770.0 58.511 168220.0 36.573 "" "" 0.0027612537802996088 0.002891393 0.0037867462 0.006678139 32.00443806378 60.21772244911 2514.104 -0.7390000000000001 -0.5999999999999999 0.9
+31.84243671052 60.25574502288 0.0066 0.0095 0.6194 "" "" 507212032517347968 2550.32544 0.3763 0.0124 -0.882 -0.683 0.011 0.014 1.01 13893.1 3.3512 12.774036 1.223911 13.298668 12.074757 "" "" 2469.47266 2630.31909 146329.5621 33.713 65456.0 47.76 117290.0 73.598 "" "" 0.0027666516397360603 0.0029004554 0.0038402965 0.0067407517 31.84243671052 60.25574502288 2550.32544 -0.8820000000000001 -0.683 0.9
+31.84925697884 60.25818165293 0.0061 0.0094 0.372 "" "" 507587348242581248 2918.95776 0.3254 0.0122 -0.901 -0.544 0.011 0.014 0.999 15404.8 3.4166 12.781885 1.233898 13.310432 12.076534 "" "" 2834.40698 3011.65308 145275.64406 22.238 64751.0 41.854 117100.0 27.604 "" "" 0.0027603281260624216 0.0028770776 0.0037880382 0.0066651157 31.84925697884 60.25818165293 2918.95776 -0.901 -0.544 0.8
+31.83740266454 60.25700102934 0.0083 0.0124 0.6972 "" "" 507212101236824576 2714.34888 0.3466 0.016 -0.775 -0.49 0.014 0.018 1.065 15512.5 3.3618 12.970322 1.207004 13.485265 12.278261 "" "" 2614.47778 2817.90796 122128.82507 20.583 55120.0 32.006 97242.0 31.56 "" "" 0.0027613896517790573 0.0028605082 0.0037957735 0.0066562817 31.83740266454 60.25700102934 2714.34888 -0.775 -0.4900000000000001 0.8
+31.83377100686 60.25955137885 0.0063 0.0093 0.7402 "" "" 507212105542437888 2699.85767 0.3371 0.0119 -0.792 -0.438 0.01 0.014 0.973 "" "" 13.170822 1.328399 13.74931 12.420912 20.46 7.15 2620.91528 2788.00171 101535.48323 60.787 43221.0 74.449 85269.0 177.97 "" "" 0.0028309533382312154 0.0033589732 0.0044066943 0.0077656675 31.83377100686 60.25955137885 2699.85767 -0.792 -0.438 1.0
+31.89785112289 60.25593352294 0.007 0.0104 1.2588 "" "" 507575631571797504 2756.19507 0.333 0.0138 -0.761 -0.395 0.012 0.016 0.957 11313.3 3.699 13.783911 1.468775 14.44619 12.977415 "" "" 2639.80127 2880.4646 57727.45567 10.594 22748.0 20.872 51073.0 20.555 "" "" 0.002762515268903968 0.0029626773 0.003804559 0.006767236 31.89785112289 60.25593352294 2756.19507 -0.7609999999999999 -0.395 1.0
+31.84383095747 60.26315691903 0.0078 0.0117 0.4171 "" "" 507587416962055424 2634.25098 0.3463 0.0151 -0.816 -0.446 0.014 0.018 1.016 6791.5 2.8545 14.076014 1.308705 14.646998 13.338293 "" "" 2535.58716 2723.1438 44110.42416 8.206 18907.0 15.831 36630.0 15.849 "" "" 0.002762713611381444 0.0029345367 0.0038084663 0.0067430027 31.84383095747 60.26315691903 2634.25098 -0.8159999999999998 -0.446 0.8
+31.82619709081 60.26057744346 0.0088 0.0137 0.9497 "" "" 507212105542437504 2750.36792 0.3337 0.0176 -0.791 -0.608 0.016 0.021 0.983 "" "" 14.305277 1.289414 14.855353 13.565939 "" "" 2626.91138 2881.44165 35713.78831 7.3454 15605.0 15.681 29702.0 49.185 "" "" 0.002764354493070286 0.002995894 0.0041852426 0.007181137 31.82619709081 60.26057744346 2750.36792 -0.791 -0.6080000000000003 0.9
+31.82836391932 60.28834575867 0.0089 0.0132 1.7708 "" "" 507587657480209152 2562.26001 0.3606 0.0172 -0.688 -0.444 0.016 0.02 1.032 "" "" 14.416885 1.317986 14.991636 13.67365 "" "" 2448.72241 2686.66309 32224.96365 6.1036 13765.0 11.767 26897.0 12.564 "" "" 0.0027629837543974214 0.002940492 0.0038132588 0.006753751 31.82836391932 60.28834575867 2562.26001 -0.6880000000000002 -0.44400000000000023 0.8
+31.84794561346 60.25746949669 0.0111 0.0166 0.4299 "" "" 507587348242581504 2746.83301 0.3288 0.0213 -0.707 -0.553 0.019 0.025 1.318 11871.7 3.7896 14.465613 1.354721 15.036844 13.682123 "" "" 2601.98145 2927.92407 30810.69686 8.5928 13203.0 29.45 26688.0 34.982 "" "" 0.002771908714846574 0.003694608 0.004038453 0.007733061 31.84794561346 60.25746949669 2746.83301 -0.7070000000000001 -0.5530000000000002 1.0
+31.94736242683 60.19541462931 0.0093 0.0135 4.8389 "" "" 507199942195068544 2473.89258 0.3723 0.0184 -0.728 -0.468 0.017 0.022 0.961 11132.0 3.6899 14.520236 1.371866 15.125567 13.753701 "" "" 2376.96362 2582.81104 29298.97542 7.0847 12167.0 12.104 24985.0 17.414 "" "" 0.0027677998431872176 0.0029919383 0.0038543968 0.006846335 31.94736242683 60.19541462931 2473.89258 -0.728 -0.46800000000000014 0.8
+31.90151601752 60.15556173178 0.0115 0.0164 6.5589 "" "" 507199770396387584 2576.84351 0.3559 0.0224 -0.802 -0.548 0.021 0.027 1.014 9630.1 3.6088 15.018293 1.607806 15.763227 14.155421 "" "" 2455.48413 2693.01929 18519.49845 3.974 6762.8 9.0667 17258.0 10.313 "" "" 0.002765152827185285 0.0031470412 0.0038346688 0.00698171 31.90151601752 60.15556173178 2576.84351 -0.802 -0.548 1.0
+31.8786784168 60.24044038089 0.0135 0.02 1.4729 "" "" 507575597212065152 2670.41235 0.3411 0.0272 -0.819 -0.446 0.023 0.031 1.044 9381.7 3.4397 15.293399 1.323725 15.867969 14.544245 "" "" 2493.70288 2877.38403 14374.31559 3.2825 6140.9 9.948 12063.0 8.319 "" "" 0.0027664530185673255 0.003298271 0.0038528382 0.007151109 31.8786784168 60.24044038089 2670.41235 -0.819 -0.44599999999999995 0.9
+31.69141692674 60.19864191046 0.0128 0.0191 6.2726 "" "" 507211658865854976 2753.41406 0.3289 0.0255 -0.768 -0.495 0.024 0.03 0.978 9171.0 3.7796 15.353947 1.396389 15.973929 14.57754 "" "" 2578.58374 2965.17407 13594.65144 2.8628 5569.9 8.2243 11699.0 8.4968 "" "" 0.0027647901280586423 0.0032179432 0.0038607698 0.007078713 31.69141692674 60.19864191046 2753.41406 -0.768 -0.4950000000000001 0.9
+31.89123051096 60.23200022815 0.0136 0.0201 2.0935 "" "" 507575528492590976 2864.7229 0.323 0.0273 -0.791 -0.495 0.024 0.033 1.034 "" "" 15.380838 1.378461 15.903908 14.525447 "" "" 2646.97681 3092.80811 13262.07625 4.5414 5940.9 13.565 12274.0 14.596 "" "" 0.0027802914038389387 0.0037324151 0.0039938404 0.007726256 31.89123051096 60.23200022815 2864.7229 -0.791 -0.4950000000000001 0.9
+31.90702659613 60.22806118703 0.0138 0.0207 2.5429 "" "" 507575528492591616 2718.12085 0.3427 0.0281 -0.867 -0.494 0.024 0.032 0.995 6898.2 2.7752 15.448252 1.434359 16.088934 14.654575 "" "" 2516.41602 2939.30078 12463.67399 2.8609 5010.1 8.1491 10898.0 10.081 "" "" 0.0027665681706383477 0.003302084 0.003910553 0.007212637 31.90702659613 60.22806118703 2718.12085 -0.8669999999999999 -0.4939999999999999 0.9
+31.80278127226 60.24602147758 0.0139 0.0223 1.9198 "" "" 507212071182702976 2938.604 0.3168 0.0277 -0.784 -0.59 0.024 0.035 1.021 9880.9 3.4645 15.529229 1.493874 16.196072 14.702198 "" "" 2717.93164 3263.1499 11567.91706 2.9113 4539.3 10.832 10430.0 20.804 "" "" 0.0027688361393466746 0.0038075724 0.004355885 0.008163458 31.80278127226 60.24602147758 2938.604 -0.7839999999999999 -0.59 0.9
+31.79051447009 60.26337027342 0.0169 0.0253 2.0034 "" "" 507212277341129216 2451.8645 0.3785 0.0329 -0.869 -0.558 0.031 0.039 1.009 7508.4 3.4628 15.914787 1.452311 16.565836 15.113524 "" "" 2275.69751 2705.62378 8110.20604 2.2215 3229.1 7.2706 7140.8 7.7357 "" "" 0.0027713237352712554 0.0037096175 0.0039581745 0.007667792 31.79051447009 60.26337027342 2451.8645 -0.869 -0.558 1.0
+31.93928904218 60.36867748961 0.0176 0.0278 6.8039 "" "" 507589615985249280 2319.22656 0.3974 0.037 -0.836 -0.501 0.032 0.042 1.048 9239.3 3.5871 15.982251 1.388259 16.598557 15.210298 "" "" 2143.88525 2526.90259 7621.60415 2.1533 3133.2 5.6886 6531.9 6.4161 "" "" 0.0027723427003631643 0.0034162658 0.003926974 0.0073432396 31.93928904218 60.36867748961 2319.22656 -0.836 -0.501 0.8

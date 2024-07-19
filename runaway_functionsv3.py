@@ -112,12 +112,16 @@ class Cluster:
         if not os.path.exists(f'Clusters/{name}'):
             os.mkdir(f'Clusters/{name}')
         clusterDias = ClusterDias(name=name)
-        clusterCG = ClusterCG(name=name)
+        try:
+            clusterCG = ClusterCG(name=name)
+            self.r50 = clusterCG.r50
+        except:
+            self.r50 = clusterDias.r50
         self.name = name
         self.ra = clusterDias.skycoord.ra
         self.dec = clusterDias.skycoord.dec
         self.distance = clusterDias.skycoord.distance #don't delete, need for calculating and searching stars in the region
-        self.r50 = clusterCG.r50
+        self.rPhy = np.tan(self.r50) * self.distance
         self.search_arcmin = search_arcmin(self.distance, self.r50)
         # self.r50_phy = np.tan(self.r50) * self.distance #to be changed DR3
         if os.path.exists(f"Clusters/{self.name}/{self.name}_members.tsv"):
@@ -215,7 +219,7 @@ class Cluster:
         sir['v_pec'] = 4.74*sir['rgeo'].value/1000*np.sqrt(((sir['rmRA'].value)**2+(sir['rmDE'].value)**2))*u.km/u.s
         mask_fast = sir['v_pec'] > 17.6*u.km/u.s
         return sir[mask_fast]
-    def fs_to_giesler_trace(self):
+    def fs4giesler(self,outlocation=None):
         table = self.fast_stars_in_region()
         g = Table()
         g['TypeInput'] = np.ones_like(table['e_Plx'].value).astype(int)
@@ -249,8 +253,10 @@ class Cluster:
         new_table = Table(names=g.colnames, dtype=[col.dtype for col in g.columns.values()])
         new_table.add_row(new_row)
         g = vstack([new_table,g])
-
-        g.write(f'Clusters/{self.name}/{self.name}_fs4giesler.tsv', format='csv', delimiter='\t', overwrite=True)
+        if outlocation=='local':
+            g.write(f'Clusters/{self.name}/{self.name}_fs4giesler.tsv', format='csv', delimiter='\t', overwrite=True)
+        elif outlocation=='remote':
+            g.write(f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}/{self.name}_fs4giesler.tsv", format='csv', delimiter='\t', overwrite=True)
         return g
 
     def get_stars_in_region(self) -> Table:
@@ -298,7 +304,54 @@ class Cluster:
             print(f'Restored {param}: current {current_value} --> {original_value}')
         # Save the modified table
         cluster_list_modified.write('suro2024.tsv', format='ascii.ecsv', overwrite=True)
+    def prepare_trace(self):
+        mainfolder = f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}"
+        runawayfolder = f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}/runaways"
+        trajfolder = f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}/runaway_trajectories"
+        os.mkdir(mainfolder) if not os.path.exists(mainfolder) else None
+        os.mkdir(runawayfolder) if not os.path.exists(runawayfolder) else None
+        os.mkdir(trajfolder) if not os.path.exists(trajfolder) else None
 
+        def update_config_template(config_file_path, output_file_path, **kwargs):
+            # Read the template config file
+            with open(config_file_path, 'r') as file:
+                config_content = file.read()
+            # Replace placeholders with actual values
+            for key, value in kwargs.items():
+                placeholder = f"val_{key}"
+                config_content = config_content.replace(placeholder, str(value))
+            # Write the updated content to the output file
+            with open(output_file_path, 'w') as file:
+                file.write(config_content)
+            
+        fs4giesler = self.fs4giesler(outlocation='remote')
+        lastline = len(fs4giesler)+1
+        # Example usage:
+        #starno=5
+        #template config
+        config_file_path = "/home/surodeep/suro_aiu/traceback/cluster_runaway/template_config_trace.conf"
+        #output the modified config
+        output_file_path = f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}/{self.name}_trace.conf"
+        params = {
+            "Threads": 0,
+            "Orbits": 1000,
+            "Steps": 1000,
+            "Width": 100,
+            "StepSize": -100,
+            "TimeLimit": 100,
+            "Criterion": "Hoogerwerf",
+            "Limit": round(self.rPhy.value,3),
+            #cluster line
+            "Star1": f'"/astro/surodeep/traceback/cluster_runaway/{self.name}/{self.name}_fs4giesler.tsv#2"',
+            #rest of the stars
+            "Star2": f'"/astro/surodeep/traceback/cluster_runaway/{self.name}/{self.name}_fs4giesler.tsv#3..{lastline}"',
+            "Assoc": 0,
+            "OutFile": f'"/astro/surodeep/traceback/cluster_runaway/{self.name}/runaways/run"'
+        }
+        update_config_template(config_file_path, output_file_path, **params)
+    
+        print(f'./traceback ../../cluster_runaway/{self.name}/{self.name}_trace.conf')
+        
 
 
 def find_cluster(stars_in_region: astropy.table.Table, sigma: float = config['find_cluster']['sigma_clip']) -> astropy.table.Table: 

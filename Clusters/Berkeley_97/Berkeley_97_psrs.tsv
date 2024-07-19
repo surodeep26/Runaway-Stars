@@ -1,0 +1,22 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: Separation, unit: arcmin, datatype: float64}
+# - {name: NAME, datatype: string}
+# - {name: JNAME, datatype: string}
+# - {name: RAJD, unit: deg, datatype: float64}
+# - {name: DECJD, unit: deg, datatype: float64}
+# - {name: DIST, unit: kpc, datatype: float64}
+# - {name: DIST_DM, unit: kpc, datatype: float64}
+# - {name: AGE, unit: kyr, datatype: float64}
+# - {name: PMRA, unit: mas / yr, datatype: float64}
+# - {name: PMDEC, unit: mas / yr, datatype: float64}
+# - {name: S400, unit: mJy, datatype: float64}
+# - {name: ASSOC, datatype: string, subtype: json}
+# - {name: AGE_I, unit: kyr, datatype: float64}
+# - {name: PX, unit: mas, datatype: float64}
+# meta: !!omap
+# - {version: '1.70'}
+# schema: astropy-2.0
+Separation NAME JNAME RAJD DECJD DIST DIST_DM AGE PMRA PMDEC S400 ASSOC AGE_I PX
+7.933216929793244 J2238+5903 J2238+5903 339.6177916666666 59.06133333333333 2.83 "" 26.571790043214772 "" "" "" """GRS""" nan ""
