@@ -262,7 +262,7 @@ class Cluster:
         elif outlocation=='remote':
             g.write(f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}/{self.name}_fs4giesler.tsv", format='csv', delimiter='\t', overwrite=True)
             
-        g['RV'] = g['RV'].filled(0)
+        g['RV'] = g['RV'].filled(0) #fill masked values with 0
         g['e_RV'] = g['e_RV'].filled(0) #fill masked values with 0
         return g
 
@@ -359,6 +359,20 @@ class Cluster:
     
         print(f'./traceback ../../cluster_runaway/{self.name}/{self.name}_trace.conf')
         
+    def runaways_all(self):
+        fs4giesler = self.fast_stars_in_region()
+        outputs = os.listdir(f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}/runaways/")
+        linenos = []
+        for output in outputs:
+            #print(output)
+            if 'run' in output:
+                linenos.append(int(output.split("+")[1].replace(".out","")))
+        linenos.sort()
+        # print(linenos)
+        i=np.array(linenos)-3
+        def source_of(lineno, input_table):
+            return input_table[lineno-2]['Source']
+        return fs4giesler[i]
 
 
 def find_cluster(stars_in_region: astropy.table.Table, sigma: float = config['find_cluster']['sigma_clip']) -> astropy.table.Table: 

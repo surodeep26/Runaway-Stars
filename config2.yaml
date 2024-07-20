@@ -11,3 +11,5 @@ added_members:
 
 find_cluster:
   sigma_clip: 1.5
+
+runaway_temp: 10000 #K

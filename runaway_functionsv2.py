@@ -148,8 +148,8 @@ class Cluster:
             self.N = self.cluster_table['N'][0] #no. of members
 
         # Extracting values from the table and setting attributes
-        if not os.path.exists(f'{self.name}'):
-            os.mkdir(f'{self.name}')
+        if not os.path.exists(f'./Clusters/{self.name}'):
+            os.mkdir(f'./Clusters/{self.name}')
         self.distance = self.all['Dist']*u.pc
         self.RV = self.cluster_table['RV'][0]*u.km/u.s
         self.Av = self.cluster_table['Av'][0]
@@ -232,7 +232,7 @@ class Cluster:
 
     def clean(self,what='except_downloads'):
         print(f"Deleting: {what}")
-        folder_path = f'{self.name}'
+        folder_path = f'./Clusters/{self.name}'
 
         # List all files in the folder
         files = os.listdir(folder_path)
@@ -292,7 +292,7 @@ class Cluster:
         search_arcmin = self.calculate_search_arcmin(extra=extra)
         
         # Define the file path
-        fits_file_path = f'{self.name}/{self.name}_extra{extra}pc.fits'
+        fits_file_path = f'./Clusters/{self.name}/{self.name}_extra{extra}pc.fits'
         
         # Check if the file already exists
         if os.path.exists(fits_file_path):
@@ -367,14 +367,14 @@ class Cluster:
         or (stars_in_region, stars_fromDR3, stars_fromDR3_dis) if allTables is True
                
         """
-        if not os.path.exists(f'{self.name}'):
-            os.mkdir(f'{self.name}')
+        if not os.path.exists(f'./Clusters/{self.name}'):
+            os.mkdir(f'./Clusters/{self.name}')
 
-        stars_fromDR3_path = f'{self.name}/{self.name}_stars_fromDR3.tsv'
-        stars_fromDR3_dis_path = f'{self.name}/{self.name}_stars_fromDR3_dis.tsv'
-        stars_in_region_path =  f'{self.name}/{self.name}_stars_in_region.tsv'
-        fs_path =  f'{self.name}/{self.name}_fs.tsv'
-        nsfs_path =  f'{self.name}/{self.name}_nsfs.tsv'
+        stars_fromDR3_path = f'./Clusters/{self.name}/{self.name}_stars_fromDR3.tsv'
+        stars_fromDR3_dis_path = f'./Clusters/{self.name}/{self.name}_stars_fromDR3_dis.tsv'
+        stars_in_region_path =  f'./Clusters/{self.name}/{self.name}_stars_in_region.tsv'
+        fs_path =  f'./Clusters/{self.name}/{self.name}_fs.tsv'
+        nsfs_path =  f'./Clusters/{self.name}/{self.name}_nsfs.tsv'
 
         if allTables and (os.path.exists(stars_in_region_path)) and os.path.exists(stars_fromDR3_path) and os.path.exists(stars_fromDR3_dis_path) and os.path.exists(fs_path) and os.path.exists(nsfs_path):
             #checks for generate_tables() if all the tables are already present.
@@ -472,12 +472,12 @@ class Cluster:
             nsfs = stars_in_region[np.array(stars_in_region['v_pec'] >= config['v_walkaway']) & np.array(stars_in_region['v_pec'] < config['v_runaway'])]
 
             #save the tables
-            fs.write(f'{self.name}/{self.name}_fs.tsv',format='ascii.ecsv',overwrite=True)
-            nsfs.write(f'{self.name}/{self.name}_nsfs.tsv',format='ascii.ecsv',overwrite=True)
+            fs.write(f'./Clusters/{self.name}/{self.name}_fs.tsv',format='ascii.ecsv',overwrite=True)
+            nsfs.write(f'./Clusters/{self.name}/{self.name}_nsfs.tsv',format='ascii.ecsv',overwrite=True)
 
-        stars_in_region.write(f'{self.name}/{self.name}_stars_in_region.tsv',format='ascii.ecsv',overwrite=True)
-        stars_fromDR3.write(f'{self.name}/{self.name}_stars_fromDR3.tsv',format='ascii.ecsv',overwrite=True)
-        stars_fromDR3_dis.write(f'{self.name}/{self.name}_stars_fromDR3_dis.tsv',format='ascii.ecsv',overwrite=True)
+        stars_in_region.write(f'./Clusters/{self.name}/{self.name}_stars_in_region.tsv',format='ascii.ecsv',overwrite=True)
+        stars_fromDR3.write(f'./Clusters/{self.name}/{self.name}_stars_fromDR3.tsv',format='ascii.ecsv',overwrite=True)
+        stars_fromDR3_dis.write(f'./Clusters/{self.name}/{self.name}_stars_fromDR3_dis.tsv',format='ascii.ecsv',overwrite=True)
 
 
         if allTables and not no_rmRArmDE:
@@ -515,7 +515,7 @@ class Cluster:
         tl = []
 
         for table in tables:
-            file_path = f'{self.name}/{self.name}_{table}.tsv'
+            file_path = f'./Clusters/{self.name}/{self.name}_{table}.tsv'
             
             # Check if the file exists before trying to read it
             if os.path.exists(file_path):
@@ -798,7 +798,7 @@ def theoretical_isochrone(cluster,Av=None,logage=None,FeH=None,output=None, prin
 
     #Check if parameters are unchanged
     if (str(Av) == str(cluster.all['Av'])) and (str(logage) == str(cluster.all['logage'])) and (str(metallicity) == str(cluster.all['__Fe_H_'])):
-        compate_data_out_path = os.path.join(cluster.name,(cluster.name+'_compare_data_out.dat'))
+        compate_data_out_path = os.path.join(f"./Clusters/{cluster.name}",(cluster.name+'_compare_data_out.dat'))
         if printing:
             print(f'{cluster.name}')
             print(f'Av: {str(Av)}')
@@ -806,7 +806,7 @@ def theoretical_isochrone(cluster,Av=None,logage=None,FeH=None,output=None, prin
             print(f'[Fe/H]: {str(metallicity)}')
     #otherwise, make a new file to save the new isochrone
     else:
-        compate_data_out_path = os.path.join(cluster.name,(cluster.name+f'_compare_data_out_Av{str(Av)}_age{str(logage)}_FeH{str(metallicity)}.dat'))
+        compate_data_out_path = os.path.join(f'./Clusters/{cluster.name}',(cluster.name+f'_compare_data_out_Av{str(Av)}_age{str(logage)}_FeH{str(metallicity)}.dat'))
         if printing:
             print(f'{cluster.name} (Changed)')
             print(f"Av: {str(cluster.all['Av'])} --> {str(Av)}")
@@ -929,7 +929,7 @@ def get_runaways(cluster,fs,theoretical_data,separation_factor=2,dist_filter_fac
     else:
         name = "runaways"
 
-    file_path = f'{cluster.name}/{cluster.name}_{name}_all.tsv'     #`name` is either "walkaways" or "runaways"
+    file_path = f'./Clusters/{cluster.name}/{cluster.name}_{name}_all.tsv'     #`name` is either "walkaways" or "runaways"
     
     if os.path.exists(file_path):
         # If the file exists, read it and return its contents
@@ -1023,7 +1023,7 @@ def get_runaways(cluster,fs,theoretical_data,separation_factor=2,dist_filter_fac
 
 
         run.write(file_path,format='ascii.ecsv',overwrite=True)
-        run.to_pandas().to_excel(os.path.join(cluster.name,f'{cluster.name}_{name}_all.xlsx'), index=False)
+        run.to_pandas().to_excel(os.path.join(f"./Clusters/{cluster.name}",f'{cluster.name}_{name}_all.xlsx'), index=False)
 
         mask = [T > config['runaway_temp'] for T in run['Temp. Est']]
         runaways = run[mask]
@@ -1038,7 +1038,7 @@ def get_coord(runaway):
 
 
 def test_isochrones(cluster):
-    folder_path = f'{cluster.name}'
+    folder_path = f'./Clusters/{cluster.name}'
     # List all files in the folder
     files = os.listdir(folder_path)
     # Initialize list to store dictionaries
@@ -1281,7 +1281,7 @@ def plot_cmd(cluster,save=False,multiple=False,**kwargs):
     colorbar.set_label('Temperature (K)')
     # ax1.legend(loc='upper right')
     if save:
-        plt.savefig(f'{cluster.name}/{cluster.name}_cmd.{save}')
+        plt.savefig(f'./Clusters/{cluster.name}/{cluster.name}_cmd.{save}')
     return ax1
 
 def runCode(cluster,save='png',psr=False,separation_factor=2,dist_filter_factor=1,**kwargs):
@@ -1879,7 +1879,7 @@ def search_psr(cluster, extra=config['psr_extra'], radial_tolerance=config['psr_
     if save:
         dir_name = cluster.name if isinstance(cluster, Cluster) else 'SkyCoord_Search'
         os.makedirs(dir_name, exist_ok=True)
-        maintable.write(f'{dir_name}/{dir_name}_psrs.tsv', format='ascii.ecsv', overwrite=True)
+        maintable.write(f'./Clusters/{dir_name}/{dir_name}_psrs.tsv', format='ascii.ecsv', overwrite=True)
         maintable.to_pandas().to_excel(os.path.join(dir_name, f'{dir_name}_psrs.xlsx'), index=False)
     
     return maintable
