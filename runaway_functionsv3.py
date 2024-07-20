@@ -9,16 +9,16 @@ from astropy.time import Time
 import warnings
 from astropy.utils.metadata import MergeConflictWarning
 import time
-import logging
+# import logging
 from typing import List
 import yaml
 from astropy.stats import sigma_clip
-
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
-from selenium.webdriver.chrome.options import Options
+from matplotlib import pyplot as plt
+# from selenium.webdriver.chrome.options import Options
 
 def read_yaml_file(file_path):
     '''
