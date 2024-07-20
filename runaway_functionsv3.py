@@ -13,6 +13,13 @@ import logging
 from typing import List
 import yaml
 from astropy.stats import sigma_clip
+
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.chrome.options import Options
+
 def read_yaml_file(file_path):
     '''
     Read the configuration file for the rest of the code. 
@@ -373,6 +380,24 @@ class Cluster:
         def source_of(lineno, input_table):
             return input_table[lineno-2]['Source']
         return fs4giesler[i]
+    
+    def theoretical_isochrone(self,Av=None,logage=None,FeH=None):
+        theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone"
+        if os.path.exists(theo_iso_path):
+            theo_iso = Table.read(theo_iso_path, format="ascii")
+            return theo_iso
+        else:
+            Av = self.Av
+            logage = self.logage
+            FeH = self.FeH
+            theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH)
+            theo_iso['Gmag'] = theo_iso['Gmag']+5*np.log10(self.distance.value)-5
+            theo_iso['G_BP'] = theo_iso["G_BP_fSBmag"]
+            theo_iso['G_RP'] = theo_iso["G_RP_fSBmag"]
+            # theoretical_data['G_BP_fSBmag']-theoretical_data['G_RP_fSBmag']
+            theo_iso = theo_iso["Mass","Teff0","BP-RP","Gmag","G_BP","G_RP","logg","logAge","logL","logTe","Mini"]
+            theo_iso.write(theo_iso_path, format="ascii",overwrite=True)
+        return theo_iso
 
 
 def find_cluster(stars_in_region: astropy.table.Table, sigma: float = config['find_cluster']['sigma_clip']) -> astropy.table.Table: 
@@ -505,3 +530,72 @@ def merge_gaia_tables(stars_fromDR3: Table, stars_fromDR3_dist: Table) -> Table:
     end_time = time.time()
     print(f"{len(merged):,} sources found by merging in {end_time - start_time:.2f} seconds")
     return merged
+
+def get_theoretical_isochrone(Av=None,logage=None,FeH=None):
+    print(f"getting isochrone form cmd3.7 with:\nAv:{Av:.2f}\nlogage:{logage:.2f}\nmetallicity:{FeH:.2f}")
+    start_time = time.time()
+    s = Service()
+    options = webdriver.ChromeOptions()
+    browser = webdriver.Chrome(service=s, options=options)
+    browser.get('http://stev.oapd.inaf.it/cgi-bin/cmd')
+
+    #Evolutionary Tracks #from config
+    browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[3]/td[1]/input[1]").click() #PARSEC version 2.0
+    browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[5]/td/input").click() #+ COLIBRI S_37
+    #Phtotometric System #from config
+    photometricSystem = Select(browser.find_element(By.XPATH,"//select[@name='photsys_file']")) #dropdown list for available photometric systems
+    photometricSystem.select_by_value("YBC_tab_mag_odfnew/tab_mag_gaiaEDR3.dat") # Gaia EDR3 bands
+    browser.find_element(By.XPATH,"/html/body/form/div/fieldset[2]/table/tbody/tr[5]/td[1]/input").click() # VBC +new Vega for PARSEC 2.0 #As above, but adopting revised SED for Vega from Bohlin et al. (2020) (namely CALSPEC alpha_lyr_stis_010.fits).
+    #Phtotometric System #from config
+    #Circumstellar Dust 
+    browser.find_element(By.XPATH,"/html/body/form/div/fieldset[3]/font/table/tbody/tr[3]/td[1]/input").click() #for M stars: No dust
+    browser.find_element(By.XPATH,"/html/body/form/div/fieldset[3]/font/table/tbody/tr[3]/td[2]/input").click() #for C stars: No dust
+    #Interstellar extinction 
+    Av_field = browser.find_element(By.XPATH,"/html/body/form/div/fieldset[4]/input")
+    Av_field.clear()
+    Av_field.send_keys(str(Av))
+    #Long Period Variability #from config
+    browser.find_element(By.XPATH,"/html/body/form/div/fieldset[5]/table/tbody/tr[4]/td[1]/input").click() #3. Periods from Trabucchi et al. (2021).
+    #Initial Mass Function #from config
+    InitialMassFunction = Select(browser.find_element(By.XPATH,"//select[@name='imf_file']"))
+    InitialMassFunction.select_by_value("tab_imf/imf_kroupa_orig.dat")
+    #ages
+    browser.find_element(By.XPATH,"/html/body/form/div/fieldset[7]/table/tbody/tr[4]/td[1]/input").click() #click log(age/yr)
+    initialAge_field = browser.find_element(By.XPATH,"/html/body/form/div/fieldset[7]/table/tbody/tr[4]/td[2]/input")
+    initialAge_field.clear()
+    initialAge_field.send_keys(str(logage))
+    finalAge_field = browser.find_element(By.XPATH,"/html/body/form/div/fieldset[7]/table/tbody/tr[4]/td[3]/input")
+    finalAge_field.clear()
+    finalAge_field.send_keys(str(logage))
+    step_field = browser.find_element(By.XPATH,"/html/body/form/div/fieldset[7]/table/tbody/tr[4]/td[4]/input")
+    step_field.clear()
+    step_field.send_keys(0)
+    #metallicities
+    selectMbyH = browser.find_element(By.XPATH,"/html/body/form/div/fieldset[7]/table/tbody/tr[7]/td[1]/input").click() #click [M/H]
+    initialMetallicity_field = browser.find_element(By.XPATH,"/html/body/form/div/fieldset[7]/table/tbody/tr[7]/td[2]/input")
+    initialMetallicity_field.clear()
+    initialMetallicity_field.send_keys(str(FeH))
+    finalMetallicity_field = browser.find_element(By.XPATH,"/html/body/form/div/fieldset[7]/table/tbody/tr[7]/td[3]/input")
+    finalMetallicity_field.clear()
+    finalMetallicity_field.send_keys(str(FeH))
+    #Submit #dosen't change
+    browser.find_element(By.XPATH,"/html/body/form/div/input[4]").click()
+    browser.find_element(By.XPATH,"/html/body/form/fieldset[1]/p[1]/a").click()
+    data_out = browser.find_element(By.XPATH,'/html/body/pre').text
+    with open('temp_isochrone', 'w') as f:
+        f.write(data_out)
+    browser.close()
+    theoretical_data = Table.read("temp_isochrone", format='ascii')
+    # os.remove("temp_isochrone")
+    # Define the new column names
+    new_column_names = ['Zini', 'MH', 'logAge', 'Mini', 'int_IMF', 'Mass', 'logL', 'logTe', 'logg', 'label', 'McoreTP', 'C_O', 'period0', 'period1', 'period2', 'period3', 'period4', 'pmode', 'Mloss', 'tau1m', 'X', 'Y', 'Xc', 'Xn', 'Xo', 'Cexcess', 'Z', 'Teff0', 'omega', 'angvel', 'vtaneq', 'angmom', 'Rpol', 'Req', 'mbolmag', 'G_fSBmag', 'G_BP_fSBmag', 'G_RP_fSBmag', 'G_fSB', 'G_f0', 'G_fk', 'G_i00', 'G_i05', 'G_i10', 'G_i15', 'G_i20', 'G_i25', 'G_i30', 'G_i35', 'G_i40', 'G_i45', 'G_i50', 'G_i55', 'G_i60', 'G_i65', 'G_i70', 'G_i75', 'G_i80', 'G_i85', 'G_i90', 'G_BP_fSB', 'G_BP_f0', 'G_BP_fk', 'G_BP_i00', 'G_BP_i05', 'G_BP_i10', 'G_BP_i15', 'G_BP_i20', 'G_BP_i25', 'G_BP_i30', 'G_BP_i35', 'G_BP_i40', 'G_BP_i45', 'G_BP_i50', 'G_BP_i55', 'G_BP_i60', 'G_BP_i65', 'G_BP_i70', 'G_BP_i75', 'G_BP_i80', 'G_BP_i85', 'G_BP_i90', 'G_RP_fSB', 'G_RP_f0', 'G_RP_fk', 'G_RP_i00', 'G_RP_i05', 'G_RP_i10', 'G_RP_i15', 'G_RP_i20', 'G_RP_i25', 'G_RP_i30', 'G_RP_i35', 'G_RP_i40', 'G_RP_i45', 'G_RP_i50', 'G_RP_i55', 'G_RP_i60', 'G_RP_i65', 'G_RP_i70', 'G_RP_i75', 'G_RP_i80', 'G_RP_i85', 'G_RP_i90']
+    # Rename the columns
+    for old_name, new_name in zip(theoretical_data.colnames, new_column_names):
+        theoretical_data.rename_column(old_name, new_name)
+    # Calculate BP-RP and add column at the end
+    theoretical_data['BP-RP'] = theoretical_data['G_BP_fSBmag']-theoretical_data['G_RP_fSBmag']
+    theoretical_data['Gmag'] = theoretical_data['G_fSBmag'] #+ 5*np.log10(cluster.distance.value)-5
+    end_time = time.time()
+    print(f"isochrone downloaded in {end_time-start_time:.1f}s")
+    
+    return theoretical_data
