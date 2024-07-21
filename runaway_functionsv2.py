@@ -2,7 +2,7 @@ import os
 import astropy
 from astropy.table import Table, Column, QTable, join,vstack
 import yaml
-import pandas  # Renamed for clarity
+# import pandas  # Renamed for clarity
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe

@@ -18,6 +18,8 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from matplotlib import pyplot as plt
+from astroquery.skyview import SkyView
+
 # from selenium.webdriver.chrome.options import Options
 
 def read_yaml_file(file_path):
@@ -383,7 +385,7 @@ class Cluster:
         runaways_all = fs[i]
         return runaways_all
     
-    def runaways(self,Av=None,logage=None,FeH=None):
+    def runaways(self,Av=None,logage=None,FeH=None,temp_threshold=10000):
 
         runaways = estimate_temperature(self.runaways_all(), self.theoretical_isochrone(Av,logage,FeH))
         runaways = runaways[
@@ -392,8 +394,11 @@ class Cluster:
                             "Gmag", "BP-RP", "BPmag", "RPmag", "b_rgeo", "B_rgeo", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP", "SkyCoord", 
                             "rmRA", "rmDE", "v_pec", "logg", "RV", "e_RV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
                         ]
-        mask_temp = runaways['Temp. Est'] >= 10000*u.K
-        return runaways[mask_temp]
+        
+        mask_temp = runaways['Temp. Est'] >= temp_threshold*u.K
+        runaways = runaways[mask_temp]
+        runaways.sort('Temp. Est', reverse=True)
+        return runaways
     
     def theoretical_isochrone(self, Av=None, logage=None, FeH=None):
         Av = float(Av) if Av is not None else round(float(self.Av.value), 1)
