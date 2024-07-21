@@ -8,6 +8,8 @@ from astropy.coordinates import SkyCoord, Angle
 from astropy.time import Time
 import warnings
 from astropy.utils.metadata import MergeConflictWarning
+from astropy.utils.exceptions import ErfaWarning
+
 import time
 # import logging
 from typing import List
@@ -19,6 +21,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from matplotlib import pyplot as plt
 from astroquery.skyview import SkyView
+from regions import CircleSkyRegion, PointSkyRegion, LineSkyRegion
+from astropy.wcs import WCS
+from astropy.io import fits
+
 
 # from selenium.webdriver.chrome.options import Options
 
@@ -405,7 +411,7 @@ class Cluster:
         logage = float(logage) if logage is not None else round(float(self.logage), 1)
         FeH = float(FeH) if FeH is not None else round(float(self.FeH), 1)
         theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone"
-        print(Av, logage, FeH)
+        # print(Av, logage, FeH)
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
         else:
@@ -417,6 +423,52 @@ class Cluster:
             theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
         
         return theo_iso
+    
+    def plot_traceback_clean(self):
+        warnings.simplefilter('ignore', ErfaWarning)
+        
+        allrun = self.runaways()
+        allrun_coord_now = SkyCoord(ra=allrun['RA_ICRS_1'], 
+                                dec=allrun['DE_ICRS_1'],
+                                distance=allrun['rgeo'], 
+                                pm_ra_cosdec=allrun['rmRA'],
+                                pm_dec=allrun['rmDE'],
+                                obstime=Time('J2000')+500*u.kyr)
+
+        allrun_coord_earlier = allrun_coord_now.apply_space_motion(dt=-100*u.kyr)
+
+
+            # Open the FITS file and extract the image and WCS
+        cluster_10pc_fits_path = f'./Clusters/{self.name}/{self.name}_extra10pc.fits'
+        if not os.path.exists(cluster_10pc_fits_path):
+            get_search_region(self)
+        with fits.open(cluster_10pc_fits_path) as fits_file:
+            image = fits_file[0]
+            wcs = WCS(image.header)
+            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(16, 16))
+            ax.imshow(image.data, cmap='gray')
+            ax.set_xlabel('Right Ascension (hms)')
+            ax.set_ylabel('Declination (degrees)')
+
+            # Plot the cluster region
+            c = self.skycoord
+            radius = self.r50
+            region = CircleSkyRegion(c, radius)
+            region_pix = region.to_pixel(wcs)
+            region_pix.plot(ax=ax, color='red', lw=2)
+            
+            # Calculate the pixel coordinates of the runaway stars
+            allrun_pixels_now = wcs.world_to_pixel(allrun_coord_now)
+            allrun_pixels_earlier = wcs.world_to_pixel(allrun_coord_earlier)
+
+            # Plot the current positions as scatter points
+            scatter_main = ax.scatter(allrun_pixels_now[0], allrun_pixels_now[1], c=allrun['Temp. Est'], cmap='spring_r', s=50)
+            colorbar = fig.colorbar(scatter_main,ax=ax)       # Plot the lines showing motion
+            for start, end in zip(np.transpose(allrun_pixels_now), np.transpose(allrun_pixels_earlier)):
+                ax.plot([start[0], end[0]], [start[1], end[1]], color='blue')
+        plt.tight_layout()
+        plt.show()
+
 
 
 def estimate_temperature(stars, theoretical_isochrone):
@@ -635,3 +687,39 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None):
     print(f"isochrone downloaded in {end_time-start_time:.1f}s")
     
     return theoretical_data
+
+def get_search_region(cluster, extra=10,display=True,**kwargs):
+    """
+    Plots and saves the fits file for the region around the given cluster.
+
+    Parameters:
+    - extra (float): Additional extent for the search region (default is from config['Cluster']['search_extent']).
+
+    Returns:
+    None
+    """
+    search_arcmin = cluster.search_arcmin
+    
+    # Define the file path
+    fits_file_path = f'./Clusters/{cluster.name}/{cluster.name}_extra{extra}pc.fits'
+    
+    # Check if the file already exists
+    if os.path.exists(fits_file_path):
+        print(f'fits image exists in {cluster.name} folder')
+        # File exists, no need to download, use the existing file
+        images = [fits.open(fits_file_path)]
+        # Extract the WCS information
+        wcs = WCS(images[0][0].header)
+    else:
+        # File doesn't exist, get the image data from SkyView
+        images = SkyView.get_images(position=cluster.skycoord,
+                                    survey='DSS',
+                                    radius=2*search_arcmin,
+                                    **kwargs)
+        # Extract the WCS information
+        wcs = WCS(images[0][0].header)
+        hdu = fits.PrimaryHDU(data=images[0][0].data, header=images[0][0].header)
+        hdulist = fits.HDUList([hdu])
+        
+        # Save the fits file
+        hdulist.writeto(fits_file_path, overwrite=True)
