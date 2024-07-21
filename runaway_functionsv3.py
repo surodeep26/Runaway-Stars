@@ -163,9 +163,9 @@ class Cluster:
         self.distance,self.e_distance = cluster_row['Dist']*u.pc,cluster_row['e_Dist']*u.pc
         self.pm_ra_cosdec, self.e_pm_ra_cosdec = cluster_row['pmRA']*u.mas/u.yr,cluster_row['e_pmRA']*u.mas/u.yr
         self.pm_dec, self.e_pm_dec = cluster_row['pmDE']*u.mas/u.yr, cluster_row['e_pmDE']*u.mas/u.yr
-        self.Av, self.e_Av = cluster_row['Av']*u.mag,cluster_row['e_Av']*u.mag
-        self.logage, self.e_logage = cluster_row['logage'],cluster_row['e_logage']
-        self.FeH, self.e_FeH = cluster_row['__Fe_H_'],cluster_row['e__Fe_H_']
+        self.Av, self.e_Av = round(cluster_row['Av'],2)*u.mag,cluster_row['e_Av']*u.mag
+        self.logage, self.e_logage = round(cluster_row['logage'],2),cluster_row['e_logage']
+        self.FeH, self.e_FeH = round(cluster_row['__Fe_H_'],2),cluster_row['e__Fe_H_']
         self.RV, self.e_RV = cluster_row['RV'],cluster_row['e_RV']
         self.NRV = cluster_row['NRV']
         
@@ -367,7 +367,8 @@ class Cluster:
         print(f'./traceback ../../cluster_runaway/{self.name}/{self.name}_trace.conf')
         
     def runaways_all(self):
-        fs4giesler = self.fast_stars_in_region()
+        fs = self.fast_stars_in_region()
+        #runaways from giesler traceback
         outputs = os.listdir(f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}/runaways/")
         linenos = []
         for output in outputs:
@@ -379,25 +380,55 @@ class Cluster:
         i=np.array(linenos)-3
         def source_of(lineno, input_table):
             return input_table[lineno-2]['Source']
-        return fs4giesler[i]
+        runaways_all = fs[i]
+        return runaways_all
     
-    def theoretical_isochrone(self,Av=None,logage=None,FeH=None):
+    def runaways(self,Av=None,logage=None,FeH=None):
+
+        runaways = estimate_temperature(self.runaways_all(), self.theoretical_isochrone(Av,logage,FeH))
+        runaways = runaways[
+                            "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est",
+                            "e_RA_ICRS", "e_DE_ICRS", "_r_1", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
+                            "Gmag", "BP-RP", "BPmag", "RPmag", "b_rgeo", "B_rgeo", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP", "SkyCoord", 
+                            "rmRA", "rmDE", "v_pec", "logg", "RV", "e_RV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
+                        ]
+        mask_temp = runaways['Temp. Est'] >= 10000*u.K
+        return runaways[mask_temp]
+    
+    def theoretical_isochrone(self, Av=None, logage=None, FeH=None):
+        Av = float(Av) if Av is not None else round(float(self.Av.value), 1)
+        logage = float(logage) if logage is not None else round(float(self.logage), 1)
+        FeH = float(FeH) if FeH is not None else round(float(self.FeH), 1)
         theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone"
+        print(Av, logage, FeH)
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
-            return theo_iso
         else:
-            Av = self.Av
-            logage = self.logage
-            FeH = self.FeH
             theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH)
-            theo_iso['Gmag'] = theo_iso['Gmag']+5*np.log10(self.distance.value)-5
+            theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
             theo_iso['G_BP'] = theo_iso["G_BP_fSBmag"]
             theo_iso['G_RP'] = theo_iso["G_RP_fSBmag"]
-            # theoretical_data['G_BP_fSBmag']-theoretical_data['G_RP_fSBmag']
-            theo_iso = theo_iso["Mass","Teff0","BP-RP","Gmag","G_BP","G_RP","logg","logAge","logL","logTe","Mini"]
-            theo_iso.write(theo_iso_path, format="ascii",overwrite=True)
+            theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
+            theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
+        
         return theo_iso
+
+
+def estimate_temperature(stars, theoretical_isochrone):
+    stars['Temp. Est'] = stars['Teff']
+    
+    Ttheo = theoretical_isochrone['Teff0']
+    bprptheo = theoretical_isochrone['BP-RP']
+    gmagtheo = theoretical_isochrone['Gmag']
+    for star in stars:
+        differences_bprp = abs(bprptheo - star['BP-RP'])
+        differences_gmag = abs(gmagtheo - star['Gmag'])
+        # differences = differences_bprp**2+differences_gmag**2 #method 1
+        differences = differences_bprp #method 2
+        closest_star_index = np.argmin(differences)
+        new_closest_star_temperature = Ttheo[closest_star_index]
+        star['Temp. Est']=new_closest_star_temperature
+    return stars
 
 
 def find_cluster(stars_in_region: astropy.table.Table, sigma: float = config['find_cluster']['sigma_clip']) -> astropy.table.Table: 
@@ -535,8 +566,8 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None):
     print(f"getting isochrone form cmd3.7 with:\nAv:{Av:.2f}\nlogage:{logage:.2f}\nmetallicity:{FeH:.2f}")
     start_time = time.time()
     s = Service()
-    options = webdriver.ChromeOptions()
-    browser = webdriver.Chrome(service=s, options=options)
+    # options = webdriver.ChromeOptions()
+    browser = webdriver.Chrome(service=s)#, options=options)
     browser.get('http://stev.oapd.inaf.it/cgi-bin/cmd')
 
     #Evolutionary Tracks #from config
