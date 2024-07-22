@@ -511,6 +511,7 @@ class Cluster:
 class Isochrone:
     def __init__(self, cluster, Av=None, logage=None, FeH=None):
         self.cluster = Cluster(cluster.name)
+        self.clusterdias = ClusterDias(cluster.name)
         self.Av = round(Av, 1) if Av is not None else cluster.Av.value
         self.logage = round(logage, 1) if logage is not None else cluster.logage
         self.FeH = round(FeH, 1) if FeH is not None else cluster.FeH
@@ -521,6 +522,10 @@ class Isochrone:
     def plot(self, ax):
         if self.Av == self.cluster.Av.value and self.logage == self.cluster.logage and self.FeH == self.cluster.FeH:
             label = f'Av={self.Av:.1f}, logage={self.logage:.1f}, FeH={self.FeH:.1f} (Teff)'
+        
+        elif self.Av == self.clusterdias.Av.value and self.logage == self.clusterdias.logage and self.FeH == self.clusterdias.FeH:
+            label = f'Av={self.Av:.1f}, logage={self.logage:.1f}, FeH={self.FeH:.1f} (Dias)'
+
         else:
             label = f'Av={self.Av:.1f}, logage={self.logage:.1f}, FeH={self.FeH:.1f}'
 
@@ -545,7 +550,9 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     ax.set_title(f"CMD for {cluster.name}")
 
     #main isochrone for temp
+    isochrones.reverse()
     isochrones.append(Isochrone(cluster))
+    isochrones.reverse()
         
     for isochrone in isochrones:
         isochrone.plot(ax)
@@ -573,7 +580,7 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     runaways = estimate_temperature(runaways, theoretical_isochrone_temp)
     scatter_runaways = ax.scatter(
         runaways['BP-RP'], runaways['Gmag'],
-        s=30, zorder=4,
+        s=50, zorder=4,
         c=runaways['Temp. Est'],
         cmap='spring_r', norm=plt.Normalize(4000, 23000),
         label=f'{len(runaways)} runaway(s)'
