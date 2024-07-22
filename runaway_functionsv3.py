@@ -25,8 +25,13 @@ from regions import CircleSkyRegion, PointSkyRegion, LineSkyRegion
 from astropy.wcs import WCS
 from astropy.io import fits
 
-
-# from selenium.webdriver.chrome.options import Options
+dias2021 = Table.read("dias2021.tsv", format="ascii.ecsv")
+maskplx = dias2021['Plx'] > 0.3
+maskage = dias2021['logage'] < 7.7
+workclusters = []
+for clustername in dias2021[maskplx & maskage][:]['Cluster']:
+    if clustername not in ['ASCC_79','BH_164','BH_23','Collinder_135','Collinder_140','Gulliver_9','IC_2391','IC_2602','Mamajek_1','Platais_8','UPK_535','UPK_606','UPK_640','Berkeley_59','COIN-Gaia_37','Ivanov_4','LP_1937','Sigma_Ori','UBC_632']:
+        workclusters.append(clustername)
 
 def read_yaml_file(file_path):
     '''
