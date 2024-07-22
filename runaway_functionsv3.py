@@ -78,6 +78,8 @@ class ClusterDias:
         self.FeH, self.e_FeH = cluster_row['__Fe_H_'],cluster_row['e__Fe_H_']
         self.RV, self.e_RV = cluster_row['RV'],cluster_row['e_RV']
         self.NRV = cluster_row['NRV']
+        self.mymembers = self.members()
+        
 
     def members(self) -> None:
         members = (Table.read(f'./Clusters_Dias/{self.name}.dat', format='ascii.tab'))[2:] #first two rows removed
@@ -506,6 +508,110 @@ class Cluster:
         plt.tight_layout()
         plt.show()
 
+class Isochrone:
+    def __init__(self, cluster, Av=None, logage=None, FeH=None):
+        self.cluster = Cluster(cluster.name)
+        self.Av = round(Av, 1) if Av is not None else cluster.Av.value
+        self.logage = round(logage, 1) if logage is not None else cluster.logage
+        self.FeH = round(FeH, 1) if FeH is not None else cluster.FeH
+        self.theoretical_isochrone, self.params = self.cluster.theoretical_isochrone(
+            {'Av': self.Av, 'logage': self.logage, 'FeH': self.FeH}, returnparams=True
+        )
+
+    def plot(self, ax):
+        if self.Av == self.cluster.Av.value and self.logage == self.cluster.logage and self.FeH == self.cluster.FeH:
+            label = f'Av={self.Av:.1f}, logage={self.logage:.1f}, FeH={self.FeH:.1f} (Teff)'
+        else:
+            label = f'Av={self.Av:.1f}, logage={self.logage:.1f}, FeH={self.FeH:.1f}'
+
+        ax.plot(
+            self.theoretical_isochrone['BP-RP'],
+            self.theoretical_isochrone['Gmag'],
+            label=label
+        )
+
+def plot_cmd(cluster, isochrones=[], **kwargs):
+    """
+    ### Example usage
+    >>> cl = Cluster("Berkeley_97")
+    >>> cld = ClusterDias("Berkeley_97")
+    >>> isochrone1 = Isochrone(cld)
+    >>> isochrone2 = Isochrone(cl, Av=3, logage=7)
+    >>> plot_cmd(cl, isochrones=[isochrone1,isochrone2])
+    """
+    fig, ax = plt.subplots(figsize=(12, 10))
+    ax.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)")
+    ax.set_ylabel(r"$G$ (mag)")
+    ax.set_title(f"CMD for {cluster.name}")
+
+    #main isochrone for temp
+    isochrones.append(Isochrone(cluster))
+        
+    for isochrone in isochrones:
+        isochrone.plot(ax)
+
+    # Plot cluster members
+    mymembers = cluster.mymembers
+    ax.errorbar(
+        mymembers['BP-RP'], mymembers['Gmag'],
+        color='black', zorder=2, fmt='o',
+        xerr=mymembers['e_BP-RP'] + 0.02, yerr=mymembers['e_Gmag'],
+        label=rf'{len(mymembers)} cluster members'
+    )
+
+    # Plot stars in region
+    cluster = Cluster(cluster.name)
+    stars_in_region = cluster.stars_in_region()
+    ax.scatter(
+        stars_in_region['BP-RP'], stars_in_region['Gmag'],
+        s=2, color='grey', zorder=1, label=f"{len(stars_in_region)} stars in the region"
+    )
+
+    # Plot runaways
+    theoretical_isochrone_temp = cluster.theoretical_isochrone()
+    runaways = cluster.runaways()
+    runaways = estimate_temperature(runaways, theoretical_isochrone_temp)
+    scatter_runaways = ax.scatter(
+        runaways['BP-RP'], runaways['Gmag'],
+        s=30, zorder=4,
+        c=runaways['Temp. Est'],
+        cmap='spring_r', norm=plt.Normalize(4000, 23000),
+        label=f'{len(runaways)} runaway(s)'
+    )
+
+    # Add colorbar
+    colorbar = fig.colorbar(scatter_runaways, ax=ax)
+    colorbar.set_label('Temperature (K)')
+
+    # Add cluster parameters table
+    cluster_table = [
+        ['N', len(cluster.mymembers)],
+        [r'$[Fe/H]$', cluster.FeH],
+        ['log(Age)', cluster.logage],
+        ['Av (mag)', round(cluster.Av.value, 2)],
+        ['Dist. (pc)', str(round(cluster.distance.value)) + "$\pm$" + f'{cluster.all["e_Dist"]}']
+    ]
+
+    if 'FeH' in kwargs and kwargs['FeH'] != cluster.FeH:
+        cluster_table[1][1] = f'{cluster.FeH:.2f} --> {kwargs["FeH"]}'
+    if 'logage' in kwargs and kwargs['logage'] != cluster.logage:
+        cluster_table[2][1] = f'{cluster.logage:.2f} --> {kwargs["logage"]}'
+    if 'Av' in kwargs and kwargs['Av'] != cluster.Av:
+        cluster_table[3][1] = f'{cluster.Av.value:.2f} --> {kwargs["Av"]}'
+
+    table_bbox = [0.0, 0.84, 0.44, 0.16]  # [left, bottom, width, height]
+    table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox)
+
+    for key, cell in table._cells.items():
+        cell.set_linewidth(0.5)
+        cell.set_edgecolor('lightgray')
+
+    # Set plot limits and invert y-axis
+    ax.set_ylim(bottom=min(cluster.theoretical_isochrone()['Gmag']) - 2.5, top=18)
+    ax.set_xlim(left=min(cluster.theoretical_isochrone()['BP-RP']) - 0.5, right=4)
+    ax.invert_yaxis()
+    ax.legend()
+    return 
 
 
 def estimate_temperature(stars, theoretical_isochrone):
@@ -523,8 +629,6 @@ def estimate_temperature(stars, theoretical_isochrone):
         new_closest_star_temperature = Ttheo[closest_star_index]
         star['Temp. Est']=new_closest_star_temperature
     return stars
-
-
 def find_cluster(stars_in_region: astropy.table.Table, sigma: float = config['find_cluster']['sigma_clip']) -> astropy.table.Table: 
     """
     Takes input as an astropy table with one column called SkyCoord conatining the ra,dec,distance,pm_ra_cosdec,pm_dec.
@@ -557,8 +661,6 @@ def find_cluster(stars_in_region: astropy.table.Table, sigma: float = config['fi
     # print(f"{len(my_stars)} kinematic members")
     my_stars.sort("Gmag")
     return my_stars
-
-
 def search_arcmin(distance, radius:Angle, extra=config['Cluster']['search_extent']):
     theta = radius
     D = distance
@@ -566,8 +668,6 @@ def search_arcmin(distance, radius:Angle, extra=config['Cluster']['search_extent
     search_arcmin = np.arctan((r + extra * u.pc) / D)
     search_arcmin = search_arcmin.to(u.arcminute)
     return search_arcmin.round(3)
-
-
 def searchDR3(skycoordinate: SkyCoord, radius: Angle) -> Table:
     start_time = time.time()
     print(f"Searching in Gaia DR3 I/355/gaiadr3 {radius} around {skycoordinate.ra, skycoordinate.dec, skycoordinate.distance}")
@@ -592,7 +692,6 @@ def searchDR3(skycoordinate: SkyCoord, radius: Angle) -> Table:
     end_time = time.time()
     print(f"found {len(stars_fromDR3):,} sources in {end_time - start_time:.2f} seconds")
     return stars_fromDR3
-
 def searchDR3_dist(skycoordinate: SkyCoord, radius: Angle) -> Table:
     start_time = time.time()
     print(f"Searching in Gaia DR3 distances I/352/gedr3dis {radius} around {skycoordinate.ra, skycoordinate.dec, skycoordinate.distance}")
@@ -615,7 +714,6 @@ def searchDR3_dist(skycoordinate: SkyCoord, radius: Angle) -> Table:
     print(f"found {len(stars_fromDR3_dist):,} sources in {end_time - start_time:.2f} seconds")
     filtered_catalog = stars_fromDR3_dist[skycoordinate.separation_3d(stars_fromDR3_dist['SkyCoord2']) < skycoordinate.distance*config['Cluster']['distance_tolerance']]
     return filtered_catalog
-
 def merge_gaia_tables(stars_fromDR3: Table, stars_fromDR3_dist: Table) -> Table:
     start_time = time.time()
     print("Starting merge of DR3 and distance catalog data")
@@ -655,7 +753,6 @@ def merge_gaia_tables(stars_fromDR3: Table, stars_fromDR3_dist: Table) -> Table:
     end_time = time.time()
     print(f"{len(merged):,} sources found by merging in {end_time - start_time:.2f} seconds")
     return merged
-
 def get_theoretical_isochrone(Av=None,logage=None,FeH=None,parsec_version=2):
     print(f"getting isochrone from cmd3.7 (PARSEC{parsec_version}) with:\nAv:{Av:.2f}\nlogage:{logage:.2f}\nmetallicity:{FeH:.2f}")
     start_time = time.time()
@@ -740,7 +837,6 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None,parsec_version=2):
     print(f"isochrone downloaded in {end_time-start_time:.1f}s")
     
     return theoretical_data
-
 def get_search_region(cluster, extra=10,display=True,**kwargs):
     """
     Plots and saves the fits file for the region around the given cluster.
