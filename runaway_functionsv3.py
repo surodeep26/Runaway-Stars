@@ -429,6 +429,7 @@ class Cluster:
         return runaways
     
     def theoretical_isochrone(self, params=None, returnparams=False):
+        self.members()
         params = params or {}
         Av = float(params.get('Av', None)) if params.get('Av') is not None else round(float(self.Av.value), 1)
         logage = float(params.get('logage', None)) if params.get('logage') is not None else round(float(self.logage), 1)
