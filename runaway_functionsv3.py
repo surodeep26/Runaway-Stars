@@ -462,7 +462,7 @@ class Cluster:
             allrun_pixels_earlier = wcs.world_to_pixel(allrun_coord_earlier)
 
             # Plot the current positions as scatter points
-            scatter_main = ax.scatter(allrun_pixels_now[0], allrun_pixels_now[1], c=allrun['Temp. Est'], cmap='spring_r', s=50)
+            scatter_main = ax.scatter(allrun_pixels_now[0], allrun_pixels_now[1], c=allrun['Temp. Est'], cmap='spring_r', s=50,norm=plt.Normalize(4000, 23000))
             colorbar = fig.colorbar(scatter_main,ax=ax)       # Plot the lines showing motion
             for start, end in zip(np.transpose(allrun_pixels_now), np.transpose(allrun_pixels_earlier)):
                 ax.plot([start[0], end[0]], [start[1], end[1]], color='blue')
@@ -711,6 +711,9 @@ def get_search_region(cluster, extra=10,display=True,**kwargs):
         # Extract the WCS information
         wcs = WCS(images[0][0].header)
     else:
+        # print("downloading fits image 10pc around cluster center...")
+        start_time = time.time()
+        
         # File doesn't exist, get the image data from SkyView
         images = SkyView.get_images(position=cluster.skycoord,
                                     survey='DSS',
@@ -720,6 +723,9 @@ def get_search_region(cluster, extra=10,display=True,**kwargs):
         wcs = WCS(images[0][0].header)
         hdu = fits.PrimaryHDU(data=images[0][0].data, header=images[0][0].header)
         hdulist = fits.HDUList([hdu])
+        end_time = time.time()
         
         # Save the fits file
         hdulist.writeto(fits_file_path, overwrite=True)
+        print(f"image downloaded in {(end_time-start_time):1f}s")
+        
