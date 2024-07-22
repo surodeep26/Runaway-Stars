@@ -109,21 +109,24 @@ class ClusterDias:
         dias2021.write('dias2021.tsv',format='ascii.ecsv', overwrite=True)
         return dias2021
     
-    def theoretical_isochrone(self, params=None, returnparams=False):
+    def theoretical_isochrone(self, params=None, returnparams=False, parsec_version=2):
+        # self.members()
         params = params or {}
         Av = float(params.get('Av', None)) if params.get('Av') is not None else round(float(self.Av.value), 1)
         logage = float(params.get('logage', None)) if params.get('logage') is not None else round(float(self.logage), 1)
         FeH = float(params.get('FeH', None)) if params.get('FeH') is not None else round(float(self.FeH), 1)
         
-        theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone"
+        theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone{parsec_version}"
         # print(Av, logage, FeH)
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
         else:
-            theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH)
+            theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH, parsec_version=parsec_version)
             theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
-            theo_iso['G_BP'] = theo_iso["G_BP_fSBmag"]
-            theo_iso['G_RP'] = theo_iso["G_RP_fSBmag"]
+            theo_iso['G_BP'] = theo_iso["G_BP"]+ 5 * np.log10(self.distance.value) - 5
+            theo_iso['G_RP'] = theo_iso["G_RP"]+ 5 * np.log10(self.distance.value) - 5
+            if parsec_version==1.2:
+                theo_iso['Teff0'] = 10**theo_iso['logTe']
             theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
             theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
         if returnparams:
@@ -440,15 +443,17 @@ class Cluster:
         logage = float(params.get('logage', None)) if params.get('logage') is not None else round(float(self.logage), 1)
         FeH = float(params.get('FeH', None)) if params.get('FeH') is not None else round(float(self.FeH), 1)
         
-        theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone"
+        theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone{parsec_version}"
         # print(Av, logage, FeH)
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
         else:
             theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH, parsec_version=parsec_version)
             theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
-            theo_iso['G_BP'] = theo_iso["G_BP_fSBmag"]+ 5 * np.log10(self.distance.value) - 5
-            theo_iso['G_RP'] = theo_iso["G_RP_fSBmag"]+ 5 * np.log10(self.distance.value) - 5
+            theo_iso['G_BP'] = theo_iso["G_BP"]+ 5 * np.log10(self.distance.value) - 5
+            theo_iso['G_RP'] = theo_iso["G_RP"]+ 5 * np.log10(self.distance.value) - 5
+            if parsec_version==1.2:
+                theo_iso['Teff0'] = 10**theo_iso['logTe']
             theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
             theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
         if returnparams:
@@ -652,7 +657,7 @@ def merge_gaia_tables(stars_fromDR3: Table, stars_fromDR3_dist: Table) -> Table:
     return merged
 
 def get_theoretical_isochrone(Av=None,logage=None,FeH=None,parsec_version=2):
-    print(f"getting isochrone form cmd3.7 with:\nAv:{Av:.2f}\nlogage:{logage:.2f}\nmetallicity:{FeH:.2f}")
+    print(f"getting isochrone from cmd3.7 (PARSEC{parsec_version}) with:\nAv:{Av:.2f}\nlogage:{logage:.2f}\nmetallicity:{FeH:.2f}")
     start_time = time.time()
     s = Service()
     # options = webdriver.ChromeOptions()
@@ -722,11 +727,15 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None,parsec_version=2):
         theoretical_data.rename_column(old_name, new_name)
     # Calculate BP-RP and add column at the end
     if parsec_version==2:
-        theoretical_data['BP-RP'] = theoretical_data['G_BP_fSBmag']-theoretical_data['G_RP_fSBmag']
         theoretical_data['Gmag'] = theoretical_data['G_fSBmag']
+        theoretical_data['G_BP'] = theoretical_data['G_BP_fSBmag']
+        theoretical_data['G_RP'] = theoretical_data['G_RP_fSBmag']
+        theoretical_data['BP-RP'] = theoretical_data['G_BP_fSBmag']-theoretical_data['G_RP_fSBmag']
     elif parsec_version==1.2:
+        # theoretical_data['Gmag'] = theoretical_data['Gmag']
+        theoretical_data['G_BP'] = theoretical_data['G_BPmag']
+        theoretical_data['G_RP'] = theoretical_data['G_RPmag']
         theoretical_data['BP-RP'] = theoretical_data['G_BPmag']-theoretical_data['G_RPmag']
-        theoretical_data['Gmag'] = theoretical_data['Gmag']
     end_time = time.time()
     print(f"isochrone downloaded in {end_time-start_time:.1f}s")
     
