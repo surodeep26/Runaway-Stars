@@ -391,9 +391,9 @@ class Cluster:
         runaways_all = fs[i]
         return runaways_all
     
-    def runaways(self,Av=None,logage=None,FeH=None,temp_threshold=10000):
-
-        runaways = estimate_temperature(self.runaways_all(), self.theoretical_isochrone(Av,logage,FeH))
+    def runaways(self,params=None,temp_threshold=10000):
+        params = params or {}
+        runaways = estimate_temperature(self.runaways_all(), self.theoretical_isochrone(params=params))
         runaways = runaways[
                             "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est",
                             "e_RA_ICRS", "e_DE_ICRS", "_r_1", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
@@ -406,12 +406,14 @@ class Cluster:
         runaways.sort('Temp. Est', reverse=True)
         return runaways
     
-    def theoretical_isochrone(self, Av=None, logage=None, FeH=None):
-        Av = float(Av) if Av is not None else round(float(self.Av.value), 1)
-        logage = float(logage) if logage is not None else round(float(self.logage), 1)
-        FeH = float(FeH) if FeH is not None else round(float(self.FeH), 1)
+    def theoretical_isochrone(self, params=None):
+        params = params or {}
+        Av = float(params.get('Av', None)) if params.get('Av') is not None else round(float(self.Av.value), 1)
+        logage = float(params.get('logage', None)) if params.get('logage') is not None else round(float(self.logage), 1)
+        FeH = float(params.get('FeH', None)) if params.get('FeH') is not None else round(float(self.FeH), 1)
+        
         theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone"
-        # print(Av, logage, FeH)
+        print(Av, logage, FeH)
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
         else:
