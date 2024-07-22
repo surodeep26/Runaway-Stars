@@ -103,6 +103,28 @@ class ClusterDias:
         dias2021 = Vizier.get_catalogs(catalog="J/MNRAS/504/356/table12")[0]
         dias2021.write('dias2021.tsv',format='ascii.ecsv', overwrite=True)
         return dias2021
+    
+    def theoretical_isochrone(self, params=None, returnparams=False):
+        params = params or {}
+        Av = float(params.get('Av', None)) if params.get('Av') is not None else round(float(self.Av.value), 1)
+        logage = float(params.get('logage', None)) if params.get('logage') is not None else round(float(self.logage), 1)
+        FeH = float(params.get('FeH', None)) if params.get('FeH') is not None else round(float(self.FeH), 1)
+        
+        theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone"
+        # print(Av, logage, FeH)
+        if os.path.exists(theo_iso_path):
+            theo_iso = Table.read(theo_iso_path, format="ascii")
+        else:
+            theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH)
+            theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
+            theo_iso['G_BP'] = theo_iso["G_BP_fSBmag"]
+            theo_iso['G_RP'] = theo_iso["G_RP_fSBmag"]
+            theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
+            theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
+        if returnparams:
+            return theo_iso, (Av, logage, FeH)
+        else:
+            return theo_iso
 
 class ClusterCG:
     def __init__(self, name:str) -> None:
@@ -406,14 +428,14 @@ class Cluster:
         runaways.sort('Temp. Est', reverse=True)
         return runaways
     
-    def theoretical_isochrone(self, params=None):
+    def theoretical_isochrone(self, params=None, returnparams=False):
         params = params or {}
         Av = float(params.get('Av', None)) if params.get('Av') is not None else round(float(self.Av.value), 1)
         logage = float(params.get('logage', None)) if params.get('logage') is not None else round(float(self.logage), 1)
         FeH = float(params.get('FeH', None)) if params.get('FeH') is not None else round(float(self.FeH), 1)
         
         theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone"
-        print(Av, logage, FeH)
+        # print(Av, logage, FeH)
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
         else:
@@ -423,8 +445,10 @@ class Cluster:
             theo_iso['G_RP'] = theo_iso["G_RP_fSBmag"]
             theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
             theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
-        
-        return theo_iso
+        if returnparams:
+            return theo_iso, (Av, logage, FeH)
+        else:
+            return theo_iso
     
     def plot_traceback_clean(self):
         warnings.simplefilter('ignore', ErfaWarning)
