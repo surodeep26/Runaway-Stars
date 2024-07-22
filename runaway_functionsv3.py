@@ -433,8 +433,8 @@ class Cluster:
         runaways.sort('Temp. Est', reverse=True)
         return runaways
     
-    def theoretical_isochrone(self, params=None, returnparams=False):
-        self.members()
+    def theoretical_isochrone(self, params=None, returnparams=False, parsec_version=2):
+        # self.members()
         params = params or {}
         Av = float(params.get('Av', None)) if params.get('Av') is not None else round(float(self.Av.value), 1)
         logage = float(params.get('logage', None)) if params.get('logage') is not None else round(float(self.logage), 1)
@@ -445,10 +445,10 @@ class Cluster:
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
         else:
-            theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH)
+            theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH, parsec_version=parsec_version)
             theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
-            theo_iso['G_BP'] = theo_iso["G_BP_fSBmag"]
-            theo_iso['G_RP'] = theo_iso["G_RP_fSBmag"]
+            theo_iso['G_BP'] = theo_iso["G_BP_fSBmag"]+ 5 * np.log10(self.distance.value) - 5
+            theo_iso['G_RP'] = theo_iso["G_RP_fSBmag"]+ 5 * np.log10(self.distance.value) - 5
             theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
             theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
         if returnparams:
@@ -651,7 +651,7 @@ def merge_gaia_tables(stars_fromDR3: Table, stars_fromDR3_dist: Table) -> Table:
     print(f"{len(merged):,} sources found by merging in {end_time - start_time:.2f} seconds")
     return merged
 
-def get_theoretical_isochrone(Av=None,logage=None,FeH=None):
+def get_theoretical_isochrone(Av=None,logage=None,FeH=None,parsec_version=2):
     print(f"getting isochrone form cmd3.7 with:\nAv:{Av:.2f}\nlogage:{logage:.2f}\nmetallicity:{FeH:.2f}")
     start_time = time.time()
     s = Service()
@@ -660,7 +660,11 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None):
     browser.get('http://stev.oapd.inaf.it/cgi-bin/cmd')
 
     #Evolutionary Tracks #from config
-    browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[3]/td[1]/input[1]").click() #PARSEC version 2.0
+    if parsec_version==2:
+        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[3]/td[1]/input[1]").click() #PARSEC version 2.0
+    elif parsec_version==1.2:
+        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[4]/td/input").click() #PARSEC version 1.2S
+    
     browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[5]/td/input").click() #+ COLIBRI S_37
     #Phtotometric System #from config
     photometricSystem = Select(browser.find_element(By.XPATH,"//select[@name='photsys_file']")) #dropdown list for available photometric systems
@@ -708,13 +712,21 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None):
     theoretical_data = Table.read("temp_isochrone", format='ascii')
     # os.remove("temp_isochrone")
     # Define the new column names
-    new_column_names = ['Zini', 'MH', 'logAge', 'Mini', 'int_IMF', 'Mass', 'logL', 'logTe', 'logg', 'label', 'McoreTP', 'C_O', 'period0', 'period1', 'period2', 'period3', 'period4', 'pmode', 'Mloss', 'tau1m', 'X', 'Y', 'Xc', 'Xn', 'Xo', 'Cexcess', 'Z', 'Teff0', 'omega', 'angvel', 'vtaneq', 'angmom', 'Rpol', 'Req', 'mbolmag', 'G_fSBmag', 'G_BP_fSBmag', 'G_RP_fSBmag', 'G_fSB', 'G_f0', 'G_fk', 'G_i00', 'G_i05', 'G_i10', 'G_i15', 'G_i20', 'G_i25', 'G_i30', 'G_i35', 'G_i40', 'G_i45', 'G_i50', 'G_i55', 'G_i60', 'G_i65', 'G_i70', 'G_i75', 'G_i80', 'G_i85', 'G_i90', 'G_BP_fSB', 'G_BP_f0', 'G_BP_fk', 'G_BP_i00', 'G_BP_i05', 'G_BP_i10', 'G_BP_i15', 'G_BP_i20', 'G_BP_i25', 'G_BP_i30', 'G_BP_i35', 'G_BP_i40', 'G_BP_i45', 'G_BP_i50', 'G_BP_i55', 'G_BP_i60', 'G_BP_i65', 'G_BP_i70', 'G_BP_i75', 'G_BP_i80', 'G_BP_i85', 'G_BP_i90', 'G_RP_fSB', 'G_RP_f0', 'G_RP_fk', 'G_RP_i00', 'G_RP_i05', 'G_RP_i10', 'G_RP_i15', 'G_RP_i20', 'G_RP_i25', 'G_RP_i30', 'G_RP_i35', 'G_RP_i40', 'G_RP_i45', 'G_RP_i50', 'G_RP_i55', 'G_RP_i60', 'G_RP_i65', 'G_RP_i70', 'G_RP_i75', 'G_RP_i80', 'G_RP_i85', 'G_RP_i90']
+    if parsec_version==2:
+        new_column_names = ['Zini', 'MH', 'logAge', 'Mini', 'int_IMF', 'Mass', 'logL', 'logTe', 'logg', 'label', 'McoreTP', 'C_O', 'period0', 'period1', 'period2', 'period3', 'period4', 'pmode', 'Mloss', 'tau1m', 'X', 'Y', 'Xc', 'Xn', 'Xo', 'Cexcess', 'Z', 'Teff0', 'omega', 'angvel', 'vtaneq', 'angmom', 'Rpol', 'Req', 'mbolmag', 'G_fSBmag', 'G_BP_fSBmag', 'G_RP_fSBmag', 'G_fSB', 'G_f0', 'G_fk', 'G_i00', 'G_i05', 'G_i10', 'G_i15', 'G_i20', 'G_i25', 'G_i30', 'G_i35', 'G_i40', 'G_i45', 'G_i50', 'G_i55', 'G_i60', 'G_i65', 'G_i70', 'G_i75', 'G_i80', 'G_i85', 'G_i90', 'G_BP_fSB', 'G_BP_f0', 'G_BP_fk', 'G_BP_i00', 'G_BP_i05', 'G_BP_i10', 'G_BP_i15', 'G_BP_i20', 'G_BP_i25', 'G_BP_i30', 'G_BP_i35', 'G_BP_i40', 'G_BP_i45', 'G_BP_i50', 'G_BP_i55', 'G_BP_i60', 'G_BP_i65', 'G_BP_i70', 'G_BP_i75', 'G_BP_i80', 'G_BP_i85', 'G_BP_i90', 'G_RP_fSB', 'G_RP_f0', 'G_RP_fk', 'G_RP_i00', 'G_RP_i05', 'G_RP_i10', 'G_RP_i15', 'G_RP_i20', 'G_RP_i25', 'G_RP_i30', 'G_RP_i35', 'G_RP_i40', 'G_RP_i45', 'G_RP_i50', 'G_RP_i55', 'G_RP_i60', 'G_RP_i65', 'G_RP_i70', 'G_RP_i75', 'G_RP_i80', 'G_RP_i85', 'G_RP_i90']
+    elif parsec_version==1.2:
+        new_column_names = ["Zini", "MH", "logAge", "Mini", "int_IMF", "Mass", "logL", "logTe", "logg", "label", "McoreTP", "C_O", "period0", "period1", "period2", "period3", "period4", "pmode", "Mloss", "tau1m", "X", "Y", "Xc", "Xn", "Xo", "Cexcess", "Z", "mbolmag", "Gmag", "G_BPmag", "G_RPmag"]
+
     # Rename the columns
     for old_name, new_name in zip(theoretical_data.colnames, new_column_names):
         theoretical_data.rename_column(old_name, new_name)
     # Calculate BP-RP and add column at the end
-    theoretical_data['BP-RP'] = theoretical_data['G_BP_fSBmag']-theoretical_data['G_RP_fSBmag']
-    theoretical_data['Gmag'] = theoretical_data['G_fSBmag'] #+ 5*np.log10(cluster.distance.value)-5
+    if parsec_version==2:
+        theoretical_data['BP-RP'] = theoretical_data['G_BP_fSBmag']-theoretical_data['G_RP_fSBmag']
+        theoretical_data['Gmag'] = theoretical_data['G_fSBmag']
+    elif parsec_version==1.2:
+        theoretical_data['BP-RP'] = theoretical_data['G_BPmag']-theoretical_data['G_RPmag']
+        theoretical_data['Gmag'] = theoretical_data['Gmag']
     end_time = time.time()
     print(f"isochrone downloaded in {end_time-start_time:.1f}s")
     
