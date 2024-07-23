@@ -285,10 +285,62 @@ class Cluster:
     
     def fast_stars_in_region(self):
         sir = self.stars_in_region()
-        mask_fast = sir['v_pec'] > 17.6*u.km/u.s
-        return sir[mask_fast]
+        mask_fast2d = sir['v_pec'] > 17.6*u.km/u.s
+        mask_vpec3ddosentexist = sir['v_pec3d'].mask
+        mask_fast3d = sir['v_pec3d'] > 25*u.km/u.s
+        
+        return sir[(mask_fast2d & mask_vpec3ddosentexist) | mask_fast3d]
     def fs4giesler(self,outlocation=None):
         table = self.fast_stars_in_region()
+        g = Table()
+        g['TypeInput'] = np.ones_like(table['e_Plx'].value).astype(int)
+        g['RA'] = table['SkyCoord'].ra.to_string(unit='hourangle', sep=' ', precision=3, pad=True)
+        g['DE'] = table['SkyCoord'].dec.to_string(unit='degree', sep=' ', precision=3, pad=True)
+        g['Plx'] = table['rgeo'].to(u.mas, u.parallax())
+        g['e_Plx'] = table['e_Plx']
+        g['RV'] = np.zeros_like(table['e_Plx'].value).astype(int)
+        # g['RV'] = table['RV']
+        g['e_RV'] = np.zeros_like(table['e_Plx'].value).astype(int)
+        # g['e_RV'] = table['e_RV']
+        g['RVdist'] = np.zeros_like(table['e_Plx'].value).astype(int)
+        g['pmRA'] = table['pmRA']
+        g['e_pmRA'] = table['e_pmRA']
+        g['pmDE'] = table['pmDE']
+        g['e_pmDE'] = table['e_pmDE']
+        g['Source'] = table['Source'].astype(str)
+        # g['RV'] = g['RV'].filled(0) #fill masked values with 0
+        # g['e_RV'] = g['e_RV'].filled(0) #fill masked values with 0
+        #this is the first row for the cluster's motion
+        new_row = [1,
+           self.ra.to_string(unit='hourangle', sep=' ', precision=3, pad=True), #ra
+           self.dec.to_string(unit='degree', sep=' ', precision=3, pad=True), #dec
+           ((self.all['Dist']*u.pc).to(u.mas, u.parallax())).value, #plx
+           self.all['e_Plx'], #e_plx
+        #    self.all['RV'], #RV
+           0,   #RV
+        #    self.all['e_RV'], #e_RV
+           0,   #e_RV
+           0, #RV_distribution
+           self.all['pmRA'], #pmRA
+           self.all['e_pmRA'], #e_pmRA
+           self.all['pmDE'], #pmDE
+           self.all['e_pmDE'], #e_pmDE
+           self.name #ID
+           ]
+        new_table = Table(names=g.colnames, dtype=[col.dtype for col in g.columns.values()])
+        new_table.add_row(new_row)
+        g = vstack([new_table,g])
+        if outlocation=='local':
+            g.write(f'Clusters/{self.name}/{self.name}_fs4giesler.tsv', format='csv', delimiter='\t', overwrite=True)
+        elif outlocation=='remote':
+            g.write(f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}/{self.name}_fs4giesler.tsv", format='csv', delimiter='\t', overwrite=True)
+            
+
+        return g
+    def fs4giesler3d(self,outlocation=None):
+        table = self.fast_stars_in_region()
+        mask_vpec3dexists = ~table['v_pec3d'].mask
+        table = table[mask_vpec3dexists]
         g = Table()
         g['TypeInput'] = np.ones_like(table['e_Plx'].value).astype(int)
         g['RA'] = table['SkyCoord'].ra.to_string(unit='hourangle', sep=' ', precision=3, pad=True)
@@ -306,7 +358,6 @@ class Cluster:
         g['e_pmDE'] = table['e_pmDE']
         g['Source'] = table['Source'].astype(str)
 
-
         #this is the first row for the cluster's motion
         new_row = [1,
            self.ra.to_string(unit='hourangle', sep=' ', precision=3, pad=True), #ra
@@ -314,7 +365,9 @@ class Cluster:
            ((self.all['Dist']*u.pc).to(u.mas, u.parallax())).value, #plx
            self.all['e_Plx'], #e_plx
            self.all['RV'], #RV
+        #    0,   #RV
            self.all['e_RV'], #e_RV
+        #    0,   #e_RV
            0, #RV_distribution
            self.all['pmRA'], #pmRA
            self.all['e_pmRA'], #e_pmRA
@@ -328,11 +381,9 @@ class Cluster:
         if outlocation=='local':
             g.write(f'Clusters/{self.name}/{self.name}_fs4giesler.tsv', format='csv', delimiter='\t', overwrite=True)
         elif outlocation=='remote':
-            g.write(f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}/{self.name}_fs4giesler.tsv", format='csv', delimiter='\t', overwrite=True)
+            g.write(f"/home/surodeep/suro_aiu/traceback/cluster_runaway3d/{self.name}/{self.name}_fs4giesler.tsv", format='csv', delimiter='\t', overwrite=True)
             
-        g['RV'] = g['RV'].filled(0) #fill masked values with 0
-        g['e_RV'] = g['e_RV'].filled(0) #fill masked values with 0
-        return g
+        return g        
 
     def get_stars_in_region(self) -> Table:
         c = ClusterDias(self.name).skycoord
@@ -427,6 +478,53 @@ class Cluster:
     
         print(f'./traceback ../../cluster_runaway/{self.name}/{self.name}_trace.conf')
         
+    def prepare_trace3d(self):
+        mainfolder = f"/home/surodeep/suro_aiu/traceback/cluster_runaway3d/{self.name}"
+        runawayfolder = f"/home/surodeep/suro_aiu/traceback/cluster_runaway3d/{self.name}/runaways"
+        trajfolder = f"/home/surodeep/suro_aiu/traceback/cluster_runaway3d/{self.name}/runaway_trajectories"
+        os.mkdir(mainfolder) if not os.path.exists(mainfolder) else None
+        os.mkdir(runawayfolder) if not os.path.exists(runawayfolder) else None
+        os.mkdir(trajfolder) if not os.path.exists(trajfolder) else None
+
+        def update_config_template(config_file_path, output_file_path, **kwargs):
+            # Read the template config file
+            with open(config_file_path, 'r') as file:
+                config_content = file.read()
+            # Replace placeholders with actual values
+            for key, value in kwargs.items():
+                placeholder = f"val_{key}"
+                config_content = config_content.replace(placeholder, str(value))
+            # Write the updated content to the output file
+            with open(output_file_path, 'w') as file:
+                file.write(config_content)
+            
+        fs4giesler = self.fs4giesler3d(outlocation='remote')
+        lastline = len(fs4giesler)+1
+        # Example usage:
+        #starno=5
+        #template config
+        config_file_path = "/home/surodeep/suro_aiu/traceback/cluster_runaway3d/template_config_trace.conf"
+        #output the modified config
+        output_file_path = f"/home/surodeep/suro_aiu/traceback/cluster_runaway3d/{self.name}/{self.name}_trace.conf"
+        params = {
+            "Threads": 0,
+            "Orbits": 1000,
+            "Steps": 1000,
+            "Width": 100,
+            "StepSize": -100,
+            "TimeLimit": 100,
+            "Criterion": "Hoogerwerf",
+            "Limit": round(self.rPhy.value,3),
+            #cluster line
+            "Star1": f'"/astro/surodeep/traceback/cluster_runaway3d/{self.name}/{self.name}_fs4giesler.tsv#2"',
+            #rest of the stars
+            "Star2": f'"/astro/surodeep/traceback/cluster_runaway3d/{self.name}/{self.name}_fs4giesler.tsv#3..{lastline}"',
+            "Assoc": 0,
+            "OutFile": f'"/astro/surodeep/traceback/cluster_runaway3d/{self.name}/runaways/run"'
+        }
+        update_config_template(config_file_path, output_file_path, **params)
+    
+        print(f'./traceback ../../cluster_runaway3d/{self.name}/{self.name}_trace.conf')
     def runaways_all(self):
         fs = self.fast_stars_in_region()
         #runaways from giesler traceback
