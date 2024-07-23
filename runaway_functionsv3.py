@@ -24,6 +24,8 @@ from astroquery.skyview import SkyView
 from regions import CircleSkyRegion, PointSkyRegion, LineSkyRegion
 from astropy.wcs import WCS
 from astropy.io import fits
+from astroquery.simbad import Simbad
+import matplotlib.patches as patches
 
 dias2021 = Table.read("dias2021.tsv", format="ascii.ecsv")
 maskplx = dias2021['Plx'] > 0.3
@@ -263,6 +265,8 @@ class Cluster:
         sir = self.stars_in_region()
         sir['rmRA'] = sir['pmRA']-self.pm_ra_cosdec
         sir['rmDE'] = sir['pmDE']-self.pm_dec
+        sir['e_rmRA'] = sir['e_pmRA']+self.e_pm_ra_cosdec
+        sir['e_rmDE'] = sir['e_pmDE']+self.e_pm_dec
         sir['v_pec'] = 4.74*sir['rgeo'].value/1000*np.sqrt(((sir['rmRA'].value)**2+(sir['rmDE'].value)**2))*u.km/u.s
         mask_fast = sir['v_pec'] > 17.6*u.km/u.s
         return sir[mask_fast]
@@ -430,7 +434,7 @@ class Cluster:
                             "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est",
                             "e_RA_ICRS", "e_DE_ICRS", "_r_1", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
                             "Gmag", "BP-RP", "BPmag", "RPmag", "b_rgeo", "B_rgeo", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP", "SkyCoord", 
-                            "rmRA", "rmDE", "v_pec", "logg", "RV", "e_RV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
+                            "rmRA","e_rmRA", "rmDE", "e_rmDE", "v_pec", "logg", "RV", "e_RV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
                         ]
         
         mask_temp = runaways['Temp. Est'] >= temp_threshold*u.K
@@ -484,7 +488,7 @@ class Cluster:
         with fits.open(cluster_10pc_fits_path) as fits_file:
             image = fits_file[0]
             wcs = WCS(image.header)
-            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(16, 16))
+            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(10, 10))
             ax.imshow(image.data, cmap='gray')
             ax.set_xlabel('Right Ascension (hms)')
             ax.set_ylabel('Declination (degrees)')
@@ -501,10 +505,55 @@ class Cluster:
             allrun_pixels_earlier = wcs.world_to_pixel(allrun_coord_earlier)
 
             # Plot the current positions as scatter points
-            scatter_main = ax.scatter(allrun_pixels_now[0], allrun_pixels_now[1], c=allrun['Temp. Est'], cmap='spring_r', s=50,norm=plt.Normalize(4000, 23000))
-            colorbar = fig.colorbar(scatter_main,ax=ax)       # Plot the lines showing motion
-            for start, end in zip(np.transpose(allrun_pixels_now), np.transpose(allrun_pixels_earlier)):
-                ax.plot([start[0], end[0]], [start[1], end[1]], color='blue')
+            scatter_main = ax.scatter(allrun_pixels_now[0], allrun_pixels_now[1], 
+                                      c=allrun['Temp. Est'], cmap='spring_r', 
+                                      s=30,norm=plt.Normalize(4000, 23000))
+            colorbar = fig.colorbar(scatter_main,ax=ax)       
+            # Plot the lines showing motion errors
+            if len(allrun)>0:
+                runaway_00, runaway_apdp,runaway_apdm,runaway_amdp,runaway_amdm = [SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=allrun['rmRA'],pm_dec=allrun['rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                                    SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=(allrun['rmRA']+allrun['e_rmRA']),pm_dec=allrun['rmDE']+allrun['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                                    SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=(allrun['rmRA']+allrun['e_rmRA']),pm_dec=allrun['rmDE']-allrun['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                                    SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=(allrun['rmRA']-allrun['e_rmRA']),pm_dec=allrun['rmDE']+allrun['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                                    SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=(allrun['rmRA']-allrun['e_rmRA']),pm_dec=allrun['rmDE']-allrun['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr))]
+
+                earlier_runaway_00 = runaway_00.apply_space_motion(dt = -100_000*u.year)
+                earlier_runaway_apdp = runaway_apdp.apply_space_motion(dt = -100_000*u.year)
+                earlier_runaway_apdm = runaway_apdm.apply_space_motion(dt = -100_000*u.year)
+                earlier_runaway_amdp = runaway_amdp.apply_space_motion(dt = -100_000*u.year)
+                earlier_runaway_amdm = runaway_amdm.apply_space_motion(dt = -100_000*u.year)
+
+                earlier_runaway_00_px = wcs.world_to_pixel_values(earlier_runaway_00.ra, earlier_runaway_00.dec)
+                earlier_runaway_apdp_px = wcs.world_to_pixel_values(earlier_runaway_apdp.ra, earlier_runaway_apdp.dec)
+                earlier_runaway_apdm_px = wcs.world_to_pixel_values(earlier_runaway_apdm.ra, earlier_runaway_apdm.dec)
+                earlier_runaway_amdp_px = wcs.world_to_pixel_values(earlier_runaway_amdp.ra, earlier_runaway_amdp.dec)
+                earlier_runaway_amdm_px = wcs.world_to_pixel_values(earlier_runaway_amdm.ra, earlier_runaway_amdm.dec)
+                runaway_00_px = wcs.world_to_pixel_values(runaway_00.ra, runaway_00.dec)
+                # Calculate the displacement vectors
+                delta_x = earlier_runaway_apdp_px[0]-earlier_runaway_amdp_px[0]
+                delta_y = earlier_runaway_apdp_px[1]-earlier_runaway_apdm_px[1]
+
+                for pxx, pxy, dx, dy in zip(earlier_runaway_00_px[0], earlier_runaway_00_px[1], delta_x, delta_y):
+                    ellipse = patches.Ellipse(
+                        (pxx, pxy),
+                        width=1.5*dx,
+                        height=1.5*dy,
+                        fill=True,
+                        color='g',
+                        alpha=0.2
+                    )
+                    ax.add_patch(ellipse)
+
+                for c in [earlier_runaway_apdp_px,earlier_runaway_apdm_px,earlier_runaway_amdp_px,earlier_runaway_amdm_px]:
+                    delta_x = c[0] - runaway_00_px[0]
+                    delta_y = c[1] - runaway_00_px[1]
+                    # Draw the vectors
+                    ax.quiver(runaway_00_px[0], runaway_00_px[1], delta_x, delta_y, angles='xy', scale_units='xy', scale=1, color='limegreen', width=0.001)
+            ############################
+            
+            
+            # for start, end in zip(np.transpose(allrun_pixels_now), np.transpose(allrun_pixels_earlier)):
+            #     ax.plot([start[0], end[0]], [start[1], end[1]], color='blue')
         plt.tight_layout()
         plt.show()
 
@@ -585,6 +634,13 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
         cmap='spring_r', norm=plt.Normalize(4000, 23000),
         label=f'{len(runaways)} runaway(s)'
     )
+    
+    for runaway in runaways:
+        print(runaway)
+        source = runaway['Source']
+        t = Simbad.query_object(f"gaia dr3 {source}")
+        print(t['MAIN_ID'])
+
 
     # Add colorbar
     colorbar = fig.colorbar(scatter_runaways, ax=ax)
