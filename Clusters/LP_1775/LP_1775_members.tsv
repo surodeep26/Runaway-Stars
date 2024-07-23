@@ -386,6 +386,52 @@
 #   - values: {'null': .nan}
 # - {name: SkyCoord.pm_ra_cosdec, unit: mas / yr, datatype: float64}
 # - {name: SkyCoord.pm_dec, unit: mas / yr, datatype: float64}
+# - {name: rmRA, unit: mas / yr, datatype: float64}
+# - {name: rmDE, unit: mas / yr, datatype: float64}
+# - {name: e_rmRA, unit: mas / yr, datatype: float32}
+# - {name: e_rmDE, unit: mas / yr, datatype: float32}
+# - name: rRV
+#   unit: km / s
+#   datatype: float64
+#   format: '{:7.2f}'
+#   description: '? Radial velocity (radial_velocity)'
+#   meta: !!omap
+#   - {ucd: VELOC_BARYCENTER}
+#   - {width: 7}
+#   - {precision: '2'}
+#   - values: {'null': .nan}
+# - name: e_rRV
+#   unit: km / s
+#   datatype: float32
+#   format: '{:5.2f}'
+#   description: '? Radial velocity error (radial_velocity_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 5}
+#   - {precision: '2'}
+#   - values: {'null': .nan}
+# - {name: v_pec, unit: km / s, datatype: float64}
+# - name: v_pec3d
+#   unit: km / s
+#   datatype: float64
+#   format: '{:7.2f}'
+#   description: '? Radial velocity (radial_velocity)'
+#   meta: !!omap
+#   - {ucd: VELOC_BARYCENTER}
+#   - {width: 7}
+#   - {precision: '2'}
+#   - values: {'null': .nan}
+# - {name: e_vpec, unit: km / s, datatype: float64}
+# - name: e_vpec3d
+#   unit: km / s
+#   datatype: float64
+#   format: '{:7.2f}'
+#   description: '? Radial velocity (radial_velocity)'
+#   meta: !!omap
+#   - {ucd: VELOC_BARYCENTER}
+#   - {width: 7}
+#   - {precision: '2'}
+#   - values: {'null': .nan}
 # - {name: Pmemb, datatype: float64}
 # meta: !!omap
 # - {ID: I_352_gedr3dis}
@@ -421,6 +467,6 @@
 #           value: 360.0
 #       representation_type: spherical
 # schema: astropy-2.0
-RA_ICRS_1 DE_ICRS_1 e_RA_ICRS e_DE_ICRS _r_1 HIP TYC2 Source rgeo Plx e_Plx pmRA pmDE e_pmRA e_pmDE RUWE Teff logg Gmag BP-RP BPmag RPmag RV e_RV b_rgeo B_rgeo FG e_FG FBP e_FBP FRP e_FRP RAVE5 RAVE6 e_Gmag e_BPmag e_RPmag e_BP-RP SkyCoord.ra SkyCoord.dec SkyCoord.distance SkyCoord.pm_ra_cosdec SkyCoord.pm_dec Pmemb
-316.49923753998 47.19189040526 0.0107 0.0118 11.2031 "" "" 2165138098212233216 2749.6311 0.3341 0.0133 -3.564 -4.426 0.015 0.014 0.989 6626.4 3.6584 13.974596 0.615887 14.209752 13.593865 "" "" 2640.61084 2863.27466 48429.31158 10.884 28282.0 18.201 28948.0 17.47 "" "" 0.002766103655901367 0.0028763297 0.003835761 0.0067120907 316.49923753998 47.19189040526 2749.6311 -3.564000000000001 -4.426000000000002 0.81
-316.80634273982 47.25348576424 0.0135 0.0149 10.3694 "" "" 2165159160732847360 2886.9668 0.3228 0.0167 -3.408 -4.415 0.018 0.018 0.983 9441.8 3.9379 14.485717 0.512574 14.674927 14.162353 "" "" 2762.7124 3006.45654 30245.45268 9.0261 18427.0 19.829 17148.0 15.14 "" "" 0.0027743061750571413 0.003024909 0.003899056 0.006923965 316.80634273982 47.25348576424 2886.9668 -3.4080000000000004 -4.414999999999999 0.8
+RA_ICRS_1 DE_ICRS_1 e_RA_ICRS e_DE_ICRS _r_1 HIP TYC2 Source rgeo Plx e_Plx pmRA pmDE e_pmRA e_pmDE RUWE Teff logg Gmag BP-RP BPmag RPmag RV e_RV b_rgeo B_rgeo FG e_FG FBP e_FBP FRP e_FRP RAVE5 RAVE6 e_Gmag e_BPmag e_RPmag e_BP-RP SkyCoord.ra SkyCoord.dec SkyCoord.distance SkyCoord.pm_ra_cosdec SkyCoord.pm_dec rmRA rmDE e_rmRA e_rmDE rRV e_rRV v_pec v_pec3d e_vpec e_vpec3d Pmemb
+316.49923753998 47.19189040526 0.0107 0.0118 11.2031 "" "" 2165138098212233216 2749.6311 0.3341 0.0133 -3.564 -4.426 0.015 0.014 0.989 6626.4 3.6584 13.974596 0.615887 14.209752 13.593865 "" "" 2640.61084 2863.27466 48429.31158 10.884 28282.0 18.201 28948.0 17.47 "" "" 0.002766103655901367 0.0028763297 0.003835761 0.0067120907 316.49923753998 47.19189040526 2749.6311 -3.5640000000000014 -4.426000000000002 -0.0779999389648438 -0.005500198364257969 0.093 0.092 "" "" 1.019117146088709 "" 0.09477288139084775 "" 0.81
+316.80634273982 47.25348576424 0.0135 0.0149 10.3694 "" "" 2165159160732847360 2886.9668 0.3228 0.0167 -3.408 -4.415 0.018 0.018 0.983 9441.8 3.9379 14.485717 0.512574 14.674927 14.162353 "" "" 2762.7124 3006.45654 30245.45268 9.0261 18427.0 19.829 17148.0 15.14 "" "" 0.0027743061750571413 0.003024909 0.003899056 0.006923965 316.80634273982 47.25348576424 2886.9668 -3.4080000000000004 -4.414999999999999 0.07800006103515633 0.005499801635742152 0.096 0.096 "" "" 1.0700202284604203 "" 0.10272194282509481 "" 0.8

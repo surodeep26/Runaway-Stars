@@ -386,6 +386,52 @@
 #   - values: {'null': .nan}
 # - {name: SkyCoord.pm_ra_cosdec, unit: mas / yr, datatype: float64}
 # - {name: SkyCoord.pm_dec, unit: mas / yr, datatype: float64}
+# - {name: rmRA, unit: mas / yr, datatype: float64}
+# - {name: rmDE, unit: mas / yr, datatype: float64}
+# - {name: e_rmRA, unit: mas / yr, datatype: float32}
+# - {name: e_rmDE, unit: mas / yr, datatype: float32}
+# - name: rRV
+#   unit: km / s
+#   datatype: float64
+#   format: '{:7.2f}'
+#   description: '? Radial velocity (radial_velocity)'
+#   meta: !!omap
+#   - {ucd: VELOC_BARYCENTER}
+#   - {width: 7}
+#   - {precision: '2'}
+#   - values: {'null': .nan}
+# - name: e_rRV
+#   unit: km / s
+#   datatype: float32
+#   format: '{:5.2f}'
+#   description: '? Radial velocity error (radial_velocity_error)'
+#   meta: !!omap
+#   - {ucd: ERROR}
+#   - {width: 5}
+#   - {precision: '2'}
+#   - values: {'null': .nan}
+# - {name: v_pec, unit: km / s, datatype: float64}
+# - name: v_pec3d
+#   unit: km / s
+#   datatype: float64
+#   format: '{:7.2f}'
+#   description: '? Radial velocity (radial_velocity)'
+#   meta: !!omap
+#   - {ucd: VELOC_BARYCENTER}
+#   - {width: 7}
+#   - {precision: '2'}
+#   - values: {'null': .nan}
+# - {name: e_vpec, unit: km / s, datatype: float64}
+# - name: e_vpec3d
+#   unit: km / s
+#   datatype: float64
+#   format: '{:7.2f}'
+#   description: '? Radial velocity (radial_velocity)'
+#   meta: !!omap
+#   - {ucd: VELOC_BARYCENTER}
+#   - {width: 7}
+#   - {precision: '2'}
+#   - values: {'null': .nan}
 # - {name: Pmemb, datatype: float64}
 # meta: !!omap
 # - {ID: I_352_gedr3dis}
@@ -421,7 +467,7 @@
 #           value: 360.0
 #       representation_type: spherical
 # schema: astropy-2.0
-RA_ICRS_1 DE_ICRS_1 e_RA_ICRS e_DE_ICRS _r_1 HIP TYC2 Source rgeo Plx e_Plx pmRA pmDE e_pmRA e_pmDE RUWE Teff logg Gmag BP-RP BPmag RPmag RV e_RV b_rgeo B_rgeo FG e_FG FBP e_FBP FRP e_FRP RAVE5 RAVE6 e_Gmag e_BPmag e_RPmag e_BP-RP SkyCoord.ra SkyCoord.dec SkyCoord.distance SkyCoord.pm_ra_cosdec SkyCoord.pm_dec Pmemb
-282.45056451718 -0.31165668012 0.0132 0.0131 2.032 "" "" 4266162878838435456 1945.09021 0.4711 0.0157 -0.527 -1.924 0.016 0.016 0.932 15025.9 3.4668 13.508034 2.010108 14.512979 12.502871 "" "" 1885.86853 2003.90979 74427.45213 69.08 21391.0 71.037 79070.0 194.87 "" "" 0.00293382103621385 0.0045591025 0.0046307407 0.009189843 282.45056451718 -0.31165668012 1945.09021 -0.527 -1.924 0.85
-282.46461675853 -0.44500346116 0.0262 0.0258 7.3861 "" "" 4266134428972970880 1962.99451 0.4702 0.033 -0.369 -1.867 0.032 0.033 1.044 "" "" 15.124998 2.068925 16.170166 14.101241 -295.31 8.98 1836.79956 2101.41797 16786.01136 13.991 4648.9 16.377 18141.0 45.78 "" "" 0.002900125433680826 0.004734356 0.0046680747 0.009402431 282.46461675853 -0.44500346116 1962.99451 -0.369 -1.8669999999999995 0.83
-282.46668772281 -0.40539938881 0.0296 0.0296 5.0217 "" "" 4266158205913779072 1809.76965 0.5076 0.0381 -0.443 -1.823 0.039 0.042 0.93 "" "" 15.45506 2.283501 16.652338 14.368837 "" "" 1681.276 1947.4436 12385.76374 6.5844 2981.8 6.8874 14178.0 14.299 "" "" 0.0028151262975471673 0.0037515792 0.0039348137 0.007686393 282.46668772281 -0.40539938881 1809.76965 -0.443 -1.823 0.8
+RA_ICRS_1 DE_ICRS_1 e_RA_ICRS e_DE_ICRS _r_1 HIP TYC2 Source rgeo Plx e_Plx pmRA pmDE e_pmRA e_pmDE RUWE Teff logg Gmag BP-RP BPmag RPmag RV e_RV b_rgeo B_rgeo FG e_FG FBP e_FBP FRP e_FRP RAVE5 RAVE6 e_Gmag e_BPmag e_RPmag e_BP-RP SkyCoord.ra SkyCoord.dec SkyCoord.distance SkyCoord.pm_ra_cosdec SkyCoord.pm_dec rmRA rmDE e_rmRA e_rmDE rRV e_rRV v_pec v_pec3d e_vpec e_vpec3d Pmemb
+282.45056451718 -0.31165668012 0.0132 0.0131 2.032 "" "" 4266162878838435456 1945.09021 0.4711 0.0157 -0.527 -1.924 0.016 0.016 0.932 15025.9 3.4668 13.508034 2.010108 14.512979 12.502871 "" "" 1885.86853 2003.90979 74427.45213 69.08 21391.0 71.037 79070.0 194.87 "" "" 0.00293382103621385 0.0045591025 0.0046307407 0.009189843 282.45056451718 -0.31165668012 1945.09021 -0.527 -1.924 -0.0806666810512543 -0.05266663932800286 0.08054628 0.08054628 "" "" 0.8882042833637496 "" 0.07154155288731709 "" 0.85
+282.46461675853 -0.44500346116 0.0262 0.0258 7.3861 "" "" 4266134428972970880 1962.99451 0.4702 0.033 -0.369 -1.867 0.032 0.033 1.044 "" "" 15.124998 2.068925 16.170166 14.101241 -295.31 8.98 1836.79956 2101.41797 16786.01136 13.991 4648.9 16.377 18141.0 45.78 "" "" 0.002900125433680826 0.004734356 0.0046680747 0.009402431 282.46461675853 -0.44500346116 1962.99451 -0.369 -1.8669999999999993 0.07733331894874573 0.004333360671997077 0.09654628 0.09754628 0.0 17.96 0.720683915408133 0.720683915408133 0.06958161666296252 0.06958161666296252 0.83
+282.46668772281 -0.40539938881 0.0296 0.0296 5.0217 "" "" 4266158205913779072 1809.76965 0.5076 0.0381 -0.443 -1.823 0.039 0.042 0.93 "" "" 15.45506 2.283501 16.652338 14.368837 "" "" 1681.276 1947.4436 12385.76374 6.5844 2981.8 6.8874 14178.0 14.299 "" "" 0.0028151262975471673 0.0037515792 0.0039348137 0.007686393 282.46668772281 -0.40539938881 1809.76965 -0.443 -1.823 0.0033333189487457227 0.048333360671997116 0.10354628 0.10654628 "" "" 0.41560329507025134 "" 0.044275166891351435 "" 0.8
