@@ -246,8 +246,11 @@ class Cluster:
         self.changeParam(("e_pmRA", members['pmRA'].std()))
         self.changeParam(("pmDE", members['pmDE'].mean()))
         self.changeParam(("e_pmDE", members['pmRA'].std()))
+        # finding RV from the RV mean of the cluster found
+        # t = find_cluster(self.stars_in_region())
         self.changeParam(("RV", members['RV'].mean()))
         self.changeParam(("e_RV", members['e_RV'].mean()))
+        
         self.changeParam(("NRV", (~members['RV'].mask).sum()))
         return members
 
@@ -474,13 +477,9 @@ class Cluster:
         else:
             return theo_iso
     
-    def plot_traceback_clean(self, stars=None):
+    def plot_traceback_clean(self, star_tables=None):
         warnings.simplefilter('ignore', ErfaWarning)
         
-        if stars is None:
-            allrun = self.runaways()
-        else:
-            allrun = stars
         # Open the FITS file and extract the image and WCS
         cluster_10pc_fits_path = f'./Clusters/{self.name}/{self.name}_extra10pc.fits'
         if not os.path.exists(cluster_10pc_fits_path):
@@ -506,7 +505,7 @@ class Cluster:
             region = CircleSkyRegion(c, radius)
             region_pix = region.to_pixel(wcs)
             region_pix.plot(ax=ax, color='red', lw=2)
-            def plot_traces(ax, allrun):
+            def plot_traces(ax, allrun, alpha=0.5):
                 allrun_coord_now = SkyCoord(ra=allrun['RA_ICRS_1'], 
                         dec=allrun['DE_ICRS_1'],
                         distance=allrun['rgeo'], 
@@ -521,8 +520,9 @@ class Cluster:
 
                 # Plot the current positions as scatter points
                 scatter_main = ax.scatter(allrun_pixels_now[0], allrun_pixels_now[1], 
-                                        c=allrun['Temp. Est'], cmap='spring_r', 
-                                        s=30,norm=plt.Normalize(4000, 23000))
+                                        c=allrun['Temp. Est'], cmap='rainbow_r', edgecolor='white',linewidth=0.5,
+                                        zorder=5,alpha=alpha,
+                                        s=30,norm=plt.Normalize(3000, 18000))
                 # Plot the lines showing motion errors
                 if len(allrun)>0:
                     runaway_00, runaway_apdp,runaway_apdm,runaway_amdp,runaway_amdm = [SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=allrun['rmRA'],pm_dec=allrun['rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
@@ -569,9 +569,18 @@ class Cluster:
             # for start, end in zip(np.transpose(allrun_pixels_now), np.transpose(allrun_pixels_earlier)):
             #     ax.plot([start[0], end[0]], [start[1], end[1]], color='blue')
                 return
-        plot_traces(ax, allrun)
-        plot_traces(ax, self.runaways())
+        
+        for star_table in star_tables:
+            star_table['rmRA'] = star_table['pmRA']-self.pm_ra_cosdec
+            star_table['rmDE'] = star_table['pmDE']-self.pm_dec
+            star_table['e_rmRA'] = star_table['e_pmRA']+self.e_pm_ra_cosdec
+            star_table['e_rmDE'] = star_table['e_pmDE']+self.e_pm_dec
+            star_table['rRV'] = star_table['RV']-self.RV
+            star_table['e_rRV'] = star_table['e_RV']+self.e_RV
+            star_table['Temp. Est'] = 0
+            plot_traces(ax, star_table)
 
+        plot_traces(ax, self.runaways(),alpha=1)
 
         
         plt.tight_layout()
