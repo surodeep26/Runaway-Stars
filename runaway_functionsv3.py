@@ -173,24 +173,6 @@ class Cluster:
         self.rPhy = np.tan(self.r50) * self.distance
         self.search_arcmin = search_arcmin(self.distance, self.r50)
         # self.r50_phy = np.tan(self.r50) * self.distance #to be changed DR3
-        if os.path.exists(f"Clusters/{self.name}/{self.name}_members.tsv"):
-            self.mymembers = Table.read(f"Clusters/{self.name}/{self.name}_members.tsv", format="ascii.ecsv")
-        else:
-            self.mymembers = self.members()
-        # #update kinematic parameters
-        # self.distance,self.e_distance = self.mymembers['rgeo'].mean()*u.pc, self.mymembers['rgeo'].std()*u.pc
-        # self.r50_phy = np.tan(self.r50) * self.distance #changed by DR3
-        # self.changeParam(("Dist", self.distance))
-        # self.changeParam(("e_Dist", self.e_distance))
-
-        # self.pm_ra_cosdec, self.e_pm_ra_cosdec = self.mymembers['pmRA'].mean()*u.mas/u.yr, self.mymembers['pmRA'].std()*u.mas/u.yr
-        # self.changeParam(("pmRA", self.pm_ra_cosdec))
-        # self.changeParam(("e_pmRA", self.e_pm_ra_cosdec))
-
-        # self.pm_dec, self.e_pm_dec = self.mymembers['pmDE'].mean()*u.mas/u.yr, self.mymembers['pmDE'].std()*u.mas/u.yr
-        # self.changeParam(("pmDE", self.pm_dec))
-        # self.changeParam(("e_pmDE", self.e_pm_dec))
-
 
         suro2024 = Table.read('suro2024.tsv', format='ascii.ecsv')
         cluster_row = suro2024[suro2024['Cluster'] == name][0]
@@ -210,6 +192,10 @@ class Cluster:
         self.FeH, self.e_FeH = round(cluster_row['__Fe_H_'],2),cluster_row['e__Fe_H_']
         self.RV, self.e_RV = cluster_row['RV'],cluster_row['e_RV']
         self.NRV = cluster_row['NRV']
+        if os.path.exists(f"Clusters/{self.name}/{self.name}_members.tsv"):
+            self.mymembers = Table.read(f"Clusters/{self.name}/{self.name}_members.tsv", format="ascii.ecsv")
+        else:
+            self.mymembers = self.members()
         self.kinematic_cluster = find_cluster(self.stars_in_region())
         #functions
         # self.members = (Table.read(f'./Clusters_Dias/{self.name}.dat', format='ascii.tab'))[2:] 
@@ -253,9 +239,17 @@ class Cluster:
             self.changeParam(("e_RV", np.sqrt(np.sum(kinematic_cluster['e_RV'])**2/(len(kinematic_cluster))**2)))
             self.changeParam(("NRV", np.count_nonzero(~(kinematic_cluster['RV'].mask))))
             return members
-        # self.changeParam(("RV", members['RV'].mean()))
-        # self.changeParam(("e_RV", members['e_RV'].mean()))
-        # self.changeParam(("NRV", (~members['RV'].mask).sum()))
+        elif (~members['RV'].mask).sum()>1:
+            # self.restoreParam("RV")
+            # self.restoreParam("e_RV")
+            # self.restoreParam("NRV")
+            self.changeParam(("RV", members['RV'].mean()))
+            self.changeParam(("e_RV", np.sqrt(np.sum(members['e_RV'])**2/(len(members))**2)))
+            self.changeParam(("NRV", (~members['RV'].mask).sum()))
+        else:
+            self.restoreParam("RV")
+            self.restoreParam("e_RV")
+            self.restoreParam("NRV")
         return members
 
 
@@ -265,10 +259,39 @@ class Cluster:
         
         if os.path.exists(stars_in_region_path):
             stars_in_region = Table.read(stars_in_region_path, format='ascii.ecsv')
-            # stars_in_region['']
+            stars_in_region['rmRA'] = stars_in_region['pmRA']-self.pm_ra_cosdec
+            stars_in_region['rmDE'] = stars_in_region['pmDE']-self.pm_dec
+            stars_in_region['e_rmRA'] = stars_in_region['e_pmRA']+self.e_pm_ra_cosdec
+            stars_in_region['e_rmDE'] = stars_in_region['e_pmDE']+self.e_pm_dec
+            stars_in_region['rRV'] = stars_in_region['RV']-self.RV
+            stars_in_region['e_rRV'] = stars_in_region['e_RV']+self.e_RV
+            #include members with high rRV as fast stars
+            stars_in_region['v_pec'] = 4.74*stars_in_region['rgeo'].value/1000*np.sqrt(((stars_in_region['rmRA'].value)**2+(stars_in_region['rmDE'].value)**2))*u.km/u.s
+            stars_in_region['v_pec3d'] = np.sqrt(stars_in_region['v_pec']**2+stars_in_region['rRV']**2)
+            #check
+            stars_in_region['e_vpec'] = 4.74 * stars_in_region['rgeo'].value/1000 * np.sqrt(((stars_in_region['rmRA'].value * stars_in_region['e_rmRA'].value)**2 + (stars_in_region['rmDE'].value * stars_in_region['e_rmDE'].value)**2)) * u.km/u.s
+            stars_in_region['e_vpec3d'] = np.sqrt((stars_in_region['v_pec'] / stars_in_region['v_pec3d'] * stars_in_region['e_vpec'])**2 + (stars_in_region['rRV'] / stars_in_region['v_pec3d'] * stars_in_region['e_rRV'])**2)
+
+            
+            stars_in_region.write(stars_in_region_path, format='ascii.ecsv', overwrite=True)
         else:
+            print("downloading sir")
             stars_in_region = self.get_stars_in_region()
+            stars_in_region['rmRA'] = stars_in_region['pmRA']-self.pm_ra_cosdec
+            stars_in_region['rmDE'] = stars_in_region['pmDE']-self.pm_dec
+            stars_in_region['e_rmRA'] = stars_in_region['e_pmRA']+self.e_pm_ra_cosdec
+            stars_in_region['e_rmDE'] = stars_in_region['e_pmDE']+self.e_pm_dec
+            stars_in_region['rRV'] = stars_in_region['RV']-self.RV
+            stars_in_region['e_rRV'] = stars_in_region['e_RV']+self.e_RV
+            #include members with high rRV as fast stars
+            stars_in_region['v_pec'] = 4.74*stars_in_region['rgeo'].value/1000*np.sqrt(((stars_in_region['rmRA'].value)**2+(stars_in_region['rmDE'].value)**2))*u.km/u.s
+            stars_in_region['v_pec3d'] = np.sqrt(stars_in_region['v_pec']**2+stars_in_region['rRV']**2)
+            #check
+            stars_in_region['e_vpec'] = 4.74 * stars_in_region['rgeo'].value/1000 * np.sqrt(((stars_in_region['rmRA'].value * stars_in_region['e_rmRA'].value)**2 + (stars_in_region['rmDE'].value * stars_in_region['e_rmDE'].value)**2)) * u.km/u.s
+            stars_in_region['e_vpec3d'] = np.sqrt((stars_in_region['v_pec'] / stars_in_region['v_pec3d'] * stars_in_region['e_vpec'])**2 + (stars_in_region['rRV'] / stars_in_region['v_pec3d'] * stars_in_region['e_rRV'])**2)
+            # stars_in_region.write(stars_in_region_path, format='ascii.ecsv', overwrite=True)
             stars_in_region.write(stars_in_region_path, format='ascii.ecsv')
+
         if star is None:
             return stars_in_region
         else:
@@ -277,14 +300,7 @@ class Cluster:
     def fast_stars_in_region(self):
         sir = self.stars_in_region()
         #add relative motion columns
-        sir['rmRA'] = sir['pmRA']-self.pm_ra_cosdec
-        sir['rmDE'] = sir['pmDE']-self.pm_dec
-        sir['e_rmRA'] = sir['e_pmRA']+self.e_pm_ra_cosdec
-        sir['e_rmDE'] = sir['e_pmDE']+self.e_pm_dec
-        sir['rRV'] = sir['RV']-self.RV
-        sir['e_rRV'] = sir['e_RV']+self.e_RV
-        #include members with high rRV as fast stars
-        sir['v_pec'] = 4.74*sir['rgeo'].value/1000*np.sqrt(((sir['rmRA'].value)**2+(sir['rmDE'].value)**2))*u.km/u.s
+
         mask_fast = sir['v_pec'] > 17.6*u.km/u.s
         return sir[mask_fast]
     def fs4giesler(self,outlocation=None):
