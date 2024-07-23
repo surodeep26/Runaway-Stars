@@ -233,19 +233,19 @@ class Cluster:
         self.changeParam(("pmDE", members['pmDE'].mean()))
         self.changeParam(("e_pmDE", members['pmRA'].std()))
         # finding RV from the RV mean of the cluster found
-        kinematic_cluster = find_cluster(self.stars_in_region())
+        kinematic_cluster = self.kinematic_cluster
         if (np.count_nonzero(~(kinematic_cluster['RV'].mask)))>5:
             self.changeParam(("RV", np.mean(kinematic_cluster['RV'])))
-            self.changeParam(("e_RV", np.sqrt(np.sum(kinematic_cluster['e_RV'])**2/(len(kinematic_cluster))**2)))
+            self.changeParam(("e_RV", np.sqrt(np.sum(kinematic_cluster['e_RV'])**2/((np.count_nonzero(~(kinematic_cluster['RV'].mask))))**2)))
             self.changeParam(("NRV", np.count_nonzero(~(kinematic_cluster['RV'].mask))))
             return members
-        elif (~members['RV'].mask).sum()>1:
+        elif (np.count_nonzero(~(members['RV'].mask)))>1:
             # self.restoreParam("RV")
             # self.restoreParam("e_RV")
             # self.restoreParam("NRV")
             self.changeParam(("RV", members['RV'].mean()))
-            self.changeParam(("e_RV", np.sqrt(np.sum(members['e_RV'])**2/(len(members))**2)))
-            self.changeParam(("NRV", (~members['RV'].mask).sum()))
+            self.changeParam(("e_RV", np.sqrt(np.sum(members['e_RV'])**2/(np.count_nonzero(~(members['RV'].mask)))**2)))
+            self.changeParam(("NRV", (np.count_nonzero(~(members['RV'].mask)))))
         else:
             self.restoreParam("RV")
             self.restoreParam("e_RV")
