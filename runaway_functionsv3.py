@@ -260,7 +260,7 @@ class Cluster:
 
 
     
-    def stars_in_region(self):
+    def stars_in_region(self, star=None):
         stars_in_region_path =  f'Clusters/{self.name}/{self.name}_stars_in_region.tsv'
         
         if os.path.exists(stars_in_region_path):
@@ -269,7 +269,10 @@ class Cluster:
         else:
             stars_in_region = self.get_stars_in_region()
             stars_in_region.write(stars_in_region_path, format='ascii.ecsv')
-        return stars_in_region
+        if star is None:
+            return stars_in_region
+        else:
+            return stars_in_region[stars_in_region['Source']==star]
     
     def fast_stars_in_region(self):
         sir = self.stars_in_region()
