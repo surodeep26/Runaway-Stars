@@ -355,6 +355,8 @@ class Cluster:
         table = self.fast_stars_in_region()
         mask_vpec3dexists = ~table['v_pec3d'].mask
         table = table[mask_vpec3dexists]
+        for star in config['observed_stars'][self.name]:
+            table.add_row(self.stars_in_region(star)[0])
         g = Table()
         g['TypeInput'] = np.ones_like(table['e_Plx'].value).astype(int)
         g['RA'] = table['SkyCoord'].ra.to_string(unit='hourangle', sep=' ', precision=3, pad=True)
@@ -540,36 +542,42 @@ class Cluster:
     
         print(f'./traceback ../../cluster_runaway3d/{self.name}/{self.name}_trace.conf')
     def runaways_all(self):
-        fs = self.fast_stars_in_region()
         #runaways from giesler traceback
-        outputs = os.listdir(f"/home/surodeep/suro_aiu/traceback/cluster_runaway/{self.name}/runaways/")
+        outputs = os.listdir(f"{config['runaways_path']}{self.name}/runaways/")
+        print("getting from",config['runaways_path'] )
         linenos = []
         for output in outputs:
             #print(output)
             if 'run' in output:
                 linenos.append(int(output.split("+")[1].replace(".out","")))
         linenos.sort()
-        # print(linenos)
-        i=np.array(linenos)-3
-        def source_of(lineno, input_table):
-            return input_table[lineno-2]['Source']
-        runaways_all = fs[i]
+        print(linenos)
+        fs4giesler = Table.read('/home/surodeep/suro_aiu/traceback/cluster_runaway3d/Basel_8/Basel_8_fs4giesler.tsv', format='ascii.tab')
+        runaways_all = fs4giesler[np.array(linenos)-2]
+        runaways_all['Source'] = runaways_all['Source'].astype(np.int64)
+        runaways_all['RV'] = runaways_all['RV'].astype(np.float64)
+        runaways_all['e_RV'] = runaways_all['e_RV'].astype(np.float64)
+        
+        sir = self.stars_in_region()
+        
         return runaways_all
     
     def runaways(self,params=None,temp_threshold=10000):
         params = params or {}
         runaways = estimate_temperature(self.runaways_all(), self.theoretical_isochrone(params=params))
         runaways = runaways[
-                            "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est",
-                            "e_RA_ICRS", "e_DE_ICRS", "_r_1", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
+                            "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est","v_pec","v_pec3d", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
                             "Gmag", "BP-RP", "BPmag", "RPmag", "b_rgeo", "B_rgeo", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP", "SkyCoord", 
-                            "rmRA","e_rmRA", "rmDE", "e_rmDE", "v_pec", "logg", "RV", "e_RV","rRV", "e_rRV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
+                            "rmRA","e_rmRA", "rmDE", "e_rmDE", "logg", "RV", "e_RV","rRV", "e_rRV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
                         ]
         
-        runaways['v_pec3d'] = np.sqrt(runaways['v_pec']**2+runaways['RV']**2)
+        # runaways['v_pec3d'] = np.sqrt(runaways['v_pec']**2+runaways['RV']**2)
+        mask_fast2d = runaways['v_pec'] > 17.6*u.km/u.s
+        mask_vpec3ddosentexist = runaways['v_pec3d'].mask
+        mask_fast3d = runaways['v_pec3d'] > 25*u.km/u.s
         mask_temp = runaways['Temp. Est'] >= temp_threshold*u.K
         
-        runaways = runaways[mask_temp]
+        runaways = runaways[(mask_fast2d & mask_vpec3ddosentexist) | mask_fast3d & mask_temp]
         runaways.sort('Temp. Est', reverse=True)
         return runaways
     

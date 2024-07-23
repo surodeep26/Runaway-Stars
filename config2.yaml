@@ -4,6 +4,11 @@ Cluster:
   pmemb: 0.8
   plxquality: 10
 
+# runaways3d
+runaways_path: "/home/surodeep/suro_aiu/traceback/cluster_runaway3d/"
+# runaways2d
+# runaways_path: "/home/surodeep/suro_aiu/traceback/cluster_runaway/"
+
 added_members:
   Berkeley_97: [2008383302396655488]
   Basel_8: [3326048448124872320, 3326023842254469120]
