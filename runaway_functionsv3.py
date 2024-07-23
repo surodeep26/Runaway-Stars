@@ -248,17 +248,14 @@ class Cluster:
         self.changeParam(("e_pmDE", members['pmRA'].std()))
         # finding RV from the RV mean of the cluster found
         kinematic_cluster = find_cluster(self.stars_in_region())
-        
-
-        
         if (np.count_nonzero(~(kinematic_cluster['RV'].mask)))>5:
             self.changeParam(("RV", np.mean(kinematic_cluster['RV'])))
             self.changeParam(("e_RV", np.sqrt(np.sum(kinematic_cluster['e_RV'])**2/(len(kinematic_cluster))**2)))
             self.changeParam(("NRV", np.count_nonzero(~(kinematic_cluster['RV'].mask))))
             return members
-        self.changeParam(("RV", members['RV'].mean()))
-        self.changeParam(("e_RV", members['e_RV'].mean()))
-        self.changeParam(("NRV", (~members['RV'].mask).sum()))
+        # self.changeParam(("RV", members['RV'].mean()))
+        # self.changeParam(("e_RV", members['e_RV'].mean()))
+        # self.changeParam(("NRV", (~members['RV'].mask).sum()))
         return members
 
 
@@ -283,7 +280,7 @@ class Cluster:
         sir['e_rmDE'] = sir['e_pmDE']+self.e_pm_dec
         sir['rRV'] = sir['RV']-self.RV
         sir['e_rRV'] = sir['e_RV']+self.e_RV
-        
+        #include members with high rRV as fast stars
         sir['v_pec'] = 4.74*sir['rgeo'].value/1000*np.sqrt(((sir['rmRA'].value)**2+(sir['rmDE'].value)**2))*u.km/u.s
         mask_fast = sir['v_pec'] > 17.6*u.km/u.s
         return sir[mask_fast]
