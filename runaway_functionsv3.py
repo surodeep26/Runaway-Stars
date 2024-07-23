@@ -483,9 +483,10 @@ class Cluster:
         else:
             return theo_iso
     
-    def plot_traceback_clean(self, star_tables=None):
+    def plot_traceback_clean(self, star_tables=[]):
         warnings.simplefilter('ignore', ErfaWarning)
-        
+        if len(star_tables) == 0:
+            star_tables.append(self.runaways())
         # Open the FITS file and extract the image and WCS
         cluster_10pc_fits_path = f'./Clusters/{self.name}/{self.name}_extra10pc.fits'
         if not os.path.exists(cluster_10pc_fits_path):
@@ -629,6 +630,7 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     >>> isochrone2 = Isochrone(cl, Av=3, logage=7)
     >>> plot_cmd(cl, isochrones=[isochrone1,isochrone2])
     """
+    plt.clf()
     fig, ax = plt.subplots(figsize=(12, 10))
     ax.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)")
     ax.set_ylabel(r"$G$ (mag)")
@@ -656,14 +658,14 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     stars_in_region = cluster.stars_in_region()
     ax.scatter(
         stars_in_region['BP-RP'], stars_in_region['Gmag'],
-        s=2, color='grey', zorder=1, label=f"{len(stars_in_region)} kinematic members found"
+        s=2, color='grey', zorder=1, label=f"{len(stars_in_region)} stars in the region"
     )
     
     #scatter find_cluster
     cir = find_cluster(cluster.stars_in_region())
     ax.scatter(
         cir['BP-RP'], cir['Gmag'],
-        s=10, color='blue', zorder=3, label=f"{len(cir)} stars in the region"
+        s=10, color='blue', zorder=3, label=f"{len(cir)} kinematic members found"
     )
 
     # Plot runaways
@@ -714,7 +716,14 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     ax.legend()
     return 
 
-
+def get_main_name(source):
+    warnings.filterwarnings("ignore", category=UserWarning)
+    t = Simbad.query_object(f"Gaia DR3 {source}")
+    if t is None:
+        return f"Gaia DR3 {source}"
+    else:
+        return (t['MAIN_ID'].value[0])
+    
 def estimate_temperature(stars, theoretical_isochrone):
     stars['Temp. Est'] = stars['Teff']
     
