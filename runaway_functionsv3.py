@@ -210,7 +210,7 @@ class Cluster:
         self.FeH, self.e_FeH = round(cluster_row['__Fe_H_'],2),cluster_row['e__Fe_H_']
         self.RV, self.e_RV = cluster_row['RV'],cluster_row['e_RV']
         self.NRV = cluster_row['NRV']
-        
+        self.kinematic_cluster = find_cluster(self.stars_in_region())
         #functions
         # self.members = (Table.read(f'./Clusters_Dias/{self.name}.dat', format='ascii.tab'))[2:] 
         # self.members_list = list(self.members['Source'].astype(np.int64))
@@ -247,13 +247,22 @@ class Cluster:
         self.changeParam(("pmDE", members['pmDE'].mean()))
         self.changeParam(("e_pmDE", members['pmRA'].std()))
         # finding RV from the RV mean of the cluster found
-        # t = find_cluster(self.stars_in_region())
+        kinematic_cluster = find_cluster(self.stars_in_region())
+        
+
+        
+        if (np.count_nonzero(~(kinematic_cluster['RV'].mask)))>5:
+            self.changeParam(("RV", np.mean(kinematic_cluster['RV'])))
+            self.changeParam(("e_RV", np.sqrt(np.sum(kinematic_cluster['e_RV'])**2/(len(kinematic_cluster))**2)))
+            self.changeParam(("NRV", np.count_nonzero(~(kinematic_cluster['RV'].mask))))
+            return members
         self.changeParam(("RV", members['RV'].mean()))
         self.changeParam(("e_RV", members['e_RV'].mean()))
-        
         self.changeParam(("NRV", (~members['RV'].mask).sum()))
         return members
 
+
+    
     def stars_in_region(self):
         stars_in_region_path =  f'Clusters/{self.name}/{self.name}_stars_in_region.tsv'
         
@@ -580,7 +589,8 @@ class Cluster:
             star_table['Temp. Est'] = 0
             plot_traces(ax, star_table)
 
-        plot_traces(ax, self.runaways(),alpha=1)
+        if len(self.runaways())>0:
+            plot_traces(ax, self.runaways(),alpha=1)
 
         
         plt.tight_layout()
@@ -649,7 +659,14 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     stars_in_region = cluster.stars_in_region()
     ax.scatter(
         stars_in_region['BP-RP'], stars_in_region['Gmag'],
-        s=2, color='grey', zorder=1, label=f"{len(stars_in_region)} stars in the region"
+        s=2, color='grey', zorder=1, label=f"{len(stars_in_region)} kinematic members found"
+    )
+    
+    #scatter find_cluster
+    cir = find_cluster(cluster.stars_in_region())
+    ax.scatter(
+        cir['BP-RP'], cir['Gmag'],
+        s=10, color='blue', zorder=3, label=f"{len(cir)} stars in the region"
     )
 
     # Plot runaways
@@ -731,8 +748,8 @@ def find_cluster(stars_in_region: astropy.table.Table, sigma: float = config['fi
     >>> my_cluster = find_cluster(sir)
     >>> display(my_cluster)
     """
-    mask_clip_RA = ~sigma_clip(stars_in_region['SkyCoord'].ra.value,sigma=sigma).mask
-    mask_clip_DE = ~sigma_clip(stars_in_region['SkyCoord'].dec.value,sigma=sigma).mask
+    mask_clip_RA = ~sigma_clip(stars_in_region['SkyCoord'].ra.value,sigma=1.1*sigma).mask
+    mask_clip_DE = ~sigma_clip(stars_in_region['SkyCoord'].dec.value,sigma=1.1*sigma).mask
     mask_clip_pmRA = ~sigma_clip(stars_in_region['SkyCoord'].pm_ra_cosdec.value,sigma=sigma).mask
     mask_clip_pmDE = ~sigma_clip(stars_in_region['SkyCoord'].pm_dec.value,sigma=sigma).mask
     mask_clip_rgeo = ~sigma_clip(stars_in_region['SkyCoord'].distance.value,sigma=sigma).mask

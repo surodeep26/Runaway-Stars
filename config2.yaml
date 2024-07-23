@@ -10,6 +10,6 @@ added_members:
   RSG_8: [2013579250758906240]
 
 find_cluster:
-  sigma_clip: 1.5
+  sigma_clip: 1.4
 
 runaway_temp: 10000 #K
