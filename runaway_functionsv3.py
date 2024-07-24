@@ -27,13 +27,17 @@ from astropy.io import fits
 from astroquery.simbad import Simbad
 import matplotlib.patches as patches
 
+
+workclusters = ['ASCC_107', 'ASCC_114', 'ASCC_127', 'ASCC_13', 'ASCC_16', 'ASCC_19', 'ASCC_21', 'ASCC_32', 'ASCC_67', 'ASCC_9', 'Alessi_20', 'Alessi_43', 'Alessi_Teutsch_5', 'Antalova_2', 'Archinal_1', 'Aveni_Hunter_1', 'BDSB91', 'BDSB93', 'BDSB96', 'BH_121', 'BH_200', 'BH_205', 'BH_217', 'BH_221', 'BH_245', 'BH_54', 'BH_56', 'BH_87', 'BH_92', 'Barkhatova_1', 'Basel_18', 'Basel_8', 'Berkeley_11', 'Berkeley_15', 'Berkeley_47', 'Berkeley_62', 'Berkeley_65', 'Berkeley_7', 'Berkeley_79', 'Berkeley_86', 'Berkeley_87', 'Berkeley_97', 'Bica_2', 'Biurakan_2', 'Bochum_10', 'Bochum_11', 'Bochum_13', 'COIN-Gaia_16', 'COIN-Gaia_21', 'COIN-Gaia_35', 'COIN-Gaia_41', 'Collinder_104', 'Collinder_106', 'Collinder_107', 'Collinder_132', 'Collinder_197', 'Collinder_205', 'Collinder_272', 'Collinder_419', 'Collinder_421', 'Collinder_69', 'Collinder_95', 'Czernik_1', 'Czernik_31', 'Czernik_41', 'Czernik_6', 'Czernik_8', 'Dias_1', 'Dias_5', 'Dolidze_16', 'Dolidze_3', 'Dolidze_32', 'Dolidze_5', 'Dolidze_53', 'Dolidze_8', 'ESO_134_12', 'ESO_332_08', 'ESO_332_13', 'FSR_0165', 'FSR_0198', 'FSR_0224', 'FSR_0236', 'FSR_0284', 'FSR_0306', 'FSR_0336', 'FSR_0398', 'FSR_0451', 'FSR_0498', 'FSR_0551', 'FSR_0686', 'FSR_0852', 'FSR_0904', 'FSR_0968', 'Gulliver_10', 'Gulliver_15', 'Gulliver_19', 'Gulliver_2', 'Gulliver_26', 'Gulliver_31', 'Gulliver_40', 'Gulliver_43', 'Gulliver_5', 'Gulliver_6', 'Gulliver_8', 'Haffner_13', 'Harvard_16', 'Hogg_10', 'Hogg_16', 'Hogg_18', 'Hogg_19', 'Hogg_22', 'IC_1396', 'IC_1590', 'IC_1805', 'IC_1848', 'IC_2157', 'IC_2395', 'IC_2581', 'IC_2948', 'IC_348', 'IC_4996', 'IC_5146', 'Juchert_20', 'King_14', 'King_21', 'King_26', 'Kronberger_1', 'Kronberger_69', 'LP_0288', 'LP_0503', 'LP_0506', 'LP_0733', 'LP_1049', 'LP_1209', 'LP_1211', 'LP_1218', 'LP_1329', 'LP_1342', 'LP_1355', 'LP_1487', 'LP_1490', 'LP_1614', 'LP_1641', 'LP_1768', 'LP_1771', 'LP_1775', 'LP_1780', 'LP_1807', 'LP_1821', 'LP_1864', 'LP_1888', 'LP_2106', 'LP_2113', 'LP_2172', 'LP_2219', 'LP_2221', 'LP_2249', 'Lynga_4', 'Markarian_38', 'Markarian_50', 'Mayer_1', 'Moffat_1', 'NGC_1220', 'NGC_1348', 'NGC_1444', 'NGC_146', 'NGC_1502', 'NGC_1579', 'NGC_1960', 'NGC_1977', 'NGC_1980', 'NGC_2129', 'NGC_2169', 'NGC_2183', 'NGC_2232', 'NGC_2244', 'NGC_2264', 'NGC_2362', 'NGC_2367', 'NGC_2384', 'NGC_2451B', 'NGC_2547', 'NGC_2571', 'NGC_2645', 'NGC_2659', 'NGC_3228', 'NGC_3293', 'NGC_3324', 'NGC_3572', 'NGC_3590', 'NGC_366', 'NGC_3766', 'NGC_4103', 'NGC_433', 'NGC_4463', 'NGC_457', 'NGC_4755', 'NGC_5606', 'NGC_581', 'NGC_6178', 'NGC_6193', 'NGC_6200', 'NGC_6216', 'NGC_6231', 'NGC_6249', 'NGC_6250', 'NGC_6318', 'NGC_6322', 'NGC_637', 'NGC_6383', 'NGC_6396', 'NGC_6404', 'NGC_6451', 'NGC_6520', 'NGC_6530', 'NGC_6531', 'NGC_654', 'NGC_6561', 'NGC_6604', 'NGC_6611', 'NGC_6613', 'NGC_663', 'NGC_6649', 'NGC_6664', 'NGC_6823', 'NGC_6871', 'NGC_6910', 'NGC_6913', 'NGC_7039', 'NGC_7129', 'NGC_7160', 'NGC_7281', 'NGC_7380', 'NGC_869', 'NGC_884', 'NGC_957', 'Pismis_11', 'Pismis_27', 'Pismis_5', 'Pismis_8', 'Pismis_Moreno_1', 'Pozzo_1', 'RSG_8', 'Riddle_4', 'Roslund_2', 'Ruprecht_120', 'Ruprecht_127', 'Ruprecht_138', 'Ruprecht_144', 'Ruprecht_170', 'Ruprecht_26', 'Ruprecht_65', 'Ruprecht_71', 'Ruprecht_94', 'SAI_118', 'SAI_24', 'SAI_4', 'Stephenson_1', 'Stock_14', 'Stock_20', 'Stock_8', 'Teutsch_30', 'Teutsch_38', 'Teutsch_8', 'Trapezium-FG', 'Trumpler_1', 'Trumpler_14', 'Trumpler_15', 'Trumpler_16', 'Trumpler_17', 'Trumpler_28', 'Trumpler_3', 'Trumpler_33', 'UBC_121', 'UBC_133', 'UBC_134', 'UBC_148', 'UBC_155', 'UBC_156', 'UBC_166', 'UBC_177', 'UBC_178', 'UBC_17a', 'UBC_182', 'UBC_188', 'UBC_191', 'UBC_192', 'UBC_198', 'UBC_245', 'UBC_249', 'UBC_258', 'UBC_267', 'UBC_270', 'UBC_272', 'UBC_280', 'UBC_281', 'UBC_296', 'UBC_31', 'UBC_322', 'UBC_337', 'UBC_338', 'UBC_341', 'UBC_342', 'UBC_345', 'UBC_354', 'UBC_361', 'UBC_373', 'UBC_377', 'UBC_379', 'UBC_386', 'UBC_389', 'UBC_391', 'UBC_396', 'UBC_410', 'UBC_413', 'UBC_415', 'UBC_417', 'UBC_422', 'UBC_423', 'UBC_432', 'UBC_46', 'UBC_479', 'UBC_482', 'UBC_483', 'UBC_487', 'UBC_499', 'UBC_51', 'UBC_521', 'UBC_531', 'UBC_532', 'UBC_534', 'UBC_535', 'UBC_536', 'UBC_541', 'UBC_542', 'UBC_545', 'UBC_548', 'UBC_549', 'UBC_550', 'UBC_552', 'UBC_559', 'UBC_562', 'UBC_576', 'UBC_582', 'UBC_588', 'UBC_606', 'UBC_620', 'UBC_63', 'UBC_652', 'UBC_653', 'UBC_663', 'UBC_665', 'UBC_668', 'UFMG_22', 'UFMG_3', 'UFMG_45', 'UFMG_53', 'UPK_150', 'UPK_166', 'UPK_169', 'UPK_194', 'UPK_220', 'UPK_23', 'UPK_265', 'UPK_28', 'UPK_38', 'UPK_385', 'UPK_398', 'UPK_422', 'UPK_445', 'UPK_457', 'UPK_526', 'UPK_540', 'UPK_604', 'UPK_62', 'UPK_621', 'vdBergh_130', 'vdBergh_80', 'vdBergh_85', 'vdBergh_92']
+workclusters3d = ['ASCC_107', 'ASCC_114', 'ASCC_127', 'ASCC_13', 'ASCC_16', 'ASCC_19', 'ASCC_21', 'ASCC_32', 'Alessi_20', 'Alessi_43', 'Alessi_Teutsch_5', 'Archinal_1', 'Aveni_Hunter_1', 'BDSB91', 'BDSB93', 'BDSB96', 'BH_121', 'BH_200', 'BH_205', 'BH_221', 'BH_54', 'BH_56', 'BH_87', 'Basel_8', 'Berkeley_86', 'Berkeley_87', 'Bica_2', 'Biurakan_2', 'Bochum_10', 'Bochum_11', 'Bochum_13', 'COIN-Gaia_21', 'COIN-Gaia_41', 'Collinder_104', 'Collinder_106', 'Collinder_107', 'Collinder_132', 'Collinder_197', 'Collinder_272', 'Collinder_419', 'Collinder_421', 'Collinder_69', 'Collinder_95', 'Czernik_41', 'Dias_5', 'Dolidze_16', 'Dolidze_32', 'Dolidze_5', 'Dolidze_53', 'Dolidze_8', 'ESO_332_08', 'ESO_332_13', 'FSR_0165', 'FSR_0236', 'FSR_0306', 'FSR_0336', 'FSR_0398', 'FSR_0551', 'FSR_0686', 'FSR_0904', 'Gulliver_10', 'Gulliver_19', 'Gulliver_2', 'Gulliver_26', 'Gulliver_31', 'Gulliver_6', 'Gulliver_8', 'Haffner_13', 'Harvard_16', 'Hogg_10', 'Hogg_18', 'Hogg_19', 'Hogg_22', 'IC_1396', 'IC_1590', 'IC_1805', 'IC_1848', 'IC_2395', 'IC_2948', 'IC_348', 'IC_4996', 'IC_5146', 'Juchert_20', 'LP_0288', 'LP_0503', 'LP_0506', 'LP_0733', 'LP_1049', 'LP_1209', 'LP_1211', 'LP_1218', 'LP_1329', 'LP_1342', 'LP_1355', 'LP_1490', 'LP_1614', 'LP_1641', 'LP_1768', 'LP_1775', 'LP_1780', 'LP_1807', 'LP_1821', 'LP_2106', 'LP_2113', 'LP_2172', 'LP_2219', 'LP_2221', 'LP_2249', 'Lynga_4', 'Markarian_38', 'NGC_1348', 'NGC_1502', 'NGC_1579', 'NGC_1960', 'NGC_1977', 'NGC_1980', 'NGC_2129', 'NGC_2169', 'NGC_2183', 'NGC_2232', 'NGC_2244', 'NGC_2264', 'NGC_2362', 'NGC_2451B', 'NGC_2547', 'NGC_2571', 'NGC_2659', 'NGC_3228', 'NGC_3293', 'NGC_3324', 'NGC_3572', 'NGC_366', 'NGC_3766', 'NGC_4103', 'NGC_457', 'NGC_4755', 'NGC_581', 'NGC_6178', 'NGC_6193', 'NGC_6200', 'NGC_6216', 'NGC_6231', 'NGC_6249', 'NGC_6250', 'NGC_6318', 'NGC_6322', 'NGC_6383', 'NGC_6396', 'NGC_6404', 'NGC_6520', 'NGC_6530', 'NGC_6531', 'NGC_6561', 'NGC_6611', 'NGC_6613', 'NGC_663', 'NGC_6649', 'NGC_6664', 'NGC_6823', 'NGC_6871', 'NGC_6910', 'NGC_6913', 'NGC_7039', 'NGC_7129', 'NGC_7160', 'NGC_7281', 'NGC_7380', 'NGC_869', 'NGC_957', 'Pismis_27', 'Pismis_5', 'Pismis_Moreno_1', 'Pozzo_1', 'RSG_8', 'Riddle_4', 'Roslund_2', 'Ruprecht_26', 'Ruprecht_94', 'SAI_24', 'Stephenson_1', 'Stock_8', 'Teutsch_38', 'Trapezium-FG', 'Trumpler_14', 'Trumpler_15', 'Trumpler_16', 'Trumpler_17', 'Trumpler_28', 'Trumpler_3', 'UBC_133', 'UBC_148', 'UBC_155', 'UBC_156', 'UBC_178', 'UBC_17a', 'UBC_182', 'UBC_188', 'UBC_191', 'UBC_192', 'UBC_198', 'UBC_249', 'UBC_258', 'UBC_267', 'UBC_272', 'UBC_280', 'UBC_296', 'UBC_31', 'UBC_322', 'UBC_337', 'UBC_338', 'UBC_341', 'UBC_342', 'UBC_345', 'UBC_354', 'UBC_373', 'UBC_377', 'UBC_386', 'UBC_391', 'UBC_396', 'UBC_415', 'UBC_482', 'UBC_51', 'UBC_521', 'UBC_531', 'UBC_532', 'UBC_534', 'UBC_535', 'UBC_536', 'UBC_541', 'UBC_542', 'UBC_548', 'UBC_550', 'UBC_552', 'UBC_559', 'UBC_562', 'UBC_582', 'UBC_588', 'UBC_63', 'UBC_668', 'UFMG_22', 'UFMG_3', 'UFMG_53', 'UPK_150', 'UPK_166', 'UPK_169', 'UPK_194', 'UPK_220', 'UPK_23', 'UPK_265', 'UPK_28', 'UPK_38', 'UPK_385', 'UPK_398', 'UPK_422', 'UPK_445', 'UPK_457', 'UPK_526', 'UPK_540', 'UPK_604', 'UPK_62', 'UPK_621', 'vdBergh_130', 'vdBergh_80', 'vdBergh_85', 'vdBergh_92']
+
 dias2021 = Table.read("dias2021.tsv", format="ascii.ecsv")
 maskplx = dias2021['Plx'] > 0.3
 maskage = dias2021['logage'] < 7.7
-workclusters = []
-for clustername in dias2021[maskplx & maskage][:]['Cluster']:
-    if clustername not in ['ASCC_79','BH_164','BH_23','Collinder_135','Collinder_140','Gulliver_9','IC_2391','IC_2602','Mamajek_1','Platais_8','UPK_535','UPK_606','UPK_640','Berkeley_59','COIN-Gaia_37','Ivanov_4','LP_1937','Sigma_Ori','UBC_632']:
-        workclusters.append(clustername)
+# workclusters = []
+# for clustername in dias2021[maskplx & maskage][:]['Cluster']:
+#     if clustername not in ['ASCC_79','BH_164','BH_23','Collinder_135','Collinder_140','Gulliver_9','IC_2391','IC_2602','Mamajek_1','Platais_8','UPK_535','UPK_606','UPK_640','Berkeley_59','COIN-Gaia_37','Ivanov_4','LP_1937','Sigma_Ori','UBC_632']:
+#         workclusters.append(clustername)
 
 def read_yaml_file(file_path):
     '''
@@ -75,9 +79,11 @@ class ClusterDias:
         self.distance,self.e_distance = self.skycoord.distance,cluster_row['e_Dist']*u.pc
         self.pm_ra_cosdec, self.e_pm_ra_cosdec = self.skycoord.pm_ra_cosdec,cluster_row['e_pmRA']*u.mas/u.yr
         self.pm_dec, self.e_pm_dec = self.skycoord.pm_dec, cluster_row['e_pmDE']*u.mas/u.yr
-        self.Av, self.e_Av = cluster_row['Av']*u.mag,cluster_row['e_Av']*u.mag
-        self.logage, self.e_logage = cluster_row['logage'],cluster_row['e_logage']
-        self.FeH, self.e_FeH = cluster_row['__Fe_H_'],cluster_row['e__Fe_H_']
+
+        self.Av, self.e_Av = round(cluster_row['Av'], 2), round(cluster_row['e_Av'], 2)
+        self.logage, self.e_logage = round(cluster_row['logage'], 2), round(cluster_row['e_logage'], 2)
+        self.FeH, self.e_FeH = round(cluster_row['__Fe_H_'], 2), round(cluster_row['e__Fe_H_'], 2)
+
         self.RV, self.e_RV = cluster_row['RV'],cluster_row['e_RV']
         self.NRV = cluster_row['NRV']
         self.mymembers = self.members()
@@ -116,7 +122,8 @@ class ClusterDias:
     def theoretical_isochrone(self, params=None, returnparams=False, parsec_version=2):
         # self.members()
         params = params or {}
-        Av = float(params.get('Av', None)) if params.get('Av') is not None else round(float(self.Av.value), 1)
+        # print("params",params)
+        Av = float(params.get('Av', None)) if params.get('Av') is not None else round(float(self.Av), 1)
         logage = float(params.get('logage', None)) if params.get('logage') is not None else round(float(self.logage), 1)
         FeH = float(params.get('FeH', None)) if params.get('FeH') is not None else round(float(self.FeH), 1)
         
@@ -187,9 +194,11 @@ class Cluster:
         self.distance,self.e_distance = cluster_row['Dist']*u.pc,cluster_row['e_Dist']*u.pc
         self.pm_ra_cosdec, self.e_pm_ra_cosdec = cluster_row['pmRA']*u.mas/u.yr,cluster_row['e_pmRA']*u.mas/u.yr
         self.pm_dec, self.e_pm_dec = cluster_row['pmDE']*u.mas/u.yr, cluster_row['e_pmDE']*u.mas/u.yr
-        self.Av, self.e_Av = round(cluster_row['Av'],2)*u.mag,cluster_row['e_Av']*u.mag
-        self.logage, self.e_logage = round(cluster_row['logage'],2),cluster_row['e_logage']
-        self.FeH, self.e_FeH = round(cluster_row['__Fe_H_'],2),cluster_row['e__Fe_H_']
+        
+        self.Av, self.e_Av = round(cluster_row['Av'], 2), round(cluster_row['e_Av'], 2)
+        self.logage, self.e_logage = round(cluster_row['logage'], 2), round(cluster_row['e_logage'], 2)
+        self.FeH, self.e_FeH = round(cluster_row['__Fe_H_'], 2), round(cluster_row['e__Fe_H_'], 2)
+
         self.RV, self.e_RV = cluster_row['RV'],cluster_row['e_RV']
         self.NRV = cluster_row['NRV']
         if os.path.exists(f"Clusters/{self.name}/{self.name}_members.tsv"):
@@ -302,8 +311,8 @@ class Cluster:
         mask_fast2d = sir['v_pec'] > 17.6*u.km/u.s
         mask_vpec3ddosentexist = sir['v_pec3d'].mask
         mask_fast3d = sir['v_pec3d'] > 25*u.km/u.s
-        
         return sir[(mask_fast2d & mask_vpec3ddosentexist) | mask_fast3d]
+    
     def fs4giesler(self,outlocation=None):
         table = self.fast_stars_in_region()
         g = Table()
@@ -355,8 +364,11 @@ class Cluster:
         table = self.fast_stars_in_region()
         mask_vpec3dexists = ~table['v_pec3d'].mask
         table = table[mask_vpec3dexists]
-        for star in config['observed_stars'][self.name]:
-            table.add_row(self.stars_in_region(star)[0])
+        try:
+            for star in config['observed_stars'][self.name]:
+                table.add_row(self.stars_in_region(star)[0])
+        except:
+            pass
         g = Table()
         g['TypeInput'] = np.ones_like(table['e_Plx'].value).astype(int)
         g['RA'] = table['SkyCoord'].ra.to_string(unit='hourangle', sep=' ', precision=3, pad=True)
@@ -551,15 +563,26 @@ class Cluster:
             if 'run' in output:
                 linenos.append(int(output.split("+")[1].replace(".out","")))
         linenos.sort()
-        print(linenos)
-        fs4giesler = Table.read('/home/surodeep/suro_aiu/traceback/cluster_runaway3d/Basel_8/Basel_8_fs4giesler.tsv', format='ascii.tab')
-        runaways_all = fs4giesler[np.array(linenos)-2]
-        runaways_all['Source'] = runaways_all['Source'].astype(np.int64)
-        runaways_all['RV'] = runaways_all['RV'].astype(np.float64)
-        runaways_all['e_RV'] = runaways_all['e_RV'].astype(np.float64)
+        # print(linenos)
+        fs4giesler = Table.read(f"{config['runaways_path']}{self.name}/{self.name}_fs4giesler.tsv", format='ascii.tab')
+        fs4 = fs4giesler[np.array(linenos)-2]
+        fs4['Source'] = fs4['Source'].astype(np.int64)
+        fs4['RV'] = fs4['RV'].astype(np.float64)
+        fs4['e_RV'] = fs4['e_RV'].astype(np.float64)
         
         sir = self.stars_in_region()
         
+        runaways_all = sir[[source in set(fs4['Source']) for source in sir['Source']]]
+        # Create a mapping from 'Source' to indices in gr
+        source_to_index = {source: idx for idx, source in enumerate(fs4['Source'])}
+
+        # Replace the RV and e_RV values in the filtered_fs table with the values from the gr table
+        if "runaway3d" in config['runaways_path']:
+            for row in runaways_all:
+                if row['Source'] in source_to_index:
+                    idx = source_to_index[row['Source']]
+                    row['RV'] = fs4['RV'][idx]  # Assigning with units
+                    row['e_RV'] = fs4['e_RV'][idx]   # Assigning with units
         return runaways_all
     
     def runaways(self,params=None,temp_threshold=10000):
@@ -575,21 +598,25 @@ class Cluster:
         mask_fast2d = runaways['v_pec'] > 17.6*u.km/u.s
         mask_vpec3ddosentexist = runaways['v_pec3d'].mask
         mask_fast3d = runaways['v_pec3d'] > 25*u.km/u.s
-        mask_temp = runaways['Temp. Est'] >= temp_threshold*u.K
         
-        runaways = runaways[(mask_fast2d & mask_vpec3ddosentexist) | mask_fast3d & mask_temp]
+        runaways = runaways[(mask_fast2d & mask_vpec3ddosentexist) | mask_fast3d]
+        mask_temp = runaways['Temp. Est'] >= temp_threshold*u.K
+        runaways = runaways[mask_temp]
         runaways.sort('Temp. Est', reverse=True)
         return runaways
     
     def theoretical_isochrone(self, params=None, returnparams=False, parsec_version=2):
         # self.members()
         params = params or {}
-        Av = float(params.get('Av', None)) if params.get('Av') is not None else round(float(self.Av.value), 1)
-        logage = float(params.get('logage', None)) if params.get('logage') is not None else round(float(self.logage), 1)
-        FeH = float(params.get('FeH', None)) if params.get('FeH') is not None else round(float(self.FeH), 1)
+        Av = float(params.get('Av', None)) if params.get('Av') is not None else self.Av
+        logage = float(params.get('logage', None)) if params.get('logage') is not None else self.logage
+        FeH = float(params.get('FeH', None)) if params.get('FeH') is not None else self.FeH
+        
+        Av, logage, FeH = round(Av,2), round(logage,2), round(FeH,2)
+
         
         theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone{parsec_version}"
-        # print(Av, logage, FeH)
+        # print("this", Av, logage, FeH)
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
         else:
@@ -721,18 +748,18 @@ class Isochrone:
     def __init__(self, cluster, Av=None, logage=None, FeH=None):
         self.cluster = Cluster(cluster.name)
         self.clusterdias = ClusterDias(cluster.name)
-        self.Av = round(Av, 1) if Av is not None else cluster.Av.value
-        self.logage = round(logage, 1) if logage is not None else cluster.logage
-        self.FeH = round(FeH, 1) if FeH is not None else cluster.FeH
+        self.Av = Av if Av is not None else cluster.Av
+        self.logage = logage if logage is not None else cluster.logage
+        self.FeH = FeH if FeH is not None else cluster.FeH
         self.theoretical_isochrone, self.params = self.cluster.theoretical_isochrone(
             {'Av': self.Av, 'logage': self.logage, 'FeH': self.FeH}, returnparams=True
         )
 
     def plot(self, ax):
-        if self.Av == self.cluster.Av.value and self.logage == self.cluster.logage and self.FeH == self.cluster.FeH:
+        if self.Av == self.cluster.Av and self.logage == self.cluster.logage and self.FeH == self.cluster.FeH:
             label = f'Av={self.Av:.1f}, logage={self.logage:.1f}, FeH={self.FeH:.1f} (Teff)'
         
-        elif self.Av == self.clusterdias.Av.value and self.logage == self.clusterdias.logage and self.FeH == self.clusterdias.FeH:
+        elif self.Av == self.clusterdias.Av and self.logage == self.clusterdias.logage and self.FeH == self.clusterdias.FeH:
             label = f'Av={self.Av:.1f}, logage={self.logage:.1f}, FeH={self.FeH:.1f} (Dias)'
 
         else:
@@ -758,10 +785,10 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     ax.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)")
     ax.set_ylabel(r"$G$ (mag)")
     ax.set_title(f"CMD for {cluster.name}")
-
+    # print(cluster.Av, cluster.logage, cluster.FeH, "plotcmd")
     #main isochrone for temp
     isochrones.reverse()
-    isochrones.append(Isochrone(cluster))
+    isochrones.append(Isochrone(cluster, Av=cluster.Av, logage=cluster.logage, FeH=cluster.FeH))
     isochrones.reverse()
         
     for isochrone in isochrones:
@@ -814,7 +841,7 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
         ['N', len(cluster.mymembers)],
         [r'$[Fe/H]$', cluster.FeH],
         ['log(Age)', cluster.logage],
-        ['Av (mag)', round(cluster.Av.value, 2)],
+        ['Av (mag)', round(cluster.Av, 2)],
         ['Dist. (pc)', str(round(cluster.distance.value)) + "$\pm$" + f'{cluster.all["e_Dist"]}']
     ]
 
@@ -823,7 +850,7 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     if 'logage' in kwargs and kwargs['logage'] != cluster.logage:
         cluster_table[2][1] = f'{cluster.logage:.2f} --> {kwargs["logage"]}'
     if 'Av' in kwargs and kwargs['Av'] != cluster.Av:
-        cluster_table[3][1] = f'{cluster.Av.value:.2f} --> {kwargs["Av"]}'
+        cluster_table[3][1] = f'{cluster.Av:.2f} --> {kwargs["Av"]}'
 
     table_bbox = [0.0, 0.84, 0.44, 0.16]  # [left, bottom, width, height]
     table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox)

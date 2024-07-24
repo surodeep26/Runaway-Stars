@@ -5,9 +5,9 @@ Cluster:
   plxquality: 10
 
 # runaways3d
-runaways_path: "/home/surodeep/suro_aiu/traceback/cluster_runaway3d/"
+# runaways_path: "/home/surodeep/suro_aiu/traceback/cluster_runaway3d/"
 # runaways2d
-# runaways_path: "/home/surodeep/suro_aiu/traceback/cluster_runaway/"
+runaways_path: "/home/surodeep/suro_aiu/traceback/cluster_runaway/"
 
 added_members:
   Berkeley_97: [2008383302396655488]
