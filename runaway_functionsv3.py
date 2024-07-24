@@ -261,7 +261,28 @@ class Cluster:
             self.restoreParam("NRV")
         return members
 
-
+    def Star(self,source):
+        warnings.filterwarnings("ignore", category=UserWarning)
+        star = self.stars_in_region(source)
+        if len(star)==0:
+            print("Star not in the region")
+            return None
+        star = estimate_temperature(star, self.theoretical_isochrone(params={'Av': self.Av, 
+                                                                             'logage': self.logage, 
+                                                                             'FeH': self.FeH}))
+        star = star[
+                    "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est","v_pec","v_pec3d", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
+                    "Gmag", "BP-RP", "BPmag", "RPmag", "b_rgeo", "B_rgeo", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP", 
+                    "rmRA","e_rmRA", "rmDE", "e_rmDE", "logg", "RV", "e_RV","rRV", "e_rRV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
+                    ]
+        object = f"Gaia DR3 {source}"
+        try:
+            bestname = Simbad.query_object(object)['MAIN_ID']
+        except:
+            bestname = object
+        # print(bestname)
+        star.add_column([bestname],name='Name', index=0)
+        return star
     
     def stars_in_region(self, star=None):
         stars_in_region_path =  f'Clusters/{self.name}/{self.name}_stars_in_region.tsv'
@@ -786,6 +807,7 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     ax.set_ylabel(r"$G$ (mag)")
     ax.set_title(f"CMD for {cluster.name}")
     # print(cluster.Av, cluster.logage, cluster.FeH, "plotcmd")
+    
     #main isochrone for temp
     isochrones.reverse()
     isochrones.append(Isochrone(cluster, Av=cluster.Av, logage=cluster.logage, FeH=cluster.FeH))
@@ -803,6 +825,35 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
         label=rf'{len(mymembers)} cluster members'
     )
 
+    #annotate the observed members
+    from adjustText import adjust_text
+
+    obs = Table()
+    texts = []
+    for star in config['observed_stars'][cluster.name]:
+        table = cluster.Star(star)
+        text = ax.annotate(table['Name'][0][0],
+                        xy=(table['BP-RP'], table['Gmag']),
+                        fontsize='large',
+                        )
+        texts.append(text)
+    for text in texts:    
+        text.draggable()  # Make the annotation draggable
+
+    obs = vstack([obs,table])
+    #annotate the runaways
+    for star in (cluster.runaways())['Source']:
+        table = cluster.Star(star)
+        text = ax.annotate('Runaway',
+                    xy=(table['BP-RP'],table['Gmag']-0.2),
+                    fontsize='large'
+                    )
+        # texts.append(text)
+
+    adjust_text(texts)
+    ax.scatter(obs['BP-RP'], obs['Gmag'], s=100, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
+
+        
     # Plot stars in region
     cluster = Cluster(cluster.name)
     stars_in_region = cluster.stars_in_region()
@@ -811,12 +862,12 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
         s=2, color='grey', zorder=1, label=f"{len(stars_in_region)} stars in the region"
     )
     
-    #scatter find_cluster
-    cir = find_cluster(cluster.stars_in_region())
-    ax.scatter(
-        cir['BP-RP'], cir['Gmag'],
-        s=10, color='blue', zorder=3, label=f"{len(cir)} kinematic members found"
-    )
+    #scatter kinematic_members
+    # cir = cluster.kinematic_cluster
+    # ax.scatter(
+    #     cir['BP-RP'], cir['Gmag'],
+    #     s=10, color='blue', zorder=3, label=f"{len(cir)} kinematic members found"
+    # )
 
     # Plot runaways
     theoretical_isochrone_temp = cluster.theoretical_isochrone()
@@ -830,8 +881,6 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
         label=f'{len(runaways)} runaway(s)'
     )
     
-
-
     # Add colorbar
     colorbar = fig.colorbar(scatter_runaways, ax=ax)
     colorbar.set_label('Temperature (K)')
