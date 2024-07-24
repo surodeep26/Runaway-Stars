@@ -836,11 +836,11 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
                         xy=(table['BP-RP'], table['Gmag']),
                         fontsize='large',
                         )
+        obs = vstack([obs,table])
         texts.append(text)
-    for text in texts:    
-        text.draggable()  # Make the annotation draggable
+    # for text in texts:    
+    #     text.draggable()  # Make the annotation draggable
 
-    obs = vstack([obs,table])
     #annotate the runaways
     for star in (cluster.runaways())['Source']:
         table = cluster.Star(star)
@@ -850,7 +850,7 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
                     )
         # texts.append(text)
 
-    adjust_text(texts)
+    adjust_text(texts, arrowprops=dict(arrowstyle="-", color='k', lw=0.5))
     ax.scatter(obs['BP-RP'], obs['Gmag'], s=100, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
 
         
