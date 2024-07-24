@@ -20,6 +20,9 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from matplotlib import pyplot as plt
+plt.rcParams["font.family"] = "C059"
+plt.rcParams["font.size"] = 25
+
 from astroquery.skyview import SkyView
 from regions import CircleSkyRegion, PointSkyRegion, LineSkyRegion
 from astropy.wcs import WCS
@@ -778,18 +781,39 @@ class Isochrone:
 
     def plot(self, ax):
         if self.Av == self.cluster.Av and self.logage == self.cluster.logage and self.FeH == self.cluster.FeH:
-            label = f'Av={self.Av:.1f}, logage={self.logage:.1f}, FeH={self.FeH:.1f} (Teff)'
-        
+            label = (
+                rf"$A_V$      = {self.Av:.2f}" + "\n" + 
+                rf"log($\tau$) = {self.logage:<10.2f}" + "\n" + 
+                rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f} ($T_{{eff}}$)" + "\n"
+            )
         elif self.Av == self.clusterdias.Av and self.logage == self.clusterdias.logage and self.FeH == self.clusterdias.FeH:
-            label = f'Av={self.Av:.1f}, logage={self.logage:.1f}, FeH={self.FeH:.1f} (Dias)'
-
+            label = (
+                rf"$A_V$      = {self.Av:.2f}" + "\n" + 
+                rf"log($\tau$) = {self.logage:<10.2f}" + "\n" + 
+                rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f} (Dias)" + "\n"
+            )
         else:
-            label = f'Av={self.Av:.1f}, logage={self.logage:.1f}, FeH={self.FeH:.1f}'
+            label = (
+                rf"$A_V$      = {self.Av:.2f}" + "\n" + 
+                rf"log($\tau$) = {self.logage:<10.2f}" + "\n" + 
+                rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f}" + "\n"
+            )        
+
+        color = next(ax._get_lines.prop_cycler)['color']
 
         ax.plot(
             self.theoretical_isochrone['BP-RP'],
             self.theoretical_isochrone['Gmag'],
-            label=label
+            # label=label,
+            color=color
+        )
+        ax.plot(
+            self.theoretical_isochrone['BP-RP'],
+            self.theoretical_isochrone['Gmag'],
+            label=label,
+            lw=10,
+            alpha=0.4,
+            color=color
         )
 
 def plot_cmd(cluster, isochrones=[], **kwargs):
@@ -801,11 +825,13 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     >>> isochrone2 = Isochrone(cl, Av=3, logage=7)
     >>> plot_cmd(cl, isochrones=[isochrone1,isochrone2])
     """
-    plt.clf()
-    fig, ax = plt.subplots(figsize=(12, 10))
+
+    fig, ax = plt.subplots(figsize=(20, 14))
+    #plt.clf()
+    plt.cla()
     ax.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)")
     ax.set_ylabel(r"$G$ (mag)")
-    ax.set_title(f"CMD for {cluster.name}")
+    # ax.set_title(f"CMD for {(cluster.name).replace('_',' ')}")
     # print(cluster.Av, cluster.logage, cluster.FeH, "plotcmd")
     
     #main isochrone for temp
@@ -822,7 +848,8 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
         mymembers['BP-RP'], mymembers['Gmag'],
         color='black', zorder=2, fmt='o',
         xerr=mymembers['e_BP-RP'] + 0.02, yerr=mymembers['e_Gmag'],
-        label=rf'{len(mymembers)} cluster members'
+        label=rf'{len(mymembers)} cluster members',
+        markersize=10
     )
 
     #annotate the observed members
@@ -838,28 +865,32 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
                         )
         obs = vstack([obs,table])
         texts.append(text)
-    # for text in texts:    
-    #     text.draggable()  # Make the annotation draggable
 
-    #annotate the runaways
+
+    #annotate the runaways with their temperatures
     for star in (cluster.runaways())['Source']:
         table = cluster.Star(star)
-        text = ax.annotate('Runaway',
+        temp = (table['Temp. Est'][0])
+        annotation = f"{temp:,.0f} K"
+        text = ax.annotate(annotation,
                     xy=(table['BP-RP'],table['Gmag']-0.2),
-                    fontsize='large'
+                    fontsize='large',
+                    weight='bold'
                     )
-        # texts.append(text)
+        texts.append(text)
 
-    adjust_text(texts, arrowprops=dict(arrowstyle="-", color='k', lw=0.5))
-    ax.scatter(obs['BP-RP'], obs['Gmag'], s=100, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
-
+    adjust_text(texts)#, arrowprops=dict(arrowstyle="-", color='k', lw=0.5))
+    ax.scatter(obs['BP-RP'], obs['Gmag'], s=280,lw=2, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
+    for text in texts:    
+        text.draggable()  # Make the annotation draggable
         
     # Plot stars in region
     cluster = Cluster(cluster.name)
+    clusterdias = ClusterDias(cluster.name)
     stars_in_region = cluster.stars_in_region()
     ax.scatter(
         stars_in_region['BP-RP'], stars_in_region['Gmag'],
-        s=2, color='grey', zorder=1, label=f"{len(stars_in_region)} stars in the region"
+        s=6, color='grey', zorder=1, label=f"{len(stars_in_region)} stars in the region"
     )
     
     #scatter kinematic_members
@@ -875,7 +906,7 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     runaways = estimate_temperature(runaways, theoretical_isochrone_temp)
     scatter_runaways = ax.scatter(
         runaways['BP-RP'], runaways['Gmag'],
-        s=50, zorder=4,
+        s=200, zorder=4,
         c=runaways['Temp. Est'],
         cmap='spring_r', norm=plt.Normalize(4000, 23000),
         label=f'{len(runaways)} runaway(s)'
@@ -890,29 +921,37 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
         ['N', len(cluster.mymembers)],
         [r'$[Fe/H]$', cluster.FeH],
         ['log(Age)', cluster.logage],
-        ['Av (mag)', round(cluster.Av, 2)],
+        [r'$A_V$ (mag)', round(cluster.Av, 2)],
         ['Dist. (pc)', str(round(cluster.distance.value)) + "$\pm$" + f'{cluster.all["e_Dist"]}']
     ]
 
-    if 'FeH' in kwargs and kwargs['FeH'] != cluster.FeH:
-        cluster_table[1][1] = f'{cluster.FeH:.2f} --> {kwargs["FeH"]}'
-    if 'logage' in kwargs and kwargs['logage'] != cluster.logage:
-        cluster_table[2][1] = f'{cluster.logage:.2f} --> {kwargs["logage"]}'
-    if 'Av' in kwargs and kwargs['Av'] != cluster.Av:
-        cluster_table[3][1] = f'{cluster.Av:.2f} --> {kwargs["Av"]}'
+    if 'FeH' in kwargs and kwargs['FeH'] != clusterdias.FeH:
+        cluster_table[1][1] = f'{clusterdias.FeH:.2f} --> {kwargs["FeH"]}'
+    if 'logage' in kwargs and kwargs['logage'] != clusterdias.logage:
+        cluster_table[2][1] = f'{clusterdias.logage:.2f} --> {kwargs["logage"]}'
+    if 'Av' in kwargs and kwargs['Av'] != clusterdias.Av:
+        cluster_table[3][1] = f'{clusterdias.Av:.2f} --> {kwargs["Av"]}'
 
     table_bbox = [0.0, 0.84, 0.44, 0.16]  # [left, bottom, width, height]
-    table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox)
+    table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox, zorder=8)
 
     for key, cell in table._cells.items():
         cell.set_linewidth(0.5)
-        cell.set_edgecolor('lightgray')
+        cell.set_edgecolor('black')
+
+        
 
     # Set plot limits and invert y-axis
-    ax.set_ylim(bottom=min(cluster.theoretical_isochrone()['Gmag']) - 2.5, top=18)
-    ax.set_xlim(left=min(cluster.theoretical_isochrone()['BP-RP']) - 0.5, right=4)
+    ax.set_ylim(bottom=min(cluster.theoretical_isochrone()['Gmag']) - 2.5, top=17)
+    ax.set_xlim(left=min(cluster.theoretical_isochrone()['BP-RP']) - 0.5, right=3)
     ax.invert_yaxis()
-    ax.legend()
+    ax.legend(loc='lower right')
+    plt.grid()
+    plt.tight_layout()
+    fig.canvas.manager.set_window_title(f'{cluster.name}_cmd')
+
+    # plt.savefig(f'./Clusters/{cluster.name}/{cluster.name}_cmd.png')
+    # plt.savefig(f'./Clusters/{cluster.name}/{cluster.name}_cmd.pdf')
     return 
 
 def get_main_name(source):
