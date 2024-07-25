@@ -26,6 +26,8 @@ plt.rcParams["font.size"] = 25
 from astroquery.skyview import SkyView
 from regions import CircleSkyRegion, PointSkyRegion, LineSkyRegion
 from astropy.wcs import WCS
+from astropy.visualization.wcsaxes import add_scalebar
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from astropy.io import fits
 from astroquery.simbad import Simbad
 import matplotlib.patches as patches
@@ -783,7 +785,23 @@ class Cluster:
             plot_traces(ax, self.runaways(),alpha=1)
         # legend = plt.legend()
         # legend.get_frame().set_alpha(1)
-        
+        scalebar_angle = radius
+        add_scalebar(ax, length=scalebar_angle, 
+                     label=f'{radius:.1f}', 
+                     pad=0,
+                     color='yellow', 
+                     size_vertical=0.5)
+        scalebar = AnchoredSizeBar(
+            ax.transData,
+            size=0,
+            loc='lower right',
+            label=f'{radius:.1f}',
+            pad=0,
+            frameon=False,
+            sep=10,
+        )
+
+        ax.add_artist(scalebar)
         legend = plt.legend()
         legend.get_frame().set_alpha(0.2)
         for text in legend.get_texts():
