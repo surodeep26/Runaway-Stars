@@ -668,24 +668,41 @@ class Cluster:
         with fits.open(cluster_10pc_fits_path) as fits_file:
             image = fits_file[0]
             wcs = WCS(image.header)
-            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15, 15))
+            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15.5, 15.5))
 
-            ax.imshow(image.data, cmap='gray', alpha=0.5)
-            ax.set_xlabel('Right Ascension (hms)', color="white")
-            ax.set_ylabel('Declination (degrees)', color="white")
+            ax.imshow(image.data, cmap='gray', alpha=0.6, interpolation='gaussian')
+            ax.set_xlabel('Right Ascension (hms)', color="black")
+            ax.set_ylabel('Declination (degrees)', color="black")
 
             # Set the background color to black
-            fig.patch.set_facecolor('black')
+            # fig.patch.set_facecolor('black')
             ax.set_facecolor('black')
             # Set text colors to white
             ax.title.set_color('white')
-            ax.tick_params(axis='both', colors='white')
+            # ax.tick_params(axis='both', colors='black', length=10)
+            ax.tick_params(axis='none')
+            ax.grid(color='lightgrey', ls='dotted')
             # Plot the cluster region
             c = self.skycoord
-            radius = self.r50
+            #circle for the cluster r50
+            radius = (self.r50).to(u.arcmin)
             region = CircleSkyRegion(c, radius)
             region_pix = region.to_pixel(wcs)
-            region_pix.plot(ax=ax, color='red', lw=1)
+            region_pix.plot(ax=ax, color='orange', 
+                            lw=2, 
+                            ls='dotted',
+                            label=f"Cluster (r50) = {radius.value:.1f}'"
+                            )
+            #circle for the search region
+            radius_search_arcmin = self.search_arcmin.to(u.arcmin)
+            region_search_arcmin = CircleSkyRegion(c, radius_search_arcmin)
+            region_pix_search_arcmin = region_search_arcmin.to_pixel(wcs)
+            region_pix_search_arcmin.plot(ax=ax, color='green',
+                                          lw=2,
+                                          ls='dotted',
+                                          label=f"Search region = {radius_search_arcmin.value:.1f}'"
+                                          )
+            
             def plot_traces(ax, allrun, alpha=0.5):
                 allrun_coord_now = SkyCoord(ra=allrun['RA_ICRS_1'], 
                         dec=allrun['DE_ICRS_1'],
@@ -703,8 +720,8 @@ class Cluster:
                 scatter_main = ax.scatter(allrun_pixels_now[0], allrun_pixels_now[1], 
                                         c=allrun['Temp. Est'], cmap='RdYlBu', edgecolor='red',linewidth=1,
                                         zorder=5,alpha=1,
-                                        
-                                        s=100,norm=plt.Normalize(3000, 15000))
+                                        label='Runaway(s)',
+                                        s=150,norm=plt.Normalize(3000, 15000))
                 # Plot the lines showing motion errors
                 if len(allrun)>0:
                     runaway_00, runaway_apdp,runaway_apdm,runaway_amdp,runaway_amdm = [SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=allrun['rmRA'],pm_dec=allrun['rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
@@ -760,14 +777,21 @@ class Cluster:
             star_table['rRV'] = star_table['RV']-self.RV
             star_table['e_rRV'] = star_table['e_RV']+self.e_RV
             star_table['Temp. Est'] = 0
-            plot_traces(ax, star_table)
+            #plot_traces(ax, star_table)
 
         if len(self.runaways())>0:
             plot_traces(ax, self.runaways(),alpha=1)
-
+        # legend = plt.legend()
+        # legend.get_frame().set_alpha(1)
         
+        legend = plt.legend()
+        legend.get_frame().set_alpha(0.2)
+        for text in legend.get_texts():
+            text.set_color("white")
         plt.tight_layout()
         plt.show()
+        fig.canvas.manager.set_window_title(f'{self.name}_traceback_clean')
+
 
 class Isochrone:
     def __init__(self, cluster, Av=None, logage=None, FeH=None):
@@ -827,7 +851,7 @@ def plot_cmd(cluster, isochrones=[]):
     >>> plot_cmd(cl, isochrones=[isochrone1,isochrone2])
     """
 
-    fig, ax = plt.subplots(figsize=(16, 14))
+    fig, ax = plt.subplots(figsize=(15, 15))
     #plt.clf()
     plt.cla()
     ax.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)")
