@@ -668,7 +668,7 @@ class Cluster:
         with fits.open(cluster_10pc_fits_path) as fits_file:
             image = fits_file[0]
             wcs = WCS(image.header)
-            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(10, 10))
+            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15, 15))
 
             ax.imshow(image.data, cmap='gray', alpha=0.5)
             ax.set_xlabel('Right Ascension (hms)', color="white")
@@ -685,7 +685,7 @@ class Cluster:
             radius = self.r50
             region = CircleSkyRegion(c, radius)
             region_pix = region.to_pixel(wcs)
-            region_pix.plot(ax=ax, color='red', lw=2)
+            region_pix.plot(ax=ax, color='red', lw=1)
             def plot_traces(ax, allrun, alpha=0.5):
                 allrun_coord_now = SkyCoord(ra=allrun['RA_ICRS_1'], 
                         dec=allrun['DE_ICRS_1'],
@@ -701,9 +701,10 @@ class Cluster:
 
                 # Plot the current positions as scatter points
                 scatter_main = ax.scatter(allrun_pixels_now[0], allrun_pixels_now[1], 
-                                        c=allrun['Temp. Est'], cmap='rainbow_r', edgecolor='white',linewidth=0.5,
-                                        zorder=5,alpha=alpha,
-                                        s=30,norm=plt.Normalize(3000, 18000))
+                                        c=allrun['Temp. Est'], cmap='RdYlBu', edgecolor='red',linewidth=1,
+                                        zorder=5,alpha=1,
+                                        
+                                        s=100,norm=plt.Normalize(3000, 15000))
                 # Plot the lines showing motion errors
                 if len(allrun)>0:
                     runaway_00, runaway_apdp,runaway_apdm,runaway_amdp,runaway_amdm = [SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=allrun['rmRA'],pm_dec=allrun['rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
@@ -784,7 +785,7 @@ class Isochrone:
             label = (
                 rf"$A_V$      = {self.Av:.2f}" + "\n" + 
                 rf"log($\tau$) = {self.logage:<10.2f}" + "\n" + 
-                rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f} ($T_{{eff}}$)" + "\n"
+                rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f} (for $T_{{eff}}$)" + "\n"
             )
         elif self.Av == self.clusterdias.Av and self.logage == self.clusterdias.logage and self.FeH == self.clusterdias.FeH:
             label = (
@@ -816,7 +817,7 @@ class Isochrone:
             color=color
         )
 
-def plot_cmd(cluster, isochrones=[], **kwargs):
+def plot_cmd(cluster, isochrones=[]):
     """
     ### Example usage
     >>> cl = Cluster("Berkeley_97")
@@ -826,7 +827,7 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     >>> plot_cmd(cl, isochrones=[isochrone1,isochrone2])
     """
 
-    fig, ax = plt.subplots(figsize=(20, 14))
+    fig, ax = plt.subplots(figsize=(16, 14))
     #plt.clf()
     plt.cla()
     ax.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)")
@@ -875,12 +876,13 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
         text = ax.annotate(annotation,
                     xy=(table['BP-RP'],table['Gmag']-0.2),
                     fontsize='large',
+                    color='firebrick',
                     weight='bold'
                     )
         texts.append(text)
 
     adjust_text(texts)#, arrowprops=dict(arrowstyle="-", color='k', lw=0.5))
-    ax.scatter(obs['BP-RP'], obs['Gmag'], s=280,lw=2, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
+    ax.scatter(obs['BP-RP'], obs['Gmag'], s=400,lw=2, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
     for text in texts:    
         text.draggable()  # Make the annotation draggable
         
@@ -906,34 +908,44 @@ def plot_cmd(cluster, isochrones=[], **kwargs):
     runaways = estimate_temperature(runaways, theoretical_isochrone_temp)
     scatter_runaways = ax.scatter(
         runaways['BP-RP'], runaways['Gmag'],
-        s=200, zorder=4,
+        s=350, zorder=4,
+        edgecolor='red',
+        lw=3,
         c=runaways['Temp. Est'],
-        cmap='spring_r', norm=plt.Normalize(4000, 23000),
+        cmap='RdYlBu', norm=plt.Normalize(3000, 15000),
         label=f'{len(runaways)} runaway(s)'
     )
-    
+
     # Add colorbar
-    colorbar = fig.colorbar(scatter_runaways, ax=ax)
-    colorbar.set_label('Temperature (K)')
+    # colorbar = fig.colorbar(scatter_runaways, ax=ax)
+    # colorbar.set_label('Temperature (K)')
 
     # Add cluster parameters table
     cluster_table = [
         ['N', len(cluster.mymembers)],
         [r'$[Fe/H]$', cluster.FeH],
-        ['log(Age)', cluster.logage],
+        [r'log($\tau$)', cluster.logage],
         [r'$A_V$ (mag)', round(cluster.Av, 2)],
         ['Dist. (pc)', str(round(cluster.distance.value)) + "$\pm$" + f'{cluster.all["e_Dist"]}']
     ]
 
-    if 'FeH' in kwargs and kwargs['FeH'] != clusterdias.FeH:
-        cluster_table[1][1] = f'{clusterdias.FeH:.2f} --> {kwargs["FeH"]}'
-    if 'logage' in kwargs and kwargs['logage'] != clusterdias.logage:
-        cluster_table[2][1] = f'{clusterdias.logage:.2f} --> {kwargs["logage"]}'
-    if 'Av' in kwargs and kwargs['Av'] != clusterdias.Av:
-        cluster_table[3][1] = f'{clusterdias.Av:.2f} --> {kwargs["Av"]}'
-
-    table_bbox = [0.0, 0.84, 0.44, 0.16]  # [left, bottom, width, height]
-    table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox, zorder=8)
+    if cluster.FeH != clusterdias.FeH:
+        cluster_table[1][1] = f'{clusterdias.FeH:.2f}'+r'$\rightarrow$'+f'{cluster.FeH}'
+    if cluster.logage != clusterdias.logage:
+        cluster_table[2][1] = f'{clusterdias.logage:.2f}'+r'$\rightarrow$'+f'{(cluster.logage):.2f}'
+    if cluster.Av != clusterdias.Av:
+        cluster_table[3][1] = f'{clusterdias.Av:.2f}'+r'$\rightarrow$'+f'{(cluster.Av):.2f}'
+    # if cluster.distance != clusterdias.distance:
+    #     cluster_table[4][1] = f'{(clusterdias.distance.value):.0f}'+"$\pm$"+f'{(clusterdias.e_distance.value):.0f}'+'--> '+str(round(cluster.distance.value)) + "$\pm$" + f'{(cluster.e_distance.value)}'
+    
+    if cluster.distance != clusterdias.distance:
+        cluster_table[4][1] = f'{(clusterdias.distance.value):.0f}'+r'$\rightarrow$'+str(round(cluster.distance.value))
+        
+        
+    colWidths = [0.4, 0.6]  # Adjust the proportion of widths for each column
+    table_bbox = [0.0, 0.84, 0.4, 0.16]  # [left, bottom, width, height]
+    table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox, colWidths=colWidths, zorder=8)
+    # table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox, zorder=8)
 
     for key, cell in table._cells.items():
         cell.set_linewidth(0.5)
