@@ -785,23 +785,51 @@ class Cluster:
             plot_traces(ax, self.runaways(),alpha=1)
         # legend = plt.legend()
         # legend.get_frame().set_alpha(1)
-        scalebar_angle = radius
+        scalebar_angle = ((((radius.value*2)//5)+1)*5)*u.arcmin
         add_scalebar(ax, length=scalebar_angle, 
-                     label=f'{radius:.1f}', 
-                     pad=0,
+                     label='', 
+                     pad=0.5,
+                     borderpad=0.3,
                      color='yellow', 
                      size_vertical=0.5)
+        from astropy.wcs.utils import proj_plane_pixel_scales
+        if ax.wcs.is_celestial:
+            pix_scale = proj_plane_pixel_scales(ax.wcs)
+            sx = pix_scale[0]
+            sy = pix_scale[1]
+            degrees_per_pixel = np.sqrt(sx * sy)
         scalebar = AnchoredSizeBar(
             ax.transData,
             size=0,
             loc='lower right',
-            label=f'{radius:.1f}',
-            pad=0,
+            label=f'{scalebar_angle:.1f}',
+            color='yellow',
+            pad=0.5,
+            borderpad=0.4,
+            size_vertical=0,
+            label_top=True,
             frameon=False,
-            sep=10,
+            sep=30,
+        )
+
+        sep = ((scalebar_angle.value*np.pi)/(60*180))*self.distance.value*u.pc
+        
+        scalebar2 = AnchoredSizeBar(
+            ax.transData,
+            size=0,
+            loc='lower right',
+            label=f'{sep:.2f}',
+            color='yellow',
+            pad=0.5,
+            borderpad=0.4,
+            size_vertical=0,
+            label_top=False,
+            frameon=False,
+            sep=30,
         )
 
         ax.add_artist(scalebar)
+        ax.add_artist(scalebar2)
         legend = plt.legend()
         legend.get_frame().set_alpha(0.2)
         for text in legend.get_texts():
