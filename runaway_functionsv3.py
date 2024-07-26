@@ -726,36 +726,6 @@ class Cluster:
                                         zorder=5,alpha=1,
                                         label='Runaway(s)',
                                         s=150,norm=plt.Normalize(3000, 15000))
-                
-                # #annotations
-                # texts = []
-                # for star in config['observed_stars'][self.name]:
-                #     table = self.Star(star)
-                #     text = ax.annotate(table['Name'][0][0],
-                #                     xy=(table['BP-RP'], table['Gmag']),
-                #                     fontsize='large',
-                #                     )
-                #     obs = vstack([obs,table])
-                #     texts.append(text)
-
-
-                # #annotate the runaways with their temperatures
-                # for star in (self.runaways())['Source']:
-                #     table = self.Star(star)
-                #     temp = (table['Temp. Est'][0])
-                #     annotation = f"{temp:,.0f} K"
-                #     text = ax.annotate(annotation,
-                #                 xy=(table['BP-RP'],table['Gmag']-0.2),
-                #                 fontsize='large',
-                #                 color='firebrick',
-                #                 weight='bold'
-                #                 )
-                #     texts.append(text)
-
-                # adjust_text(texts)#, arrowprops=dict(arrowstyle="-", color='k', lw=0.5))
-                # ax.scatter(obs['BP-RP'], obs['Gmag'], s=400,lw=2, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
-                # for text in texts:    
-                #     text.draggable()  # Make the annotation draggable   
                     
                 # Plot the lines showing motion errors
                 if len(allrun)>0:
@@ -802,8 +772,21 @@ class Cluster:
             
             # for start, end in zip(np.transpose(allrun_pixels_now), np.transpose(allrun_pixels_earlier)):
             #     ax.plot([start[0], end[0]], [start[1], end[1]], color='blue')
-                return
-        
+                return 
+                        #annotations
+        # texts = []
+        # obs = Table()
+        # for star in config['observed_stars'][self.name]:
+        #     table = self.Star(star)
+        #     obs_pixels_now = SkyCoord(ra=table['RA_ICRS'])
+        #     wcs.world_to_pixel(allrun_coord_now)
+        #     text = ax.annotate(table['Name'][0][0],
+        #                     xy=(allrun_pixels_now[0], allrun_pixels_now[1]),
+        #                     fontsize='large',
+        #                     )
+        #     obs = vstack([obs,table])
+        #     texts.append(text)
+            
         for star_table in star_tables:
             star_table['rmRA'] = star_table['pmRA']-self.pm_ra_cosdec
             star_table['rmDE'] = star_table['pmDE']-self.pm_dec
@@ -870,20 +853,20 @@ class Cluster:
             
 
             
-        plt.tight_layout()
+        # plt.tight_layout()
         plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_clean')
 
 
 class Isochrone:
-    def __init__(self, cluster, Av=None, logage=None, FeH=None):
+    def __init__(self, cluster, Av=None, logage=None, FeH=None, parsec_version=2):
         self.cluster = Cluster(cluster.name)
         self.clusterdias = ClusterDias(cluster.name)
         self.Av = Av if Av is not None else cluster.Av
         self.logage = logage if logage is not None else cluster.logage
         self.FeH = FeH if FeH is not None else cluster.FeH
         self.theoretical_isochrone, self.params = self.cluster.theoretical_isochrone(
-            {'Av': self.Av, 'logage': self.logage, 'FeH': self.FeH}, returnparams=True
+            {'Av': self.Av, 'logage': self.logage, 'FeH': self.FeH},parsec_version=parsec_version, returnparams=True
         )
 
     def plot(self, ax):
@@ -1228,15 +1211,20 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None,parsec_version=2):
     #Evolutionary Tracks #from config
     if parsec_version==2:
         browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[3]/td[1]/input[1]").click() #PARSEC version 2.0
+        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[5]/td/input").click() #+ COLIBRI S_37
+        #Phtotometric System #from config        
+        photometricSystem = Select(browser.find_element(By.XPATH,"//select[@name='photsys_file']")) #dropdown list for available photometric systems
+        photometricSystem.select_by_value("YBC_tab_mag_odfnew/tab_mag_gaiaEDR3.dat") # Gaia EDR3 bands
+        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[2]/table/tbody/tr[5]/td[1]/input").click() # VBC +new Vega for PARSEC 2.0 #As above, but adopting revised SED for Vega from Bohlin et al. (2020) (namely CALSPEC alpha_lyr_stis_010.fits).
+    
     elif parsec_version==1.2:
         browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[4]/td/input").click() #PARSEC version 1.2S
-    
-    browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[5]/td/input").click() #+ COLIBRI S_37
-    #Phtotometric System #from config
-    photometricSystem = Select(browser.find_element(By.XPATH,"//select[@name='photsys_file']")) #dropdown list for available photometric systems
-    photometricSystem.select_by_value("YBC_tab_mag_odfnew/tab_mag_gaiaEDR3.dat") # Gaia EDR3 bands
-    browser.find_element(By.XPATH,"/html/body/form/div/fieldset[2]/table/tbody/tr[5]/td[1]/input").click() # VBC +new Vega for PARSEC 2.0 #As above, but adopting revised SED for Vega from Bohlin et al. (2020) (namely CALSPEC alpha_lyr_stis_010.fits).
-    #Phtotometric System #from config
+        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[9]/td/input").click() #+ COLIBRI S_37
+        #Phtotometric System #from config
+        photometricSystem = Select(browser.find_element(By.XPATH,"//select[@name='photsys_file']")) #dropdown list for available photometric systems
+        photometricSystem.select_by_value("YBC_tab_mag_odfnew/tab_mag_gaiaEDR3.dat") # Gaia EDR3 bands
+        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[2]/table/tbody/tr[6]/td[1]/input").click() # VBC +new Vega for PARSEC 2.0 #As above, but adopting revised SED for Vega from Bohlin et al. (2020) (namely CALSPEC alpha_lyr_stis_010.fits).
+
     #Circumstellar Dust 
     browser.find_element(By.XPATH,"/html/body/form/div/fieldset[3]/font/table/tbody/tr[3]/td[1]/input").click() #for M stars: No dust
     browser.find_element(By.XPATH,"/html/body/form/div/fieldset[3]/font/table/tbody/tr[3]/td[2]/input").click() #for C stars: No dust
@@ -1274,7 +1262,7 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None,parsec_version=2):
     data_out = browser.find_element(By.XPATH,'/html/body/pre').text
     with open('temp_isochrone', 'w') as f:
         f.write(data_out)
-    browser.close()
+    # browser.close()
     theoretical_data = Table.read("temp_isochrone", format='ascii')
     # os.remove("temp_isochrone")
     # Define the new column names
@@ -1282,7 +1270,7 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None,parsec_version=2):
         new_column_names = ['Zini', 'MH', 'logAge', 'Mini', 'int_IMF', 'Mass', 'logL', 'logTe', 'logg', 'label', 'McoreTP', 'C_O', 'period0', 'period1', 'period2', 'period3', 'period4', 'pmode', 'Mloss', 'tau1m', 'X', 'Y', 'Xc', 'Xn', 'Xo', 'Cexcess', 'Z', 'Teff0', 'omega', 'angvel', 'vtaneq', 'angmom', 'Rpol', 'Req', 'mbolmag', 'G_fSBmag', 'G_BP_fSBmag', 'G_RP_fSBmag', 'G_fSB', 'G_f0', 'G_fk', 'G_i00', 'G_i05', 'G_i10', 'G_i15', 'G_i20', 'G_i25', 'G_i30', 'G_i35', 'G_i40', 'G_i45', 'G_i50', 'G_i55', 'G_i60', 'G_i65', 'G_i70', 'G_i75', 'G_i80', 'G_i85', 'G_i90', 'G_BP_fSB', 'G_BP_f0', 'G_BP_fk', 'G_BP_i00', 'G_BP_i05', 'G_BP_i10', 'G_BP_i15', 'G_BP_i20', 'G_BP_i25', 'G_BP_i30', 'G_BP_i35', 'G_BP_i40', 'G_BP_i45', 'G_BP_i50', 'G_BP_i55', 'G_BP_i60', 'G_BP_i65', 'G_BP_i70', 'G_BP_i75', 'G_BP_i80', 'G_BP_i85', 'G_BP_i90', 'G_RP_fSB', 'G_RP_f0', 'G_RP_fk', 'G_RP_i00', 'G_RP_i05', 'G_RP_i10', 'G_RP_i15', 'G_RP_i20', 'G_RP_i25', 'G_RP_i30', 'G_RP_i35', 'G_RP_i40', 'G_RP_i45', 'G_RP_i50', 'G_RP_i55', 'G_RP_i60', 'G_RP_i65', 'G_RP_i70', 'G_RP_i75', 'G_RP_i80', 'G_RP_i85', 'G_RP_i90']
     elif parsec_version==1.2:
         new_column_names = ["Zini", "MH", "logAge", "Mini", "int_IMF", "Mass", "logL", "logTe", "logg", "label", "McoreTP", "C_O", "period0", "period1", "period2", "period3", "period4", "pmode", "Mloss", "tau1m", "X", "Y", "Xc", "Xn", "Xo", "Cexcess", "Z", "mbolmag", "Gmag", "G_BPmag", "G_RPmag"]
-
+        new_column_names = ["Zini", "MH", "logAge", "Mini", "int_IMF", "Mass", "logL", "logTe", "logg", "label", "mbolmag", "Gmag", "G_BPmag", "G_RPmag"]
     # Rename the columns
     for old_name, new_name in zip(theoretical_data.colnames, new_column_names):
         theoretical_data.rename_column(old_name, new_name)
