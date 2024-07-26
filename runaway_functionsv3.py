@@ -900,6 +900,7 @@ class Isochrone:
                 rf"$A_V$      = {self.Av:.2f}" + "\n" + 
                 rf"log($\tau$) = {self.logage:<10.2f}" + "\n" + 
                 rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f}" + "\n"
+                r"(Dinçel et al. 2024)" + "\n"
             )        
 
         color = next(ax._get_lines.prop_cycler)['color']
@@ -1225,10 +1226,14 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None,parsec_version=2):
         #Evolutionary Tracks #from config
         browser.find_element(By.XPATH,config['Evolutionary_tracks']['PARSECv2.0']).click() #PARSEC version 2.0
         browser.find_element(By.XPATH,config['Evolutionary_tracks']['COLOBRI_S_37']).click() #+ COLIBRI S_37
+        # browser.find_element(By.XPATH,config['Evolutionary_tracks']['noCOLIBRI']).click() #+ no COLIBRI
+        
         #Phtotometric System #from config        
         photometricSystem = Select(browser.find_element(By.XPATH,"//select[@name='photsys_file']")) #dropdown list for available photometric systems
         photometricSystem.select_by_value("YBC_tab_mag_odfnew/tab_mag_gaiaEDR3.dat") # Gaia EDR3 bands
         browser.find_element(By.XPATH,config['Photometric_system']['YBC_new_Vega']).click() # YBC + new Vega
+        # browser.find_element(By.XPATH,config['Photometric_system']['OBC']).click() # OBC
+        
         
     elif parsec_version==1.2:
         #Evolutionary Tracks #from config
