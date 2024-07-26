@@ -1221,22 +1221,23 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None,parsec_version=2):
     browser = webdriver.Chrome(service=s)#, options=options)
     browser.get('http://stev.oapd.inaf.it/cgi-bin/cmd')
 
-    #Evolutionary Tracks #from config
     if parsec_version==2:
-        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[3]/td[1]/input[1]").click() #PARSEC version 2.0
-        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[5]/td/input").click() #+ COLIBRI S_37
+        #Evolutionary Tracks #from config
+        browser.find_element(By.XPATH,config['Evolutionary_tracks']['PARSECv2.0']).click() #PARSEC version 2.0
+        browser.find_element(By.XPATH,config['Evolutionary_tracks']['COLOBRI_S_37']).click() #+ COLIBRI S_37
         #Phtotometric System #from config        
         photometricSystem = Select(browser.find_element(By.XPATH,"//select[@name='photsys_file']")) #dropdown list for available photometric systems
         photometricSystem.select_by_value("YBC_tab_mag_odfnew/tab_mag_gaiaEDR3.dat") # Gaia EDR3 bands
-        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[2]/table/tbody/tr[5]/td[1]/input").click() # VBC +new Vega for PARSEC 2.0 #As above, but adopting revised SED for Vega from Bohlin et al. (2020) (namely CALSPEC alpha_lyr_stis_010.fits).
-    
+        browser.find_element(By.XPATH,config['Photometric_system']['YBC_new_Vega']).click() # YBC + new Vega
+        
     elif parsec_version==1.2:
-        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[4]/td/input").click() #PARSEC version 1.2S
-        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[1]/table/tbody/tr[9]/td/input").click() #+ COLIBRI S_37
+        #Evolutionary Tracks #from config
+        browser.find_element(By.XPATH,config['Evolutionary_tracks']['PARSECv1.2']).click() #PARSEC version 1.2S
+        browser.find_element(By.XPATH,config['Evolutionary_tracks']['noCOLIBRI']).click() #+ no COLIBRI
         #Phtotometric System #from config
         photometricSystem = Select(browser.find_element(By.XPATH,"//select[@name='photsys_file']")) #dropdown list for available photometric systems
         photometricSystem.select_by_value("YBC_tab_mag_odfnew/tab_mag_gaiaEDR3.dat") # Gaia EDR3 bands
-        browser.find_element(By.XPATH,"/html/body/form/div/fieldset[2]/table/tbody/tr[6]/td[1]/input").click() # VBC +new Vega for PARSEC 2.0 #As above, but adopting revised SED for Vega from Bohlin et al. (2020) (namely CALSPEC alpha_lyr_stis_010.fits).
+        browser.find_element(By.XPATH,config['Photometric_system']['OBC']).click() # OBC
 
     #Circumstellar Dust 
     browser.find_element(By.XPATH,"/html/body/form/div/fieldset[3]/font/table/tbody/tr[3]/td[1]/input").click() #for M stars: No dust
