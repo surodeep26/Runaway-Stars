@@ -268,7 +268,7 @@ class Cluster:
             self.restoreParam("NRV")
         return members
 
-    def Star(self,source):
+    def Star(self,source, SkyCoord=True):
         warnings.filterwarnings("ignore", category=UserWarning)
         star = self.stars_in_region(source)
         if len(star)==0:
@@ -277,11 +277,18 @@ class Cluster:
         star = estimate_temperature(star, self.theoretical_isochrone(params={'Av': self.Av, 
                                                                              'logage': self.logage, 
                                                                              'FeH': self.FeH}))
-        star = star[
-                    "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est","v_pec","v_pec3d", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
-                    "Gmag", "BP-RP", "BPmag", "RPmag", "b_rgeo", "B_rgeo", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP", 
-                    "rmRA","e_rmRA", "rmDE", "e_rmDE", "logg", "RV", "e_RV","rRV", "e_rRV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
-                    ]
+        if SkyCoord:
+            star = star[
+                        "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est","v_pec","v_pec3d", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
+                        "Gmag", "BP-RP", "BPmag", "RPmag", "b_rgeo", "B_rgeo", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP", "SkyCoord",
+                        "rmRA","e_rmRA", "rmDE", "e_rmDE", "logg", "RV", "e_RV","rRV", "e_rRV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
+                        ]
+        else:
+            star = star[
+                        "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est","v_pec","v_pec3d", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
+                        "Gmag", "BP-RP", "BPmag", "RPmag", "b_rgeo", "B_rgeo", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP",
+                        "rmRA","e_rmRA", "rmDE", "e_rmDE", "logg", "RV", "e_RV","rRV", "e_rRV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
+                        ]
         object = f"Gaia DR3 {source}"
         try:
             bestname = Simbad.query_object(object)['MAIN_ID']
@@ -674,7 +681,7 @@ class Cluster:
             wcs = WCS(image.header)
             fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15.5, 15.5))
 
-            ax.imshow(image.data, cmap='gray', alpha=0.6, interpolation='gaussian')
+            ax.imshow(image.data, cmap='gray', alpha=0.7, interpolation='gaussian')
             ax.set_xlabel('Right Ascension (hms)', color="black")
             ax.set_ylabel('Declination (degrees)', color="black")
 
@@ -774,18 +781,24 @@ class Cluster:
             #     ax.plot([start[0], end[0]], [start[1], end[1]], color='blue')
                 return 
                         #annotations
-        # texts = []
-        # obs = Table()
-        # for star in config['observed_stars'][self.name]:
-        #     table = self.Star(star)
-        #     obs_pixels_now = SkyCoord(ra=table['RA_ICRS'])
-        #     wcs.world_to_pixel(allrun_coord_now)
-        #     text = ax.annotate(table['Name'][0][0],
-        #                     xy=(allrun_pixels_now[0], allrun_pixels_now[1]),
-        #                     fontsize='large',
-        #                     )
-        #     obs = vstack([obs,table])
-        #     texts.append(text)
+        texts = []
+        obs = Table()
+        for star in config['observed_stars'][self.name]:
+            table = self.Star(star)
+            obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
+            # wcs.world_to_pixel(table['SkyCoord'])
+            text = ax.annotate(table['Name'][0][0],
+                            xy=(obs_pixels_now[0], obs_pixels_now[1]),
+                            fontsize='medium',
+                            color='yellow'
+                            )
+            table = self.Star(star, SkyCoord=False)
+            obs = vstack([obs,table])
+            texts.append(text)
+
+        adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
+        for text in texts:    
+            text.draggable()  # Make the annotation draggable
             
         for star_table in star_tables:
             star_table['rmRA'] = star_table['pmRA']-self.pm_ra_cosdec
@@ -853,7 +866,7 @@ class Cluster:
             
 
             
-        # plt.tight_layout()
+        plt.tight_layout()
         plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_clean')
 
@@ -946,7 +959,7 @@ def plot_cmd(cluster, isochrones=[]):
     obs = Table()
     texts = []
     for star in config['observed_stars'][cluster.name]:
-        table = cluster.Star(star)
+        table = cluster.Star(star,SkyCoord=False)
         text = ax.annotate(table['Name'][0][0],
                         xy=(table['BP-RP'], table['Gmag']),
                         fontsize='large',
