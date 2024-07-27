@@ -31,6 +31,8 @@ from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from astropy.io import fits
 from astroquery.simbad import Simbad
 import matplotlib.patches as patches
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 from adjustText import adjust_text
 
 
@@ -877,12 +879,65 @@ class Cluster:
     def plot_pm(self):
         
         fig, ax = plt.subplots(figsize=(16, 16))
-        
+        ax.set_xlabel(r'$\mu^{*}_{\alpha}$ (mas/yr)')
+        ax.set_ylabel(r'$\mu_{\delta}$ (mas/yr)')
+                
         #stars in the region
         sir = self.stars_in_region()
         ax.errorbar(x=sir['pmRA'], y=sir['pmDE'], 
-                    xerr=sir['e_pmRA'], yerr=sir['e_pmDE'])
+                    xerr=sir['e_pmRA'], yerr=sir['e_pmDE'],
+                    label='Stars in the search region',
+                    color='grey',
+                    fmt='o',       
+                    markersize=2
+                    )
+        
+        #cluster members
+        cluster_members = self.mymembers
+        ax.errorbar(x=cluster_members['pmRA'], y=cluster_members['pmDE'],
+                    xerr=cluster_members['e_pmRA'],
+                    yerr=cluster_members['e_pmDE'],
+                    label='Cluster members',
+                    color='black',
+                    fmt='o',                    
+                    markersize=15
+                    )
+        #all runaways
+        run_all = self.runaways_all()
+        ax.errorbar(x=run_all['pmRA'], y=run_all['pmDE'],
+                    xerr=run_all['e_pmRA'],
+                    yerr=run_all['e_pmDE'],
+                    label='Runaways with T < 10,000 K',
+                    color='gold',
+                    fmt='o',                                        
+                    markersize=10
+                    )
 
+        value = 10940
+        # Normalize and map the value to a color
+        vmin = 3000
+        vmax = 15000
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        colormap = cm.get_cmap('RdYlBu')  # Correctly get the colormap from matplotlib.cm
+        sm = cm.ScalarMappable(norm=norm, cmap=colormap)
+        color = sm.to_rgba(value)
+        #main runaway(s)
+        run = self.runaways()
+        ax.errorbar(x=run['pmRA'], y=run['pmDE'],
+                    xerr=run['e_pmRA'],
+                    yerr=run['e_pmDE'],
+                    label='Runaway(s)',
+                    color=color,
+                    fmt='o',                                        
+                    markersize=20,
+                    markeredgecolor='red',
+                    lw=2,
+                    zorder=6
+                    )       
+        ax.grid(color='lightgrey')
+        plt.legend()
+        plt.tight_layout()
+        
 
 class Isochrone:
     def __init__(self, cluster, Av=None, logage=None, FeH=None, parsec_version=2):
