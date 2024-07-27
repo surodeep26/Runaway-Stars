@@ -328,11 +328,14 @@ class Cluster:
             stars_in_region['rRV'] = stars_in_region['RV']-self.RV
             stars_in_region['e_rRV'] = stars_in_region['e_RV']+self.e_RV
             #include members with high rRV as fast stars
-            stars_in_region['v_pec'] = 4.74*stars_in_region['rgeo'].value/1000*np.sqrt(((stars_in_region['rmRA'].value)**2+(stars_in_region['rmDE'].value)**2))*u.km/u.s
+            stars_in_region['v_pec'] = 4.74*((stars_in_region['rgeo'].value)/1000)*np.sqrt(
+                                                                                            (stars_in_region['rmRA'].value)**2
+                                                                                            +(stars_in_region['rmDE'].value)**2
+                                                                                          )*u.km/u.s
             stars_in_region['v_pec3d'] = np.sqrt(stars_in_region['v_pec']**2+stars_in_region['rRV']**2)
             #check
-            stars_in_region['e_vpec'] = 4.74 * stars_in_region['rgeo'].value/1000 * np.sqrt(((stars_in_region['rmRA'].value * stars_in_region['e_rmRA'].value)**2 + (stars_in_region['rmDE'].value * stars_in_region['e_rmDE'].value)**2)) * u.km/u.s
-            stars_in_region['e_vpec3d'] = np.sqrt((stars_in_region['v_pec'] / stars_in_region['v_pec3d'] * stars_in_region['e_vpec'])**2 + (stars_in_region['rRV'] / stars_in_region['v_pec3d'] * stars_in_region['e_rRV'])**2)
+            stars_in_region['e_v_pec'] = 4.74 * stars_in_region['rgeo'].value/1000 * np.sqrt(((stars_in_region['rmRA'].value * stars_in_region['e_rmRA'].value)**2 + (stars_in_region['rmDE'].value * stars_in_region['e_rmDE'].value)**2)) * u.km/u.s
+            stars_in_region['e_v_pec3d'] = np.sqrt((stars_in_region['v_pec'] / stars_in_region['v_pec3d'] * stars_in_region['e_v_pec'])**2 + (stars_in_region['rRV'] / stars_in_region['v_pec3d'] * stars_in_region['e_rRV'])**2)
 
             stars_in_region.write(stars_in_region_path, format='ascii.ecsv')
 
@@ -624,7 +627,7 @@ class Cluster:
         params = params or {}
         runaways = estimate_temperature(self.runaways_all(), self.theoretical_isochrone(params=params))
         runaways = runaways[
-                            "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est","v_pec","v_pec3d", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
+                            "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est","v_pec","e_v_pec","v_pec3d","e_v_pec3d", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
                             "Gmag", "BP-RP", "BPmag", "RPmag", "b_rgeo", "B_rgeo", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP", "SkyCoord", 
                             "rmRA","e_rmRA", "rmDE", "e_rmDE", "logg", "RV", "e_RV","rRV", "e_rRV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
                         ]
@@ -869,6 +872,16 @@ class Cluster:
         plt.tight_layout()
         plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_clean')
+        
+    
+    def plot_pm(self):
+        
+        fig, ax = plt.subplots(figsize=(16, 16))
+        
+        #stars in the region
+        sir = self.stars_in_region()
+        ax.errorbar(x=sir['pmRA'], y=sir['pmDE'], 
+                    xerr=sir['e_pmRA'], yerr=sir['e_pmDE'])
 
 
 class Isochrone:
@@ -1076,21 +1089,36 @@ def get_main_name(source):
         return f"Gaia DR3 {source}"
     else:
         return (t['MAIN_ID'].value[0])
-    
+
 def estimate_temperature(stars, theoretical_isochrone):
     stars['Temp. Est'] = stars['Teff']
-    
+    stars['e_Temp. Est_upper'] = stars['Teff']
+    stars['e_Temp. Est_lower'] = stars['Teff']
     Ttheo = theoretical_isochrone['Teff0']
     bprptheo = theoretical_isochrone['BP-RP']
     gmagtheo = theoretical_isochrone['Gmag']
     for star in stars:
         differences_bprp = abs(bprptheo - star['BP-RP'])
+        differences_bprp_upper = abs(bprptheo - (star['BP-RP']+(star['e_BP-RP']+0.02)))
+        differences_bprp_lower = abs(bprptheo - (star['BP-RP']-(star['e_BP-RP']+0.02)))
         differences_gmag = abs(gmagtheo - star['Gmag'])
         # differences = differences_bprp**2+differences_gmag**2 #method 1
-        differences = differences_bprp #method 2
+        differences = differences_bprp #method 2 main star
         closest_star_index = np.argmin(differences)
         new_closest_star_temperature = Ttheo[closest_star_index]
         star['Temp. Est']=new_closest_star_temperature
+        
+        differences_lower = differences_bprp_lower #method 2 hotter star limit, added 0.02 typical error
+        closest_star_index_lower = np.argmin(differences_lower)
+        new_closest_star_temperature_hotter = Ttheo[closest_star_index_lower]
+        star['e_Temp. Est_upper']=new_closest_star_temperature_hotter-new_closest_star_temperature
+        
+        differences_upper = differences_bprp_upper #method 2 cooler star limit, added 0.02 typical error
+        closest_star_index_upper = np.argmin(differences_upper)
+        new_closest_star_temperature_cooler = Ttheo[closest_star_index_upper]
+        star['e_Temp. Est_lower']=new_closest_star_temperature_cooler-new_closest_star_temperature
+    
+    stars['e_Temp. Est'] = stars['e_Temp. Est_upper']-stars['e_Temp. Est_lower']
     return stars
 def find_cluster(stars_in_region: astropy.table.Table, sigma: float = config['find_cluster']['sigma_clip']) -> astropy.table.Table: 
     """
