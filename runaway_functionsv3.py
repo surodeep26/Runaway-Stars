@@ -878,9 +878,9 @@ class Cluster:
     
     def plot_pm(self):
         
-        fig, ax = plt.subplots(figsize=(16, 16))
-        ax.set_xlabel(r'$\mu^{*}_{\alpha}$ (mas/yr)')
-        ax.set_ylabel(r'$\mu_{\delta}$ (mas/yr)')
+        fig, ax = plt.subplots(figsize=(14, 14))
+        ax.set_xlabel(r'$\mu^{*}_{\alpha}$ mas yr$^{-1}$')
+        ax.set_ylabel(r'$\mu_{\delta}$ mas yr$^{-1}$')
                 
         #stars in the region
         sir = self.stars_in_region()
@@ -889,7 +889,7 @@ class Cluster:
                     label='Stars in the search region',
                     color='grey',
                     fmt='o',       
-                    markersize=2
+                    markersize=3
                     )
         
         #cluster members
@@ -900,7 +900,7 @@ class Cluster:
                     label='Cluster members',
                     color='black',
                     fmt='o',                    
-                    markersize=15
+                    markersize=12
                     )
         #all runaways
         run_all = self.runaways_all()
@@ -908,9 +908,9 @@ class Cluster:
                     xerr=run_all['e_pmRA'],
                     yerr=run_all['e_pmDE'],
                     label='Runaways with T < 10,000 K',
-                    color='gold',
+                    color='orange',
                     fmt='o',                                        
-                    markersize=10
+                    markersize=8
                     )
 
         value = 10940
@@ -929,14 +929,46 @@ class Cluster:
                     label='Runaway(s)',
                     color=color,
                     fmt='o',                                        
-                    markersize=20,
+                    markersize=15,
                     markeredgecolor='red',
-                    lw=2,
+                    markeredgewidth=3,
                     zorder=6
                     )       
+        texts = []
+        text = ax.annotate(r"$\Delta$µ$_{\alpha}^*=$"+rf"{run['rmRA'][0]:.2f}$\pm${run['e_rmRA'][0]:.2f}"+r"$\frac{mas}{yr}$"+
+                           "\n"+
+                           r"$\Delta$µ$_{\delta}=$"+f"{run['rmDE'][0]:.2f}$\pm${run['e_rmDE'][0]:.2f}"+r"$\frac{mas}{yr}$",
+                        xy=(run['pmRA'], run['pmDE']),
+                        fontsize='large',
+                        # fontweight='bold',
+                        color='firebrick'
+                        )
+        texts.append(text)
+        adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
+        for text in texts:    
+            text.draggable()  # Make the annotation draggable
+            
         ax.grid(color='lightgrey')
+        # ax.set_aspect('equal')
+        # Original limits
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        
+        # Calculate the range
+        x_range = xlim[1] - xlim[0]
+        y_range = ylim[1] - ylim[0]
+        
+        # Center of the plot
+        center_pmRA = self.pm_ra_cosdec.value
+        center_pmDE = self.pm_dec.value
+        
+        # Set the new limits centered around the specified point
+        ax.set_xlim(center_pmRA - x_range / 2, center_pmRA + x_range / 2)
+        ax.set_ylim(center_pmDE - y_range / 2, center_pmDE + y_range / 2)
         plt.legend()
         plt.tight_layout()
+        fig.canvas.manager.set_window_title(f'{self.name}_pm')
+
         
 
 class Isochrone:
