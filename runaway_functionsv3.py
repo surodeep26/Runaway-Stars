@@ -1464,3 +1464,15 @@ def get_search_region(cluster, extra=10,display=True,**kwargs):
         hdulist.writeto(fits_file_path, overwrite=True)
         print(f"image downloaded in {(end_time-start_time):1f}s")
         
+def ATNF():
+    # ATNF = QueryATNF().get_catalogue(path_to_db='/home/surodeep/Downloads/psrcat_pkg.v2.3.0/psrcat_tar/psrcat.db').table
+    # ATNF.write('ATNF_v2.3.0.tsv', format='ascii.ecsv')
+    ATNF = Table.read('ATNF_v2.3.0.tsv', format='ascii.ecsv')['JNAME', 'RAJD', 'DECJD', 'DIST', 'DIST_DM', 'AGE', 'PMRA', 'PMDEC', 'S400', 'ASSOC', 'AGE_I', 'PX', 'P0', 'P1','BSURF']
+    ATNF['SkyCoord'] = SkyCoord(ra=ATNF['RAJD'],
+                                dec=ATNF['DECJD'],
+                                distance=ATNF['DIST'],
+                                pm_ra_cosdec=ATNF['PMRA'],
+                                pm_dec=ATNF['PMDEC'],
+                                )
+    return ATNF
+        
