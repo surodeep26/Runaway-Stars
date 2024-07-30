@@ -4,7 +4,7 @@ import numpy as np
 from astropy import units as u
 from astroquery.vizier import Vizier
 from astropy.table import Table, join,vstack
-from astropy.coordinates import SkyCoord, Angle
+from astropy.coordinates import SkyCoord, Angle, match_coordinates_sky
 from astropy.time import Time
 import warnings
 from astropy.utils.metadata import MergeConflictWarning
