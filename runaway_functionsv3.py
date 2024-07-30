@@ -968,7 +968,11 @@ class Cluster:
         plt.legend()
         plt.tight_layout()
         fig.canvas.manager.set_window_title(f'{self.name}_pm')
-
+        
+    def psrs(self): #*5 asssuming 500km/s for psrs vs 100km/s for runaways 
+        sep_limit = self.search_arcmin*5
+        return psrs_nearby(self.skycoord, ATNF(), sep_limit=sep_limit)
+        
         
 
 class Isochrone:
@@ -1474,5 +1478,52 @@ def ATNF():
                                 pm_ra_cosdec=ATNF['PMRA'],
                                 pm_dec=ATNF['PMDEC'],
                                 )
+
+    # Apply masks to filter out entries without RAJD and DECJD
+    maskra = ATNF.mask['RAJD']
+    maskdec = ATNF.mask['DECJD']
+    ATNF = ATNF[~maskra & ~maskdec]
+
+    # Further filter out entries without a distance measure
+    maskDIST = ~ATNF.mask['DIST']
+    ATNF = ATNF[maskDIST]
     return ATNF
         
+def psrs_nearby(coordinate:SkyCoord, table:Table, sep_limit=4*u.deg)-> Table:
+    """
+    ## example usage:
+    >>> cl = Cluster('Berkeley_97')
+    >>> psrs_nearby(cl.skycoord, atnf)
+    """
+    maskDIST = ~table.mask['DIST']
+    table = table[maskDIST] #filter out the psrs which do not have a distance mesurement
+    neighbour = 1
+    idxs = []
+    seps = []
+    seps3d = []
+    while True:
+        idx, separation, separation3d = coordinate.match_to_catalog_sky( #using this instead of match_to_catalog3d because the distance measurements of psrs can have large errors
+                                    SkyCoord(ra=table['RAJD'],
+                                    dec=table['DECJD'],
+                                    distance=table['DIST'],
+                                    pm_ra_cosdec=table['PMRA'],
+                                    pm_dec=table['PMDEC'],
+                                    )
+                                    , nthneighbor=neighbour)
+        # print(idx, separation, separation3d)
+        if separation > sep_limit:
+            break
+        idxs.append(idx)
+        seps.append(separation[0])
+        seps3d.append(separation3d)
+        neighbour += 1
+    nearby = table[idxs] 
+    nearby['sep2d'] = seps
+    nearby['sep3d'] = seps3d
+    nearby['sep2d'] = nearby['sep2d'].to(u.arcmin)
+    nearby['sep3d'] = nearby['sep3d'].to(u.pc)
+    distmask = (nearby['sep3d']<1.4*coordinate.distance) #max sep3d from the cluster may be 40% of the distance to the cluster
+    agemask = (nearby['AGE'] < 500*u.kyr) | (nearby['AGE'].mask) #the age of the pulsar should be less than 500kyr or unknown
+    nearby = nearby[distmask & agemask]
+    nearby.sort('sep3d')
+    return nearby
