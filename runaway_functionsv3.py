@@ -277,7 +277,7 @@ class Cluster:
             self.restoreParam("NRV")
         return members
 
-    def Star(self,source, SkyCoord=True):
+    def Star(self,source, SkyCoord=True,returnName=False):
         warnings.filterwarnings("ignore", category=UserWarning)
         star = self.stars_in_region(source)
         if len(star)==0:
@@ -304,6 +304,8 @@ class Cluster:
         except:
             bestname = object
         # print(bestname)
+        if returnName:
+            return bestname[0]
         star.add_column([bestname],name='Name', index=0)
         return star
     
@@ -644,6 +646,11 @@ class Cluster:
         mask_temp = runaways['Temp. Est'] >= temp_threshold*u.K
         runaways = runaways[mask_temp]
         runaways.sort('Temp. Est', reverse=True)
+        simbad_names = []
+        for source in runaways['Source']:
+            simbad_names.append(self.Star(source)['Name'][0][0])
+        
+        runaways.add_column(simbad_names, name='Name', index=0)
         return runaways  
     def theoretical_isochrone(self, params=None, returnparams=False, parsec_version=2):
         # self.members()
@@ -938,40 +945,39 @@ class Cluster:
                     markersize=8
                     )
 
-        value = 10940
-        # Normalize and map the value to a color
-        vmin = 3000
-        vmax = 15000
-        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-        colormap = cm.get_cmap('RdYlBu')  # Correctly get the colormap from matplotlib.cm
-        sm = cm.ScalarMappable(norm=norm, cmap=colormap)
-        color = sm.to_rgba(value)
         #main runaway(s)
-        run = self.runaways()
-        ax.errorbar(x=run['pmRA'], y=run['pmDE'],
-                    xerr=run['e_pmRA'],
-                    yerr=run['e_pmDE'],
-                    label='Runaway(s)',
-                    color=color,
-                    fmt='o',                                        
-                    markersize=15,
-                    markeredgecolor='red',
-                    markeredgewidth=3,
-                    zorder=6
-                    )       
-        texts = []
-        text = ax.annotate(r"$\Delta$µ$_{\alpha}^*=$"+rf"{run['rmRA'][0]:.2f}$\pm${run['e_rmRA'][0]:.2f}"+r"$\frac{mas}{yr}$"+
-                           "\n"+
-                           r"$\Delta$µ$_{\delta}=$"+f"{run['rmDE'][0]:.2f}$\pm${run['e_rmDE'][0]:.2f}"+r"$\frac{mas}{yr}$",
-                        xy=(run['pmRA'], run['pmDE']),
-                        fontsize='large',
-                        # fontweight='bold',
-                        color='firebrick'
-                        )
-        texts.append(text)
-        adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
-        for text in texts:    
-            text.draggable()  # Make the annotation draggable
+        runaways = self.runaways()
+        ax.errorbar(x=runaways['pmRA'], y=runaways['pmDE'],
+            xerr=runaways['e_pmRA'],
+            yerr=runaways['e_pmDE'],
+            color='deepskyblue',
+            fmt='o',                                        
+            markersize=15,
+            elinewidth=4,
+            markeredgecolor='red',
+            markeredgewidth=3,
+            label='Runaway(s)',
+            zorder=9
+            )    
+        
+        for run in runaways:   
+            texts = []
+            text = ax.annotate(self.Star(run['Source'], returnName=1)+"\n"+
+                            r"$\Delta$µ$_{\alpha}^*=$"+rf"{run['rmRA']:.2f}$\pm${run['e_rmRA']:.2f}"+r"$\frac{mas}{yr}$"+
+                            "\n"+
+                            r"$\Delta$µ$_{\delta}=$"+f"{run['rmDE']:.2f}$\pm${run['e_rmDE']:.2f}"+r"$\frac{mas}{yr}$",
+                            xy=(run['pmRA'], run['pmDE']),
+                            fontsize='large',
+                            # fontweight='bold',
+                            color='firebrick',
+                            zorder=8
+                            )
+            text.draggable()
+            texts.append(text)
+        
+
+        # texts.draggable()  # Make the annotation draggable
+        # adjust_text(texts, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
             
         ax.grid(color='lightgrey')
         # ax.set_aspect('equal')
@@ -1115,7 +1121,7 @@ def plot_cmd(cluster, isochrones=[]):
     for star in (cluster.runaways())['Source']:
         table = cluster.Star(star)
         temp = (table['Temp. Est'][0])
-        annotation = f"{temp:,.0f} K"
+        annotation = cluster.Star(star, returnName=1)+'\n'+f"{temp:,.0f} K"
         text = ax.annotate(annotation,
                     xy=(table['BP-RP'],table['Gmag']-0.2),
                     fontsize='large',
@@ -1157,7 +1163,6 @@ def plot_cmd(cluster, isochrones=[]):
         cmap='RdYlBu', norm=plt.Normalize(3000, 15000),
         label=f'{len(runaways)} runaway(s)'
     )
-
     # Add colorbar
     # colorbar = fig.colorbar(scatter_runaways, ax=ax)
     # colorbar.set_label('Temperature (K)')
@@ -1501,7 +1506,7 @@ def get_search_region(cluster, extra=10,display=True,**kwargs):
         
         # Save the fits file
         hdulist.writeto(fits_file_path, overwrite=True)
-        print(f"image downloaded in {(end_time-start_time):1f}s")
+        print(f"{extra}pc image downloaded in {(end_time-start_time):1f}s")
         
 def ATNF():
     # ATNF = QueryATNF().get_catalogue(path_to_db='/home/surodeep/Downloads/psrcat_pkg.v2.3.0/psrcat_tar/psrcat.db').table
