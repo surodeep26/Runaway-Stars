@@ -131,24 +131,31 @@ class ClusterDias:
     def theoretical_isochrone(self, params=None, returnparams=False, parsec_version=2):
         # self.members()
         params = params or {}
-        # print("params",params)
-        Av = float(params.get('Av', None)) if params.get('Av') is not None else round(float(self.Av), 1)
-        logage = float(params.get('logage', None)) if params.get('logage') is not None else round(float(self.logage), 1)
-        FeH = float(params.get('FeH', None)) if params.get('FeH') is not None else round(float(self.FeH), 1)
+        Av = float(params.get('Av', None)) if params.get('Av') is not None else self.Av
+        logage = float(params.get('logage', None)) if params.get('logage') is not None else self.logage
+        FeH = float(params.get('FeH', None)) if params.get('FeH') is not None else self.FeH
+        
+        Av, logage, FeH = round(Av,2), round(logage,2), round(FeH,2)
+
         
         theo_iso_path = f"./Clusters/{self.name}/{self.name}_compare_data_out_Av{str(Av)}_logage{str(logage)}_FeH{str(FeH)}.isochrone{parsec_version}"
-        # print(Av, logage, FeH)
+        # print("this", Av, logage, FeH)
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
-        else:
-            theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH, parsec_version=parsec_version)
             theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
             theo_iso['G_BP'] = theo_iso["G_BP"]+ 5 * np.log10(self.distance.value) - 5
             theo_iso['G_RP'] = theo_iso["G_RP"]+ 5 * np.log10(self.distance.value) - 5
+        else:
+            theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH, parsec_version=parsec_version)
+
             if parsec_version==1.2:
                 theo_iso['Teff0'] = 10**theo_iso['logTe']
             theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
             theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
+            #adjust absolute magnitudes to apparent magnitudes using the distance modulus after writing so that this cahnge is not stored in the isochrones written.
+            theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
+            theo_iso['G_BP'] = theo_iso["G_BP"]+ 5 * np.log10(self.distance.value) - 5
+            theo_iso['G_RP'] = theo_iso["G_RP"]+ 5 * np.log10(self.distance.value) - 5
         if returnparams:
             return theo_iso, (Av, logage, FeH)
         else:
@@ -452,15 +459,13 @@ class Cluster:
             g.write(f"/home/surodeep/suro_aiu/traceback/cluster_runaway3d/{self.name}/{self.name}_fs4giesler.tsv", format='csv', delimiter='\t', overwrite=True)
             
         return g        
-
     def get_stars_in_region(self) -> Table:
         c = ClusterDias(self.name).skycoord
         t1 = searchDR3(c,self.search_arcmin)
         t2 = searchDR3_dist(c,self.search_arcmin)
         t3 = merge_gaia_tables(t1,t2)
         t3.sort('Gmag')
-        return t3
-    
+        return t3 
     def changeParam(self,change: tuple):
         param,new_value = change
         cluster_list = Table.read('dias2021.tsv', format='ascii.ecsv')
@@ -470,8 +475,6 @@ class Cluster:
         cluster_list_mod.write('suro2024.tsv', format='ascii.ecsv', overwrite=True)
         warnings.simplefilter('ignore', FutureWarning)
         print(f'Changed {param:10} {_old_value:.2f} --> {new_value:.2f}')
-    
-
     def restoreParam(self, param: str):
         # Read the original and modified tables
         cluster_list_original = Table.read('dias2021.tsv', format='ascii.ecsv')
@@ -544,8 +547,7 @@ class Cluster:
         }
         update_config_template(config_file_path, output_file_path, **params)
     
-        print(f'./traceback ../../cluster_runaway/{self.name}/{self.name}_trace.conf')
-        
+        print(f'./traceback ../../cluster_runaway/{self.name}/{self.name}_trace.conf')        
     def prepare_trace3d(self):
         mainfolder = f"/home/surodeep/suro_aiu/traceback/cluster_runaway3d/{self.name}"
         runawayfolder = f"/home/surodeep/suro_aiu/traceback/cluster_runaway3d/{self.name}/runaways"
@@ -623,8 +625,7 @@ class Cluster:
                     idx = source_to_index[row['Source']]
                     row['RV'] = fs4['RV'][idx]  # Assigning with units
                     row['e_RV'] = fs4['e_RV'][idx]   # Assigning with units
-        return runaways_all
-    
+        return runaways_all  
     def runaways(self,params=None,temp_threshold=10000):
         params = params or {}
         runaways = estimate_temperature(self.runaways_all(), self.theoretical_isochrone(params=params))
@@ -643,8 +644,7 @@ class Cluster:
         mask_temp = runaways['Temp. Est'] >= temp_threshold*u.K
         runaways = runaways[mask_temp]
         runaways.sort('Temp. Est', reverse=True)
-        return runaways
-    
+        return runaways  
     def theoretical_isochrone(self, params=None, returnparams=False, parsec_version=2):
         # self.members()
         params = params or {}
@@ -659,15 +659,20 @@ class Cluster:
         # print("this", Av, logage, FeH)
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
-        else:
-            theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH, parsec_version=parsec_version)
             theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
             theo_iso['G_BP'] = theo_iso["G_BP"]+ 5 * np.log10(self.distance.value) - 5
             theo_iso['G_RP'] = theo_iso["G_RP"]+ 5 * np.log10(self.distance.value) - 5
+        else:
+            theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH, parsec_version=parsec_version)
+
             if parsec_version==1.2:
                 theo_iso['Teff0'] = 10**theo_iso['logTe']
             theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
             theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
+            #adjust absolute magnitudes to apparent magnitudes using the distance modulus after writing so that this cahnge is not stored in the isochrones written.
+            theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
+            theo_iso['G_BP'] = theo_iso["G_BP"]+ 5 * np.log10(self.distance.value) - 5
+            theo_iso['G_RP'] = theo_iso["G_RP"]+ 5 * np.log10(self.distance.value) - 5
         if returnparams:
             return theo_iso, (Av, logage, FeH)
         else:
@@ -976,18 +981,25 @@ class Cluster:
         
 
 class Isochrone:
-    def __init__(self, cluster, Av=None, logage=None, FeH=None, parsec_version=2):
+    def __init__(self, cluster, Av=None, logage=None, FeH=None, distance=None, parsec_version=2):
         self.cluster = Cluster(cluster.name)
         self.clusterdias = ClusterDias(cluster.name)
         self.Av = Av if Av is not None else cluster.Av
         self.logage = logage if logage is not None else cluster.logage
         self.FeH = FeH if FeH is not None else cluster.FeH
-        self.theoretical_isochrone, self.params = self.cluster.theoretical_isochrone(
+        self.distance = distance if distance is not None else cluster.distance
+        if isinstance(cluster, Cluster):
+            self.theoretical_isochrone, self.params = self.cluster.theoretical_isochrone(
+                {'Av': self.Av, 'logage': self.logage, 'FeH': self.FeH},parsec_version=parsec_version, returnparams=True
+            )
+        if isinstance(cluster, ClusterDias):
+            self.theoretical_isochrone, self.params = self.clusterdias.theoretical_isochrone(
             {'Av': self.Av, 'logage': self.logage, 'FeH': self.FeH},parsec_version=parsec_version, returnparams=True
-        )
+            )
+
 
     def plot(self, ax):
-        if self.Av == self.cluster.Av and self.logage == self.cluster.logage and self.FeH == self.cluster.FeH:
+        if self.Av == self.cluster.Av and self.logage == self.cluster.logage and self.FeH == self.cluster.FeH and self.distance == self.cluster.distance:
             label = (
                 rf"$A_V$      = {self.Av:.2f}" + "\n" + 
                 rf"log($\tau$) = {self.logage:<10.2f}" + "\n" + 
@@ -1065,15 +1077,19 @@ def plot_cmd(cluster, isochrones=[]):
     #annotate the observed members
     obs = Table()
     texts = []
-    for star in config['observed_stars'][cluster.name]:
-        table = cluster.Star(star,SkyCoord=False)
-        text = ax.annotate(table['Name'][0][0],
-                        xy=(table['BP-RP'], table['Gmag']),
-                        fontsize='large',
-                        )
-        obs = vstack([obs,table])
-        texts.append(text)
+    try:
+        for star in config['observed_stars'][cluster.name]:
+            table = cluster.Star(star,SkyCoord=False)
+            text = ax.annotate(table['Name'][0][0],
+                            xy=(table['BP-RP'], table['Gmag']),
+                            fontsize='large',
+                            )
+            obs = vstack([obs,table])
+            ax.scatter(obs['BP-RP'], obs['Gmag'], s=400,lw=2, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
 
+            texts.append(text)
+    except:
+        pass
 
     #annotate the runaways with their temperatures
     for star in (cluster.runaways())['Source']:
@@ -1089,7 +1105,6 @@ def plot_cmd(cluster, isochrones=[]):
         texts.append(text)
 
     adjust_text(texts)#, arrowprops=dict(arrowstyle="-", color='k', lw=0.5))
-    ax.scatter(obs['BP-RP'], obs['Gmag'], s=400,lw=2, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
     for text in texts:    
         text.draggable()  # Make the annotation draggable
         
