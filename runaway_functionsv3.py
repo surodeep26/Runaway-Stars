@@ -793,19 +793,38 @@ class Cluster:
                         #annotations
         texts = []
         obs = Table()
-        for star in config['observed_stars'][self.name]:
-            table = self.Star(star)
-            obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
-            # wcs.world_to_pixel(table['SkyCoord'])
-            text = ax.annotate(table['Name'][0][0],
-                            xy=(obs_pixels_now[0], obs_pixels_now[1]),
-                            fontsize='medium',
-                            color='yellow'
-                            )
-            table = self.Star(star, SkyCoord=False)
-            obs = vstack([obs,table])
-            texts.append(text)
-
+        try:
+            for star in config['observed_stars'][self.name]:
+                table = self.Star(star)
+                obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
+                # wcs.world_to_pixel(table['SkyCoord'])
+                text = ax.annotate(table['Name'][0][0],
+                                xy=(obs_pixels_now[0], obs_pixels_now[1]),
+                                fontsize='medium',
+                                color='yellow'
+                                )
+                table = self.Star(star, SkyCoord=False)
+                obs = vstack([obs,table])
+                texts.append(text)
+        except:
+            pass
+        
+        if True:
+            for star in self.runaways()['Source']:
+                table = self.Star(star)
+                obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
+                # wcs.world_to_pixel(table['SkyCoord'])
+                text = ax.annotate(table['Name'][0][0],
+                                xy=(obs_pixels_now[0], obs_pixels_now[1]),
+                                fontsize='medium',
+                                color='yellow'
+                                )
+                table = self.Star(star, SkyCoord=False)
+                obs = vstack([obs,table])
+                texts.append(text)
+        
+            
+        
         adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
         for text in texts:    
             text.draggable()  # Make the annotation draggable
@@ -879,7 +898,8 @@ class Cluster:
         plt.tight_layout()
         plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_clean')
-        
+        return star_tables
+
     
     def plot_pm(self):
         
