@@ -300,12 +300,12 @@ class Cluster:
                         ]
         object = f"Gaia DR3 {source}"
         try:
-            bestname = Simbad.query_object(object)['MAIN_ID']
+            bestname = Simbad.query_object(object)['MAIN_ID'][0]
         except:
             bestname = object
         # print(bestname)
         if returnName:
-            return bestname[0]
+            return bestname
         star.add_column([bestname],name='Name', index=0)
         return star
     
@@ -648,7 +648,7 @@ class Cluster:
         runaways.sort('Temp. Est', reverse=True)
         simbad_names = []
         for source in runaways['Source']:
-            simbad_names.append(self.Star(source)['Name'][0][0])
+            simbad_names.append(self.Star(source, returnName=1))
         
         runaways.add_column(simbad_names, name='Name', index=0)
         return runaways  
@@ -805,11 +805,14 @@ class Cluster:
                 table = self.Star(star)
                 obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
                 # wcs.world_to_pixel(table['SkyCoord'])
-                text = ax.annotate(table['Name'][0][0],
+                text = ax.annotate(self.Star(star, returnName=1),
                                 xy=(obs_pixels_now[0], obs_pixels_now[1]),
                                 fontsize='medium',
-                                color='yellow'
+                                color='white'
                                 )
+                ax.scatter(obs_pixels_now[0], obs_pixels_now[1],
+                        c='white',
+                        )
                 table = self.Star(star, SkyCoord=False)
                 obs = vstack([obs,table])
                 texts.append(text)
@@ -821,13 +824,12 @@ class Cluster:
                 table = self.Star(star)
                 obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
                 # wcs.world_to_pixel(table['SkyCoord'])
-                text = ax.annotate(table['Name'][0][0],
+                text = ax.annotate(table['Name'][0],
                                 xy=(obs_pixels_now[0], obs_pixels_now[1]),
                                 fontsize='medium',
                                 color='yellow'
                                 )
                 table = self.Star(star, SkyCoord=False)
-                obs = vstack([obs,table])
                 texts.append(text)
         
             
@@ -848,8 +850,6 @@ class Cluster:
 
         if len(self.runaways())>0:
             plot_traces(ax, self.runaways(),alpha=1)
-        # legend = plt.legend()
-        # legend.get_frame().set_alpha(1)
         scalebar_angle = ((((self.search_arcmin.value/4)//5)+1)*5)*u.arcmin
         add_scalebar(ax, length=scalebar_angle, 
                      label='', 
@@ -906,8 +906,201 @@ class Cluster:
         plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_clean')
         return star_tables
+    def plot_traceback_psr(self):
+        warnings.simplefilter('ignore', ErfaWarning)
+        psr_fits_path = f'./Clusters/{self.name}/{self.name}_extra50pc.fits'
+        if not os.path.exists(psr_fits_path):
+            get_search_region(self, extra=50)
+        with fits.open(psr_fits_path) as fits_file:
+            image = fits_file[0]
+            wcs = WCS(image.header)
+            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15.5, 15.5))
+            ax.imshow(image.data, cmap='gray', alpha=0.7, interpolation='gaussian')
+            ax.set_xlabel('Right Ascension (hms)', color="black")
+            ax.set_ylabel('Declination (degrees)', color="black")
+            ax.set_facecolor('black')
+            ax.title.set_color('white')
+            ax.tick_params(axis='none')
+            ax.grid(color='lightgrey', ls='dotted')
+            c = self.skycoord
+            #circle for the cluster r50
+            radius = (self.r50).to(u.arcmin)
+            region = CircleSkyRegion(c, radius)
+            region_pix = region.to_pixel(wcs)
+            region_pix.plot(ax=ax, color='orange', 
+                            lw=2, 
+                            ls='dotted',
+                            label=f"Cluster (r50) = {radius.value:.1f}'"
+                            )
+            #circle for the search region
+            radius_search_arcmin = self.search_arcmin.to(u.arcmin)
+            region_search_arcmin = CircleSkyRegion(c, radius_search_arcmin)
+            region_pix_search_arcmin = region_search_arcmin.to_pixel(wcs)
+            region_pix_search_arcmin.plot(ax=ax, color='green',
+                                          lw=2,
+                                          ls='dotted',
+                                          label=f"Search region = {radius_search_arcmin.value:.1f}'"
+                                          )
+            def plot_traces(ax, allrun, alpha=0.5):
+                allrun_coord_now = SkyCoord(ra=allrun['RA_ICRS_1'], 
+                        dec=allrun['DE_ICRS_1'],
+                        distance=allrun['rgeo'], 
+                        pm_ra_cosdec=allrun['rmRA'],
+                        pm_dec=allrun['rmDE'],
+                        obstime=Time('J2000')+500*u.kyr)
 
-    
+                allrun_coord_earlier = allrun_coord_now.apply_space_motion(dt=-100*u.kyr)
+                # Calculate the pixel coordinates of the runaway stars
+                allrun_pixels_now = wcs.world_to_pixel(allrun_coord_now)
+                allrun_pixels_earlier = wcs.world_to_pixel(allrun_coord_earlier)
+
+                # Plot the current positions as scatter points
+                scatter_main = ax.scatter(allrun_pixels_now[0], allrun_pixels_now[1], 
+                                        c=allrun['Temp. Est'], cmap='RdYlBu', edgecolor='red',linewidth=1,
+                                        zorder=5,alpha=1,
+                                        label='Runaway(s)',
+                                        s=150,norm=plt.Normalize(3000, 15000))
+                    
+                # Plot the lines showing motion errors
+                if len(allrun)>0:
+                    runaway_00, runaway_apdp,runaway_apdm,runaway_amdp,runaway_amdm = [SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=allrun['rmRA'],pm_dec=allrun['rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                                        SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=(allrun['rmRA']+allrun['e_rmRA']),pm_dec=allrun['rmDE']+allrun['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                                        SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=(allrun['rmRA']+allrun['e_rmRA']),pm_dec=allrun['rmDE']-allrun['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                                        SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=(allrun['rmRA']-allrun['e_rmRA']),pm_dec=allrun['rmDE']+allrun['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
+                                                                        SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=(allrun['rmRA']-allrun['e_rmRA']),pm_dec=allrun['rmDE']-allrun['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr))]
+
+                    earlier_runaway_00 = runaway_00.apply_space_motion(dt = -100_000*u.year)
+                    earlier_runaway_apdp = runaway_apdp.apply_space_motion(dt = -100_000*u.year)
+                    earlier_runaway_apdm = runaway_apdm.apply_space_motion(dt = -100_000*u.year)
+                    earlier_runaway_amdp = runaway_amdp.apply_space_motion(dt = -100_000*u.year)
+                    earlier_runaway_amdm = runaway_amdm.apply_space_motion(dt = -100_000*u.year)
+
+                    earlier_runaway_00_px = wcs.world_to_pixel_values(earlier_runaway_00.ra, earlier_runaway_00.dec)
+                    earlier_runaway_apdp_px = wcs.world_to_pixel_values(earlier_runaway_apdp.ra, earlier_runaway_apdp.dec)
+                    earlier_runaway_apdm_px = wcs.world_to_pixel_values(earlier_runaway_apdm.ra, earlier_runaway_apdm.dec)
+                    earlier_runaway_amdp_px = wcs.world_to_pixel_values(earlier_runaway_amdp.ra, earlier_runaway_amdp.dec)
+                    earlier_runaway_amdm_px = wcs.world_to_pixel_values(earlier_runaway_amdm.ra, earlier_runaway_amdm.dec)
+                    runaway_00_px = wcs.world_to_pixel_values(runaway_00.ra, runaway_00.dec)
+                    # Calculate the displacement vectors
+                    delta_x = earlier_runaway_apdp_px[0]-earlier_runaway_amdp_px[0]
+                    delta_y = earlier_runaway_apdp_px[1]-earlier_runaway_apdm_px[1]
+
+                    for pxx, pxy, dx, dy in zip(earlier_runaway_00_px[0], earlier_runaway_00_px[1], delta_x, delta_y):
+                        ellipse = patches.Ellipse(
+                            (pxx, pxy),
+                            width=1.5*dx,
+                            height=1.5*dy,
+                            fill=True,
+                            color='g',
+                            alpha=0.2
+                        )
+                        ax.add_patch(ellipse)
+
+                    for c in [earlier_runaway_apdp_px,earlier_runaway_apdm_px,earlier_runaway_amdp_px,earlier_runaway_amdm_px]:
+                        delta_x = c[0] - runaway_00_px[0]
+                        delta_y = c[1] - runaway_00_px[1]
+                        # Draw the vectors
+                        ax.quiver(runaway_00_px[0], runaway_00_px[1], delta_x, delta_y, angles='xy', scale_units='xy', scale=1, color='limegreen', width=0.001)
+                ############################
+            
+            
+            # for start, end in zip(np.transpose(allrun_pixels_now), np.transpose(allrun_pixels_earlier)):
+            #     ax.plot([start[0], end[0]], [start[1], end[1]], color='blue')
+                return  
+            
+        texts = []
+        obs = Table()
+        for star in self.runaways()['Source']:
+            table = self.Star(star)
+            obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
+            # wcs.world_to_pixel(table['SkyCoord'])
+            text = ax.annotate(self.Star(star, returnName=1),
+                            xy=(obs_pixels_now[0], obs_pixels_now[1]),
+                            fontsize='medium',
+                            color='yellow'
+                            )
+            table = self.Star(star, SkyCoord=False)
+            texts.append(text)
+            adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
+
+        if len(self.runaways())>0:
+            plot_traces(ax, self.runaways(),alpha=1)
+            
+        #plot the psrs
+        psr_table = self.psrs()
+        if len(psr_table)>0:
+            for psr in psr_table:
+                psr_pixel = wcs.world_to_pixel(psr['SkyCoord'])
+                text = ax.annotate('PSR '+psr['JNAME'],
+                            xy=(psr_pixel[0],psr_pixel[1]),
+                            fontsize='medium',
+                            color='cyan'
+                            )
+                texts.append(text)
+            psr_table_pixel = wcs.world_to_pixel(psr_table['SkyCoord'])
+            ax.scatter(psr_table_pixel[0],psr_table_pixel[1],
+                       c='cyan',
+                       label='Pulsar')
+            
+        for text in texts:    
+            text.draggable()  # Make the annotations draggable
+            
+        scalebar_angle = ((((self.search_arcmin.value/4)//5)+1)*5)*u.arcmin*5 #last *5 for psr
+        add_scalebar(ax, length=scalebar_angle, 
+                     label='', 
+                     pad=0.5,
+                     borderpad=0.3,
+                     color='yellow', 
+                     size_vertical=0.5)
+        from astropy.wcs.utils import proj_plane_pixel_scales
+        if ax.wcs.is_celestial:
+            pix_scale = proj_plane_pixel_scales(ax.wcs)
+            sx = pix_scale[0]
+            sy = pix_scale[1]
+            degrees_per_pixel = np.sqrt(sx * sy)
+        scalebar = AnchoredSizeBar(
+            ax.transData,
+            size=0,
+            loc='lower right',
+            label=f'{scalebar_angle:.1f}',
+            color='yellow',
+            pad=0.5,
+            borderpad=0.4,
+            size_vertical=0,
+            label_top=True,
+            frameon=False,
+            sep=30,
+        )
+
+        sep = ((scalebar_angle.value*5*np.pi)/(60*180))*self.distance.value*u.pc
+        
+        scalebar2 = AnchoredSizeBar(
+            ax.transData,
+            size=0,
+            loc='lower right',
+            label=f'{sep:.2f}',
+            color='yellow',
+            pad=0.5,
+            borderpad=0.4,
+            size_vertical=0,
+            label_top=False,
+            frameon=False,
+            sep=30,
+        )
+
+        ax.add_artist(scalebar)
+        ax.add_artist(scalebar2)
+        legend = plt.legend(loc='upper left')
+        legend.get_frame().set_alpha(0.2)
+        for text in legend.get_texts():
+            text.set_color("white")
+            
+
+            
+        plt.tight_layout()
+        plt.show()
+        fig.canvas.manager.set_window_title(f'{self.name}_traceback_psr')
+            
     def plot_pm(self):
         
         fig, ax = plt.subplots(figsize=(14, 14))
@@ -1106,14 +1299,15 @@ def plot_cmd(cluster, isochrones=[]):
     try:
         for star in config['observed_stars'][cluster.name]:
             table = cluster.Star(star,SkyCoord=False)
-            text = ax.annotate(table['Name'][0][0],
+            text = ax.annotate(table['Name'][0],
                             xy=(table['BP-RP'], table['Gmag']),
                             fontsize='large',
                             )
             obs = vstack([obs,table])
-            ax.scatter(obs['BP-RP'], obs['Gmag'], s=400,lw=2, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
-
             texts.append(text)
+
+        ax.scatter(obs['BP-RP'], obs['Gmag'], s=600,lw=2, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
+
     except:
         pass
 
@@ -1477,7 +1671,7 @@ def get_search_region(cluster, extra=10,display=True,**kwargs):
     Returns:
     None
     """
-    search_arcmin = cluster.search_arcmin
+    search_arcmin = cluster.search_arcmin*extra/10 #10pc is for normal search_arcmin, 50pc for 5*search_arcmin
     
     # Define the file path
     fits_file_path = f'./Clusters/{cluster.name}/{cluster.name}_extra{extra}pc.fits'
@@ -1560,8 +1754,8 @@ def psrs_nearby(coordinate:SkyCoord, table:Table, sep_limit=4*u.deg)-> Table:
     nearby = table[idxs] 
     nearby['sep2d'] = seps
     nearby['sep3d'] = seps3d
-    nearby['sep2d'] = nearby['sep2d'].to(u.arcmin)
-    nearby['sep3d'] = nearby['sep3d'].to(u.pc)
+    nearby['sep2d'] = nearby['sep2d']
+    nearby['sep3d'] = nearby['sep3d']
     distmask = (nearby['sep3d']<1.4*coordinate.distance) #max sep3d from the cluster may be 40% of the distance to the cluster
     agemask = (nearby['AGE'] < 500*u.kyr) | (nearby['AGE'].mask) #the age of the pulsar should be less than 500kyr or unknown
     nearby = nearby[distmask & agemask]
