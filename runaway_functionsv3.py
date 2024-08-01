@@ -909,7 +909,7 @@ class Cluster:
         plt.tight_layout()
         plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_clean')
-        return star_tables
+        return ax
     def plot_traceback_psr(self):
         warnings.simplefilter('ignore', ErfaWarning)
         psr_fits_path = f'./Clusters/{self.name}/{self.name}_extra50pc.fits'
