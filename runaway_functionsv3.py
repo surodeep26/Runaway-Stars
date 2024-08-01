@@ -1042,7 +1042,7 @@ class Cluster:
             psr_table_pixel = wcs.world_to_pixel(psr_table['SkyCoord'])
             ax.scatter(psr_table_pixel[0],psr_table_pixel[1],
                        c='cyan',
-                       label='Pulsar')
+                       label=f'{len(psr_table)} Pulsar(s) nearby')
             
         for text in texts:    
             text.draggable()  # Make the annotations draggable
@@ -1206,6 +1206,108 @@ class Cluster:
     def psrs(self, sep_limit=None): #*5 asssuming 500km/s for psrs vs 100km/s for runaways 
         sep_limit = sep_limit if sep_limit is not None else self.search_arcmin*5
         return psrs_nearby(self.skycoord, ATNF(), sep_limit=sep_limit)
+
+    def plot_cmd(self, isochrones=[]):
+        """
+        ### Example usage
+        >>> cl = Cluster("Berkeley_97")
+        >>> cld = ClusterDias("Berkeley_97")
+        >>> isochrone1 = Isochrone(cld)
+        >>> isochrone2 = Isochrone(cl, Av=3, logage=7)
+        >>> cl.plot_cmd(isochrones=[isochrone1,isochrone2])
+        """
+
+        fig, ax = plt.subplots(figsize=(15, 15))
+        #plt.clf()
+        # plt.cla()
+        ax.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)")
+        ax.set_ylabel(r"$G$ (mag)")
+        # ax.set_title(f"CMD for {(cluster.name).replace('_',' ')}")
+        # print(cluster.Av, cluster.logage, cluster.FeH, "plotcmd")
+        
+        #main isochrone for temp
+        isochrones.reverse()
+        isochrones.append(Isochrone(self, Av=self.Av, logage=self.logage, FeH=self.FeH))
+        isochrones.reverse()
+            
+        for isochrone in isochrones:
+            isochrone.plot(ax)
+
+        # Plot cluster members
+        mymembers = self.mymembers
+        ax.errorbar(
+            mymembers['BP-RP'], mymembers['Gmag'],
+            color='black', zorder=2, fmt='o',
+            xerr=mymembers['e_BP-RP'] + 0.02, yerr=mymembers['e_Gmag'],
+            label=rf'{len(mymembers)} cluster members',
+            markersize=10
+        )   
+        
+        # Plot stars in region
+        cluster = Cluster(self.name)
+        clusterdias = ClusterDias(self.name)
+        stars_in_region = self.stars_in_region()
+        ax.scatter(
+            stars_in_region['BP-RP'], stars_in_region['Gmag'],
+            s=6, color='grey', zorder=1, label=f"{len(stars_in_region)} stars in the region"
+        )
+        
+        # # scatter kinematic_members
+        # cir = cluster.kinematic_cluster
+        # ax.scatter(
+        #     cir['BP-RP'], cir['Gmag'],
+        #     s=10, color='blue', zorder=3, label=f"{len(cir)} kinematic members found"
+        # )
+
+        # Plot runaways
+        theoretical_isochrone_temp = self.theoretical_isochrone()
+        runaways = self.runaways()
+        runaways = estimate_temperature(runaways, theoretical_isochrone_temp)
+        scatter_runaways = ax.scatter(
+            runaways['BP-RP'], runaways['Gmag'],
+            s=350, zorder=4,
+            edgecolor='red',
+            lw=3,
+            c=runaways['Temp. Est'],
+            cmap='RdYlBu', norm=plt.Normalize(3000, 15000),
+            label=f'{len(runaways)} runaway(s)'
+        )
+        
+        # Add cluster parameters table
+        cluster_table = [
+            ['N', len(self.mymembers)],
+            [r'$[Fe/H]$', self.FeH],
+            [r'log($\tau$)', self.logage],
+            [r'$A_V$ (mag)', round(self.Av, 2)],
+            ['Dist. (pc)', str(round(self.distance.value)) + "$\pm$" + f'{self.all["e_Dist"]}']
+        ]
+
+        if self.FeH != self.FeH:
+            cluster_table[1][1] = f'{clusterdias.FeH:.2f}'+r'$\rightarrow$'+f'{self.FeH}'
+        if self.logage != clusterdias.logage:
+            cluster_table[2][1] = f'{clusterdias.logage:.2f}'+r'$\rightarrow$'+f'{(self.logage):.2f}'
+        if self.Av != clusterdias.Av:
+            cluster_table[3][1] = f'{clusterdias.Av:.2f}'+r'$\rightarrow$'+f'{(self.Av):.2f}'
+        if self.distance != clusterdias.distance:
+            cluster_table[4][1] = f'{(clusterdias.distance.value):.0f}'+r'$\rightarrow$'+str(round(self.distance.value))
+            
+        
+          
+        colWidths = [0.4, 0.6]  # Adjust the proportion of widths for each column
+        table_bbox = [0.0, 0.84, 0.4, 0.16]  # [left, bottom, width, height]
+        table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox, colWidths=colWidths, zorder=8)
+        for key, cell in table._cells.items():
+            cell.set_linewidth(0.5)
+            cell.set_edgecolor('black')
+        # Set plot limits and invert y-axis
+        ax.set_ylim(bottom=(cluster.theoretical_isochrone()['Gmag'].min()) - 2.5, top=17)
+        ax.set_xlim(left=(cluster.theoretical_isochrone()['BP-RP'].min()) - 0.5, right=3)
+        ax.invert_yaxis()
+        ax.legend(loc='lower right')
+        plt.grid()
+        plt.tight_layout()
+
+        return ax
         
         
 
@@ -1267,155 +1369,8 @@ class Isochrone:
             color=color
         )
 
-def plot_cmd(cluster, isochrones=[]):
-    """
-    ### Example usage
-    >>> cl = Cluster("Berkeley_97")
-    >>> cld = ClusterDias("Berkeley_97")
-    >>> isochrone1 = Isochrone(cld)
-    >>> isochrone2 = Isochrone(cl, Av=3, logage=7)
-    >>> plot_cmd(cl, isochrones=[isochrone1,isochrone2])
-    """
 
-    fig, ax = plt.subplots(figsize=(15, 15))
-    #plt.clf()
-    plt.cla()
-    ax.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)")
-    ax.set_ylabel(r"$G$ (mag)")
-    # ax.set_title(f"CMD for {(cluster.name).replace('_',' ')}")
-    # print(cluster.Av, cluster.logage, cluster.FeH, "plotcmd")
-    
-    #main isochrone for temp
-    isochrones.reverse()
-    isochrones.append(Isochrone(cluster, Av=cluster.Av, logage=cluster.logage, FeH=cluster.FeH))
-    isochrones.reverse()
-        
-    for isochrone in isochrones:
-        isochrone.plot(ax)
 
-    # Plot cluster members
-    mymembers = cluster.mymembers
-    ax.errorbar(
-        mymembers['BP-RP'], mymembers['Gmag'],
-        color='black', zorder=2, fmt='o',
-        xerr=mymembers['e_BP-RP'] + 0.02, yerr=mymembers['e_Gmag'],
-        label=rf'{len(mymembers)} cluster members',
-        markersize=10
-    )
-
-    #annotate the observed members
-    obs = Table()
-    texts = []
-    try:
-        for star in config['observed_stars'][cluster.name]:
-            table = cluster.Star(star,SkyCoord=False)
-            text = ax.annotate(table['Name'][0],
-                            xy=(table['BP-RP'], table['Gmag']),
-                            fontsize='large',
-                            )
-            obs = vstack([obs,table])
-            texts.append(text)
-
-        ax.scatter(obs['BP-RP'], obs['Gmag'], s=600,lw=2, facecolors='none', edgecolors='black', label='Observed stars', zorder = 6)
-
-    except:
-        pass
-
-    #annotate the runaways with their temperatures
-    for star in (cluster.runaways())['Source']:
-        table = cluster.Star(star)
-        temp = (table['Temp. Est'][0])
-        annotation = cluster.Star(star, returnName=1)+'\n'+f"{temp:,.0f} K"
-        text = ax.annotate(annotation,
-                    xy=(table['BP-RP'],table['Gmag']-0.2),
-                    fontsize='large',
-                    color='firebrick',
-                    weight='bold'
-                    )
-        texts.append(text)
-
-    adjust_text(texts)#, arrowprops=dict(arrowstyle="-", color='k', lw=0.5))
-    for text in texts:    
-        text.draggable()  # Make the annotation draggable
-        
-    # Plot stars in region
-    cluster = Cluster(cluster.name)
-    clusterdias = ClusterDias(cluster.name)
-    stars_in_region = cluster.stars_in_region()
-    ax.scatter(
-        stars_in_region['BP-RP'], stars_in_region['Gmag'],
-        s=6, color='grey', zorder=1, label=f"{len(stars_in_region)} stars in the region"
-    )
-    
-    # # scatter kinematic_members
-    # cir = cluster.kinematic_cluster
-    # ax.scatter(
-    #     cir['BP-RP'], cir['Gmag'],
-    #     s=10, color='blue', zorder=3, label=f"{len(cir)} kinematic members found"
-    # )
-
-    # Plot runaways
-    theoretical_isochrone_temp = cluster.theoretical_isochrone()
-    runaways = cluster.runaways()
-    runaways = estimate_temperature(runaways, theoretical_isochrone_temp)
-    scatter_runaways = ax.scatter(
-        runaways['BP-RP'], runaways['Gmag'],
-        s=350, zorder=4,
-        edgecolor='red',
-        lw=3,
-        c=runaways['Temp. Est'],
-        cmap='RdYlBu', norm=plt.Normalize(3000, 15000),
-        label=f'{len(runaways)} runaway(s)'
-    )
-    # Add colorbar
-    # colorbar = fig.colorbar(scatter_runaways, ax=ax)
-    # colorbar.set_label('Temperature (K)')
-
-    # Add cluster parameters table
-    cluster_table = [
-        ['N', len(cluster.mymembers)],
-        [r'$[Fe/H]$', cluster.FeH],
-        [r'log($\tau$)', cluster.logage],
-        [r'$A_V$ (mag)', round(cluster.Av, 2)],
-        ['Dist. (pc)', str(round(cluster.distance.value)) + "$\pm$" + f'{cluster.all["e_Dist"]}']
-    ]
-
-    if cluster.FeH != clusterdias.FeH:
-        cluster_table[1][1] = f'{clusterdias.FeH:.2f}'+r'$\rightarrow$'+f'{cluster.FeH}'
-    if cluster.logage != clusterdias.logage:
-        cluster_table[2][1] = f'{clusterdias.logage:.2f}'+r'$\rightarrow$'+f'{(cluster.logage):.2f}'
-    if cluster.Av != clusterdias.Av:
-        cluster_table[3][1] = f'{clusterdias.Av:.2f}'+r'$\rightarrow$'+f'{(cluster.Av):.2f}'
-    # if cluster.distance != clusterdias.distance:
-    #     cluster_table[4][1] = f'{(clusterdias.distance.value):.0f}'+"$\pm$"+f'{(clusterdias.e_distance.value):.0f}'+'--> '+str(round(cluster.distance.value)) + "$\pm$" + f'{(cluster.e_distance.value)}'
-    
-    if cluster.distance != clusterdias.distance:
-        cluster_table[4][1] = f'{(clusterdias.distance.value):.0f}'+r'$\rightarrow$'+str(round(cluster.distance.value))
-        
-        
-    colWidths = [0.4, 0.6]  # Adjust the proportion of widths for each column
-    table_bbox = [0.0, 0.84, 0.4, 0.16]  # [left, bottom, width, height]
-    table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox, colWidths=colWidths, zorder=8)
-    # table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox, zorder=8)
-
-    for key, cell in table._cells.items():
-        cell.set_linewidth(0.5)
-        cell.set_edgecolor('black')
-
-        
-
-    # Set plot limits and invert y-axis
-    ax.set_ylim(bottom=min(cluster.theoretical_isochrone()['Gmag']) - 2.5, top=17)
-    ax.set_xlim(left=min(cluster.theoretical_isochrone()['BP-RP']) - 0.5, right=3)
-    ax.invert_yaxis()
-    ax.legend(loc='lower right')
-    plt.grid()
-    plt.tight_layout()
-    fig.canvas.manager.set_window_title(f'{cluster.name}_cmd')
-
-    # plt.savefig(f'./Clusters/{cluster.name}/{cluster.name}_cmd.png')
-    # plt.savefig(f'./Clusters/{cluster.name}/{cluster.name}_cmd.pdf')
-    return 
 
 def get_main_name(source):
     warnings.filterwarnings("ignore", category=UserWarning)
