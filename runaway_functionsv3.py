@@ -34,6 +34,9 @@ import matplotlib.patches as patches
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from adjustText import adjust_text
+import matplotlib.pyplot as plt
+import tkinter as tk
+from tkinter import simpledialog, colorchooser  
 
 
 
@@ -1023,6 +1026,7 @@ class Cluster:
 
         if len(self.runaways())>0:
             plot_traces(ax, self.runaways(),alpha=1)
+        texts = []
             
         #annotate and plot the psrs
         psr_table = self.psrs()
@@ -1099,6 +1103,7 @@ class Cluster:
         plt.tight_layout()
         plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_psr')
+        return ax
             
     def plot_pm(self):
         
@@ -1766,3 +1771,85 @@ def psrs_nearby(coordinate:SkyCoord, table:Table, sep_limit=4*u.deg)-> Table:
     nearby = nearby[distmask & agemask]
     nearby.sort('sep3d')
     return nearby
+
+
+class AnnotationManager:
+    def __init__(self, plot_pm):
+        self.plot_pm = plot_pm
+        self.fig = plot_pm.figure
+        self.ax = plot_pm
+        self.annotations = []
+
+        # Create a Tkinter window for annotation management
+        self.manager_window = tk.Toplevel()
+        self.manager_window.title("Annotation Manager")
+        
+        # Create buttons
+        self.add_button = tk.Button(self.manager_window, text="Add Annotation", command=self.add_annotation)
+        self.add_button.pack(side=tk.LEFT)
+        
+        self.remove_button = tk.Button(self.manager_window, text="Remove Last Annotation", command=self.remove_annotation)
+        self.remove_button.pack(side=tk.LEFT)
+        
+        self.edit_button = tk.Button(self.manager_window, text="Edit Last Annotation", command=self.edit_annotation)
+        self.edit_button.pack(side=tk.LEFT)
+
+        # Keep the window open without mainloop
+        self.manager_window.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def add_annotation(self):
+        # Prompt for annotation text
+        text = simpledialog.askstring("Input", "Enter annotation text:")
+        if text:
+            # Open color picker dialog
+            color = colorchooser.askcolor()[1]  # colorchooser.askcolor returns (RGB, hex)
+            if color is None:
+                color = 'black'  # Default to black if no color is selected
+
+            # Add annotation to the plot
+            annotation = self.ax.annotate(text,
+                                        xy=(0.2, 0.2),  # Coordinates for the plot position
+                                        xycoords='axes fraction',  # Use fractional coordinates
+                                        # fontweight='bold',  # Make the text bold
+                                        fontsize='large',  # Set the font size to 'large'
+                                        color=color)  # Set the text color
+
+            annotation.draggable()  # Make the annotation draggable
+            self.annotations.append(annotation)
+            self.fig.canvas.draw()
+
+
+    def remove_annotation(self):
+        if self.annotations:
+            annotation = self.annotations.pop()
+            annotation.remove()
+            self.fig.canvas.draw()
+
+    def edit_annotation(self):
+        if self.annotations:
+            # Prompt for new text
+            new_text = simpledialog.askstring("Input", "Enter new annotation text:")
+            if new_text:
+                # Edit the last annotation
+                annotation = self.annotations[-1]
+                annotation.set_text(new_text)
+                self.fig.canvas.draw()
+
+    def on_close(self):
+        # Cleanup actions when the window is closed
+        self.manager_window.destroy()
+
+def show_annotation_manager(plot_pm):
+    # Create a hidden root window and pass the plot_pm to the AnnotationManager
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+
+    # Create the annotation manager
+    manager = AnnotationManager(plot_pm)
+    
+    # Call this to handle GUI events
+    while manager.manager_window.winfo_exists():
+        root.update()  # Update the Tkinter event loop
+        plt.pause(0.1)  # Allow matplotlib to update
+
+    root.destroy()  # Destroy the root window when done
