@@ -801,56 +801,56 @@ class Cluster:
             # for start, end in zip(np.transpose(allrun_pixels_now), np.transpose(allrun_pixels_earlier)):
             #     ax.plot([start[0], end[0]], [start[1], end[1]], color='blue')
                 return 
-                        #annotations
-        texts = []
-        obs = Table()
-        try:
-            for star in config['observed_stars'][self.name]:
-                table = self.Star(star)
-                obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
-                # wcs.world_to_pixel(table['SkyCoord'])
-                text = ax.annotate(self.Star(star, returnName=1),
-                                xy=(obs_pixels_now[0], obs_pixels_now[1]),
-                                fontsize='medium',
-                                color='white'
-                                )
-                ax.scatter(obs_pixels_now[0], obs_pixels_now[1],
-                        c='white',
-                        )
-                table = self.Star(star, SkyCoord=False)
-                obs = vstack([obs,table])
-                texts.append(text)
-        except:
-            pass
+         #annotations
+        # texts = []
+        # obs = Table()
+        # try:
+        #     for star in config['observed_stars'][self.name]:
+        #         table = self.Star(star)
+        #         obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
+        #         # wcs.world_to_pixel(table['SkyCoord'])
+        #         text = ax.annotate(self.Star(star, returnName=1),
+        #                         xy=(obs_pixels_now[0], obs_pixels_now[1]),
+        #                         fontsize='medium',
+        #                         color='white'
+        #                         )
+        #         ax.scatter(obs_pixels_now[0], obs_pixels_now[1],
+        #                 c='white',
+        #                 )
+        #         table = self.Star(star, SkyCoord=False)
+        #         obs = vstack([obs,table])
+        #         texts.append(text)
+        # except:
+        #     pass
         
-        if True:
-            for star in self.runaways()['Source']:
-                table = self.Star(star)
-                obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
-                # wcs.world_to_pixel(table['SkyCoord'])
-                text = ax.annotate(table['Name'][0],
-                                xy=(obs_pixels_now[0], obs_pixels_now[1]),
-                                fontsize='medium',
-                                color='yellow'
-                                )
-                table = self.Star(star, SkyCoord=False)
-                texts.append(text)
+        # if True:
+        #     for star in self.runaways()['Source']:
+        #         table = self.Star(star)
+        #         obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
+        #         # wcs.world_to_pixel(table['SkyCoord'])
+        #         text = ax.annotate(table['Name'][0],
+        #                         xy=(obs_pixels_now[0], obs_pixels_now[1]),
+        #                         fontsize='medium',
+        #                         color='yellow'
+        #                         )
+        #         table = self.Star(star, SkyCoord=False)
+        #         texts.append(text)
         
             
         
-        adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
-        for text in texts:    
-            text.draggable()  # Make the annotation draggable
+        # adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
+        # for text in texts:    
+        #     text.draggable()  # Make the annotation draggable
             
-        for star_table in star_tables:
-            star_table['rmRA'] = star_table['pmRA']-self.pm_ra_cosdec
-            star_table['rmDE'] = star_table['pmDE']-self.pm_dec
-            star_table['e_rmRA'] = star_table['e_pmRA']+self.e_pm_ra_cosdec
-            star_table['e_rmDE'] = star_table['e_pmDE']+self.e_pm_dec
-            star_table['rRV'] = star_table['RV']-self.RV
-            star_table['e_rRV'] = star_table['e_RV']+self.e_RV
-            star_table['Temp. Est'] = 0
-            #plot_traces(ax, star_table)
+        # for star_table in star_tables:
+        #     star_table['rmRA'] = star_table['pmRA']-self.pm_ra_cosdec
+        #     star_table['rmDE'] = star_table['pmDE']-self.pm_dec
+        #     star_table['e_rmRA'] = star_table['e_pmRA']+self.e_pm_ra_cosdec
+        #     star_table['e_rmDE'] = star_table['e_pmDE']+self.e_pm_dec
+        #     star_table['rRV'] = star_table['RV']-self.RV
+        #     star_table['e_rRV'] = star_table['e_RV']+self.e_RV
+        #     star_table['Temp. Est'] = 0
+        #     #plot_traces(ax, star_table)
 
         if len(self.runaways())>0:
             plot_traces(ax, self.runaways(),alpha=1)
@@ -903,9 +903,6 @@ class Cluster:
         legend.get_frame().set_alpha(0.2)
         for text in legend.get_texts():
             text.set_color("white")
-            
-
-            
         plt.tight_layout()
         plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_clean')
@@ -1006,31 +1003,28 @@ class Cluster:
                         # Draw the vectors
                         ax.quiver(runaway_00_px[0], runaway_00_px[1], delta_x, delta_y, angles='xy', scale_units='xy', scale=1, color='limegreen', width=0.001)
                 ############################
-            
-            
-            # for start, end in zip(np.transpose(allrun_pixels_now), np.transpose(allrun_pixels_earlier)):
-            #     ax.plot([start[0], end[0]], [start[1], end[1]], color='blue')
                 return  
-            
-        texts = []
-        obs = Table()
-        for star in self.runaways()['Source']:
-            table = self.Star(star)
-            obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
-            # wcs.world_to_pixel(table['SkyCoord'])
-            text = ax.annotate(self.Star(star, returnName=1),
-                            xy=(obs_pixels_now[0], obs_pixels_now[1]),
-                            fontsize='medium',
-                            color='yellow'
-                            )
-            table = self.Star(star, SkyCoord=False)
-            texts.append(text)
-            adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
+        
+        #annotate runaways
+        # texts = []
+        # obs = Table()
+        # for star in self.runaways()['Source']:
+        #     table = self.Star(star)
+        #     obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
+        #     # wcs.world_to_pixel(table['SkyCoord'])
+        #     text = ax.annotate(self.Star(star, returnName=1),
+        #                     xy=(obs_pixels_now[0], obs_pixels_now[1]),
+        #                     fontsize='medium',
+        #                     color='yellow'
+        #                     )
+        #     table = self.Star(star, SkyCoord=False)
+        #     texts.append(text)
+        #     adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
 
         if len(self.runaways())>0:
             plot_traces(ax, self.runaways(),alpha=1)
             
-        #plot the psrs
+        #annotate and plot the psrs
         psr_table = self.psrs()
         if len(psr_table)>0:
             for psr in psr_table:
@@ -1048,7 +1042,8 @@ class Cluster:
             
         for text in texts:    
             text.draggable()  # Make the annotations draggable
-            
+        
+        #scalebar
         scalebar_angle = ((((self.search_arcmin.value/4)//5)+1)*5)*u.arcmin*5 #last *5 for psr
         add_scalebar(ax, length=scalebar_angle, 
                      label='', 
@@ -1155,30 +1150,35 @@ class Cluster:
             markeredgewidth=3,
             label='Runaway(s)',
             zorder=9
+            )   
+        ax.scatter(runaways['pmRA'], runaways['pmDE'],
+            c=runaways['Temp. Est'],
+            cmap='RdYlBu',
+            norm=plt.Normalize(3000, 15000),
+            zorder=10,
+            s=200,
             )    
         
-        for run in runaways:   
-            texts = []
-            text = ax.annotate(self.Star(run['Source'], returnName=1)+"\n"+
-                            r"$\Delta$µ$_{\alpha}^*=$"+rf"{run['rmRA']:.2f}$\pm${run['e_rmRA']:.2f}"+r"$\frac{mas}{yr}$"+
-                            "\n"+
-                            r"$\Delta$µ$_{\delta}=$"+f"{run['rmDE']:.2f}$\pm${run['e_rmDE']:.2f}"+r"$\frac{mas}{yr}$",
-                            xy=(run['pmRA'], run['pmDE']),
-                            fontsize='large',
-                            # fontweight='bold',
-                            color='firebrick',
-                            zorder=8
-                            )
-            text.draggable()
-            texts.append(text)
+        # for run in runaways:   
+        #     texts = []
+        #     text = ax.annotate(self.Star(run['Source'], returnName=1)+"\n"+
+        #                     r"$\Delta$µ$_{\alpha}^*=$"+rf"{run['rmRA']:.2f}$\pm${run['e_rmRA']:.2f}"+r"$\frac{mas}{yr}$"+
+        #                     "\n"+
+        #                     r"$\Delta$µ$_{\delta}=$"+f"{run['rmDE']:.2f}$\pm${run['e_rmDE']:.2f}"+r"$\frac{mas}{yr}$",
+        #                     xy=(run['pmRA'], run['pmDE']),
+        #                     fontsize='large',
+        #                     # fontweight='bold',
+        #                     color='firebrick',
+        #                     zorder=8
+        #                     )
+        #     text.draggable()
+        #     texts.append(text)
         
 
         # texts.draggable()  # Make the annotation draggable
         # adjust_text(texts, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
             
         ax.grid(color='lightgrey')
-        # ax.set_aspect('equal')
-        # Original limits
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
         
@@ -1196,6 +1196,7 @@ class Cluster:
         plt.legend()
         plt.tight_layout()
         fig.canvas.manager.set_window_title(f'{self.name}_pm')
+        return ax
         
     def psrs(self, sep_limit=None): #*5 asssuming 500km/s for psrs vs 100km/s for runaways 
         sep_limit = sep_limit if sep_limit is not None else self.search_arcmin*5
