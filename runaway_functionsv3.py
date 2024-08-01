@@ -604,7 +604,7 @@ class Cluster:
     def runaways_all(self):
         #runaways from giesler traceback
         outputs = os.listdir(f"{config['runaways_path']}{self.name}/runaways/")
-        print("getting from",config['runaways_path'] )
+        # print("getting from",config['runaways_path'] )
         linenos = []
         for output in outputs:
             #print(output)
