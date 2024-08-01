@@ -219,8 +219,12 @@ class Cluster:
         self.NRV = cluster_row['NRV']
         if os.path.exists(f"Clusters/{self.name}/{self.name}_members.tsv"):
             self.mymembers = Table.read(f"Clusters/{self.name}/{self.name}_members.tsv", format="ascii.ecsv")
+            self.distance = self.mymembers['rgeo'].mean()*u.pc
+            self.N = len(self.mymembers)
         else:
             self.mymembers = self.members()
+            self.distance = self.mymembers['rgeo'].mean()*u.pc
+            self.N = len(self.mymembers)
         self.kinematic_cluster = find_cluster(self.stars_in_region())
         #functions
         # self.members = (Table.read(f'./Clusters_Dias/{self.name}.dat', format='ascii.tab'))[2:] 
@@ -1193,8 +1197,8 @@ class Cluster:
         plt.tight_layout()
         fig.canvas.manager.set_window_title(f'{self.name}_pm')
         
-    def psrs(self): #*5 asssuming 500km/s for psrs vs 100km/s for runaways 
-        sep_limit = self.search_arcmin*5
+    def psrs(self, sep_limit=None): #*5 asssuming 500km/s for psrs vs 100km/s for runaways 
+        sep_limit = sep_limit if sep_limit is not None else self.search_arcmin*5
         return psrs_nearby(self.skycoord, ATNF(), sep_limit=sep_limit)
         
         
