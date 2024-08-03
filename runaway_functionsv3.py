@@ -39,6 +39,8 @@ import tkinter as tk
 from tkinter import simpledialog, colorchooser  
 from astropy.io import ascii
 import io
+from uncertainties import ufloat
+
 
 
 workclusters = ['ASCC_107', 'ASCC_114', 'ASCC_127', 'ASCC_13', 'ASCC_16', 'ASCC_19', 'ASCC_21', 'ASCC_32', 'ASCC_67', 'ASCC_9', 'Alessi_20', 'Alessi_43', 'Alessi_Teutsch_5', 'Antalova_2', 'Archinal_1', 'Aveni_Hunter_1', 'BDSB91', 'BDSB93', 'BDSB96', 'BH_121', 'BH_200', 'BH_205', 'BH_217', 'BH_221', 'BH_245', 'BH_54', 'BH_56', 'BH_87', 'BH_92', 'Barkhatova_1', 'Basel_18', 'Basel_8', 'Berkeley_11', 'Berkeley_15', 'Berkeley_47', 'Berkeley_62', 'Berkeley_65', 'Berkeley_7', 'Berkeley_79', 'Berkeley_86', 'Berkeley_87', 'Berkeley_97', 'Bica_2', 'Biurakan_2', 'Bochum_10', 'Bochum_11', 'Bochum_13', 'COIN-Gaia_16', 'COIN-Gaia_21', 'COIN-Gaia_35', 'COIN-Gaia_41', 'Collinder_104', 'Collinder_106', 'Collinder_107', 'Collinder_132', 'Collinder_197', 'Collinder_205', 'Collinder_272', 'Collinder_419', 'Collinder_421', 'Collinder_69', 'Collinder_95', 'Czernik_1', 'Czernik_31', 'Czernik_41', 'Czernik_6', 'Czernik_8', 'Dias_1', 'Dias_5', 'Dolidze_16', 'Dolidze_3', 'Dolidze_32', 'Dolidze_5', 'Dolidze_53', 'Dolidze_8', 'ESO_134_12', 'ESO_332_08', 'ESO_332_13', 'FSR_0165', 'FSR_0198', 'FSR_0224', 'FSR_0236', 'FSR_0284', 'FSR_0306', 'FSR_0336', 'FSR_0398', 'FSR_0451', 'FSR_0498', 'FSR_0551', 'FSR_0686', 'FSR_0852', 'FSR_0904', 'FSR_0968', 'Gulliver_10', 'Gulliver_15', 'Gulliver_19', 'Gulliver_2', 'Gulliver_26', 'Gulliver_31', 'Gulliver_40', 'Gulliver_43', 'Gulliver_5', 'Gulliver_6', 'Gulliver_8', 'Haffner_13', 'Harvard_16', 'Hogg_10', 'Hogg_16', 'Hogg_18', 'Hogg_19', 'Hogg_22', 'IC_1396', 'IC_1590', 'IC_1805', 'IC_1848', 'IC_2157', 'IC_2395', 'IC_2581', 'IC_2948', 'IC_348', 'IC_4996', 'IC_5146', 'Juchert_20', 'King_14', 'King_21', 'King_26', 'Kronberger_1', 'Kronberger_69', 'LP_0288', 'LP_0503', 'LP_0506', 'LP_0733', 'LP_1049', 'LP_1209', 'LP_1211', 'LP_1218', 'LP_1329', 'LP_1342', 'LP_1355', 'LP_1487', 'LP_1490', 'LP_1614', 'LP_1641', 'LP_1768', 'LP_1771', 'LP_1775', 'LP_1780', 'LP_1807', 'LP_1821', 'LP_1864', 'LP_1888', 'LP_2106', 'LP_2113', 'LP_2172', 'LP_2219', 'LP_2221', 'LP_2249', 'Lynga_4', 'Markarian_38', 'Markarian_50', 'Mayer_1', 'Moffat_1', 'NGC_1220', 'NGC_1348', 'NGC_1444', 'NGC_146', 'NGC_1502', 'NGC_1579', 'NGC_1960', 'NGC_1977', 'NGC_1980', 'NGC_2129', 'NGC_2169', 'NGC_2183', 'NGC_2232', 'NGC_2244', 'NGC_2264', 'NGC_2362', 'NGC_2367', 'NGC_2384', 'NGC_2451B', 'NGC_2547', 'NGC_2571', 'NGC_2645', 'NGC_2659', 'NGC_3228', 'NGC_3293', 'NGC_3324', 'NGC_3572', 'NGC_3590', 'NGC_366', 'NGC_3766', 'NGC_4103', 'NGC_433', 'NGC_4463', 'NGC_457', 'NGC_4755', 'NGC_5606', 'NGC_581', 'NGC_6178', 'NGC_6193', 'NGC_6200', 'NGC_6216', 'NGC_6231', 'NGC_6249', 'NGC_6250', 'NGC_6318', 'NGC_6322', 'NGC_637', 'NGC_6383', 'NGC_6396', 'NGC_6404', 'NGC_6451', 'NGC_6520', 'NGC_6530', 'NGC_6531', 'NGC_654', 'NGC_6561', 'NGC_6604', 'NGC_6611', 'NGC_6613', 'NGC_663', 'NGC_6649', 'NGC_6664', 'NGC_6823', 'NGC_6871', 'NGC_6910', 'NGC_6913', 'NGC_7039', 'NGC_7129', 'NGC_7160', 'NGC_7281', 'NGC_7380', 'NGC_869', 'NGC_884', 'NGC_957', 'Pismis_11', 'Pismis_27', 'Pismis_5', 'Pismis_8', 'Pismis_Moreno_1', 'Pozzo_1', 'RSG_8', 'Riddle_4', 'Roslund_2', 'Ruprecht_120', 'Ruprecht_127', 'Ruprecht_138', 'Ruprecht_144', 'Ruprecht_170', 'Ruprecht_26', 'Ruprecht_65', 'Ruprecht_71', 'Ruprecht_94', 'SAI_118', 'SAI_24', 'SAI_4', 'Stephenson_1', 'Stock_14', 'Stock_20', 'Stock_8', 'Teutsch_30', 'Teutsch_38', 'Teutsch_8', 'Trapezium-FG', 'Trumpler_1', 'Trumpler_14', 'Trumpler_15', 'Trumpler_16', 'Trumpler_17', 'Trumpler_28', 'Trumpler_3', 'Trumpler_33', 'UBC_121', 'UBC_133', 'UBC_134', 'UBC_148', 'UBC_155', 'UBC_156', 'UBC_166', 'UBC_177', 'UBC_178', 'UBC_17a', 'UBC_182', 'UBC_188', 'UBC_191', 'UBC_192', 'UBC_198', 'UBC_245', 'UBC_249', 'UBC_258', 'UBC_267', 'UBC_270', 'UBC_272', 'UBC_280', 'UBC_281', 'UBC_296', 'UBC_31', 'UBC_322', 'UBC_337', 'UBC_338', 'UBC_341', 'UBC_342', 'UBC_345', 'UBC_354', 'UBC_361', 'UBC_373', 'UBC_377', 'UBC_379', 'UBC_386', 'UBC_389', 'UBC_391', 'UBC_396', 'UBC_410', 'UBC_413', 'UBC_415', 'UBC_417', 'UBC_422', 'UBC_423', 'UBC_432', 'UBC_46', 'UBC_479', 'UBC_482', 'UBC_483', 'UBC_487', 'UBC_499', 'UBC_51', 'UBC_521', 'UBC_531', 'UBC_532', 'UBC_534', 'UBC_535', 'UBC_536', 'UBC_541', 'UBC_542', 'UBC_545', 'UBC_548', 'UBC_549', 'UBC_550', 'UBC_552', 'UBC_559', 'UBC_562', 'UBC_576', 'UBC_582', 'UBC_588', 'UBC_606', 'UBC_620', 'UBC_63', 'UBC_652', 'UBC_653', 'UBC_663', 'UBC_665', 'UBC_668', 'UFMG_22', 'UFMG_3', 'UFMG_45', 'UFMG_53', 'UPK_150', 'UPK_166', 'UPK_169', 'UPK_194', 'UPK_220', 'UPK_23', 'UPK_265', 'UPK_28', 'UPK_38', 'UPK_385', 'UPK_398', 'UPK_422', 'UPK_445', 'UPK_457', 'UPK_526', 'UPK_540', 'UPK_604', 'UPK_62', 'UPK_621', 'vdBergh_130', 'vdBergh_80', 'vdBergh_85', 'vdBergh_92']
@@ -319,6 +321,18 @@ class Cluster:
     
     def stars_in_region(self, star=None):
         stars_in_region_path =  f'Clusters/{self.name}/{self.name}_stars_in_region.tsv'
+        
+        def pm(pmRA,pmDE):
+            µ = (pmRA**2+pmDE**2)**0.5
+            return µ
+
+        def v(µ,dist):
+            #dist should be in pc
+            v = (µ*4.74*dist/1000)
+            return v
+        
+        
+        
         
         if os.path.exists(stars_in_region_path):
             stars_in_region = Table.read(stars_in_region_path, format='ascii.ecsv')
