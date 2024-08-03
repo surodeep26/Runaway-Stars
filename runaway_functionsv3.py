@@ -3,7 +3,7 @@ import astropy
 import numpy as np
 from astropy import units as u
 from astroquery.vizier import Vizier
-from astropy.table import Table, join,vstack
+from astropy.table import Table, join,vstack, Column, Row
 from astropy.coordinates import SkyCoord, Angle, match_coordinates_sky
 from astropy.time import Time
 import warnings
@@ -37,7 +37,8 @@ from adjustText import adjust_text
 import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter import simpledialog, colorchooser  
-
+from astropy.io import ascii
+import io
 
 
 workclusters = ['ASCC_107', 'ASCC_114', 'ASCC_127', 'ASCC_13', 'ASCC_16', 'ASCC_19', 'ASCC_21', 'ASCC_32', 'ASCC_67', 'ASCC_9', 'Alessi_20', 'Alessi_43', 'Alessi_Teutsch_5', 'Antalova_2', 'Archinal_1', 'Aveni_Hunter_1', 'BDSB91', 'BDSB93', 'BDSB96', 'BH_121', 'BH_200', 'BH_205', 'BH_217', 'BH_221', 'BH_245', 'BH_54', 'BH_56', 'BH_87', 'BH_92', 'Barkhatova_1', 'Basel_18', 'Basel_8', 'Berkeley_11', 'Berkeley_15', 'Berkeley_47', 'Berkeley_62', 'Berkeley_65', 'Berkeley_7', 'Berkeley_79', 'Berkeley_86', 'Berkeley_87', 'Berkeley_97', 'Bica_2', 'Biurakan_2', 'Bochum_10', 'Bochum_11', 'Bochum_13', 'COIN-Gaia_16', 'COIN-Gaia_21', 'COIN-Gaia_35', 'COIN-Gaia_41', 'Collinder_104', 'Collinder_106', 'Collinder_107', 'Collinder_132', 'Collinder_197', 'Collinder_205', 'Collinder_272', 'Collinder_419', 'Collinder_421', 'Collinder_69', 'Collinder_95', 'Czernik_1', 'Czernik_31', 'Czernik_41', 'Czernik_6', 'Czernik_8', 'Dias_1', 'Dias_5', 'Dolidze_16', 'Dolidze_3', 'Dolidze_32', 'Dolidze_5', 'Dolidze_53', 'Dolidze_8', 'ESO_134_12', 'ESO_332_08', 'ESO_332_13', 'FSR_0165', 'FSR_0198', 'FSR_0224', 'FSR_0236', 'FSR_0284', 'FSR_0306', 'FSR_0336', 'FSR_0398', 'FSR_0451', 'FSR_0498', 'FSR_0551', 'FSR_0686', 'FSR_0852', 'FSR_0904', 'FSR_0968', 'Gulliver_10', 'Gulliver_15', 'Gulliver_19', 'Gulliver_2', 'Gulliver_26', 'Gulliver_31', 'Gulliver_40', 'Gulliver_43', 'Gulliver_5', 'Gulliver_6', 'Gulliver_8', 'Haffner_13', 'Harvard_16', 'Hogg_10', 'Hogg_16', 'Hogg_18', 'Hogg_19', 'Hogg_22', 'IC_1396', 'IC_1590', 'IC_1805', 'IC_1848', 'IC_2157', 'IC_2395', 'IC_2581', 'IC_2948', 'IC_348', 'IC_4996', 'IC_5146', 'Juchert_20', 'King_14', 'King_21', 'King_26', 'Kronberger_1', 'Kronberger_69', 'LP_0288', 'LP_0503', 'LP_0506', 'LP_0733', 'LP_1049', 'LP_1209', 'LP_1211', 'LP_1218', 'LP_1329', 'LP_1342', 'LP_1355', 'LP_1487', 'LP_1490', 'LP_1614', 'LP_1641', 'LP_1768', 'LP_1771', 'LP_1775', 'LP_1780', 'LP_1807', 'LP_1821', 'LP_1864', 'LP_1888', 'LP_2106', 'LP_2113', 'LP_2172', 'LP_2219', 'LP_2221', 'LP_2249', 'Lynga_4', 'Markarian_38', 'Markarian_50', 'Mayer_1', 'Moffat_1', 'NGC_1220', 'NGC_1348', 'NGC_1444', 'NGC_146', 'NGC_1502', 'NGC_1579', 'NGC_1960', 'NGC_1977', 'NGC_1980', 'NGC_2129', 'NGC_2169', 'NGC_2183', 'NGC_2232', 'NGC_2244', 'NGC_2264', 'NGC_2362', 'NGC_2367', 'NGC_2384', 'NGC_2451B', 'NGC_2547', 'NGC_2571', 'NGC_2645', 'NGC_2659', 'NGC_3228', 'NGC_3293', 'NGC_3324', 'NGC_3572', 'NGC_3590', 'NGC_366', 'NGC_3766', 'NGC_4103', 'NGC_433', 'NGC_4463', 'NGC_457', 'NGC_4755', 'NGC_5606', 'NGC_581', 'NGC_6178', 'NGC_6193', 'NGC_6200', 'NGC_6216', 'NGC_6231', 'NGC_6249', 'NGC_6250', 'NGC_6318', 'NGC_6322', 'NGC_637', 'NGC_6383', 'NGC_6396', 'NGC_6404', 'NGC_6451', 'NGC_6520', 'NGC_6530', 'NGC_6531', 'NGC_654', 'NGC_6561', 'NGC_6604', 'NGC_6611', 'NGC_6613', 'NGC_663', 'NGC_6649', 'NGC_6664', 'NGC_6823', 'NGC_6871', 'NGC_6910', 'NGC_6913', 'NGC_7039', 'NGC_7129', 'NGC_7160', 'NGC_7281', 'NGC_7380', 'NGC_869', 'NGC_884', 'NGC_957', 'Pismis_11', 'Pismis_27', 'Pismis_5', 'Pismis_8', 'Pismis_Moreno_1', 'Pozzo_1', 'RSG_8', 'Riddle_4', 'Roslund_2', 'Ruprecht_120', 'Ruprecht_127', 'Ruprecht_138', 'Ruprecht_144', 'Ruprecht_170', 'Ruprecht_26', 'Ruprecht_65', 'Ruprecht_71', 'Ruprecht_94', 'SAI_118', 'SAI_24', 'SAI_4', 'Stephenson_1', 'Stock_14', 'Stock_20', 'Stock_8', 'Teutsch_30', 'Teutsch_38', 'Teutsch_8', 'Trapezium-FG', 'Trumpler_1', 'Trumpler_14', 'Trumpler_15', 'Trumpler_16', 'Trumpler_17', 'Trumpler_28', 'Trumpler_3', 'Trumpler_33', 'UBC_121', 'UBC_133', 'UBC_134', 'UBC_148', 'UBC_155', 'UBC_156', 'UBC_166', 'UBC_177', 'UBC_178', 'UBC_17a', 'UBC_182', 'UBC_188', 'UBC_191', 'UBC_192', 'UBC_198', 'UBC_245', 'UBC_249', 'UBC_258', 'UBC_267', 'UBC_270', 'UBC_272', 'UBC_280', 'UBC_281', 'UBC_296', 'UBC_31', 'UBC_322', 'UBC_337', 'UBC_338', 'UBC_341', 'UBC_342', 'UBC_345', 'UBC_354', 'UBC_361', 'UBC_373', 'UBC_377', 'UBC_379', 'UBC_386', 'UBC_389', 'UBC_391', 'UBC_396', 'UBC_410', 'UBC_413', 'UBC_415', 'UBC_417', 'UBC_422', 'UBC_423', 'UBC_432', 'UBC_46', 'UBC_479', 'UBC_482', 'UBC_483', 'UBC_487', 'UBC_499', 'UBC_51', 'UBC_521', 'UBC_531', 'UBC_532', 'UBC_534', 'UBC_535', 'UBC_536', 'UBC_541', 'UBC_542', 'UBC_545', 'UBC_548', 'UBC_549', 'UBC_550', 'UBC_552', 'UBC_559', 'UBC_562', 'UBC_576', 'UBC_582', 'UBC_588', 'UBC_606', 'UBC_620', 'UBC_63', 'UBC_652', 'UBC_653', 'UBC_663', 'UBC_665', 'UBC_668', 'UFMG_22', 'UFMG_3', 'UFMG_45', 'UFMG_53', 'UPK_150', 'UPK_166', 'UPK_169', 'UPK_194', 'UPK_220', 'UPK_23', 'UPK_265', 'UPK_28', 'UPK_38', 'UPK_385', 'UPK_398', 'UPK_422', 'UPK_445', 'UPK_457', 'UPK_526', 'UPK_540', 'UPK_604', 'UPK_62', 'UPK_621', 'vdBergh_130', 'vdBergh_80', 'vdBergh_85', 'vdBergh_92']
@@ -1808,3 +1809,188 @@ def show_annotation_manager(plot_pm):
         plt.pause(0.1)  # Allow matplotlib to update
 
     root.destroy()  # Destroy the root window when done
+    
+    
+def generate_kinematics_latex(cl):
+    # Cluster part
+    cluster_part = Table(cl.all)
+
+    # Create the combined columns
+    name_column = [name.replace('_', ' ') for name in cluster_part['Cluster']]
+    ra_column   = [round(ra,3) for ra in cluster_part['RA_ICRS']]
+    dec_column   = [round(dec,3) for dec in cluster_part['DE_ICRS']]
+    distance_column = [f"${dist:.0f}\pm{e_dist:.0f}$" for dist, e_dist in zip(cluster_part['Dist'], cluster_part['e_Dist'])]
+    pmRA_column = [f"${pmRA:.1f}\pm{e_pmRA:.1f}$" for pmRA, e_pmRA in zip(cluster_part['pmRA'], cluster_part['e_pmRA'])]
+    pmDE_column = [f"${pmDE:.1f}\pm{e_pmDE:.1f}$" for pmDE, e_pmDE in zip(cluster_part['pmDE'], cluster_part['e_pmDE'])]
+    vr_column = [f"${RV:.1f}\pm{e_RV:.1f}$" for RV, e_RV in zip(cluster_part['RV'], cluster_part['e_RV'])]
+
+
+    # Add the new columns to the table
+    cluster_part['Name'] = name_column
+    cluster_part['RA_ICRS'] = ra_column
+    cluster_part['DE_ICRS'] = dec_column
+    cluster_part['d'] = Column(distance_column, unit='(pc)')
+    cluster_part[r'$\mu_{\alpha}^*$'] = Column(pmRA_column, unit=u.mas/u.yr)
+    cluster_part[r'$\mu_{\delta}$'] = Column(pmDE_column, unit=u.mas/u.yr)
+    cluster_part[r'$v_r$'] = Column(vr_column, unit=u.km/u.s)
+
+    cluster_part.rename_column('RA_ICRS',r'$\alpha$')
+    cluster_part.rename_column('DE_ICRS',r'$\delta$')
+    cluster_part  = cluster_part['Name',r'$\alpha$',r'$\delta$','d',r'$\mu_{\alpha}^*$',r'$\mu_{\delta}$',r'$v_r$']
+
+
+    # Runaway part
+    runaway_part = cl.runaways()
+    # Create the combined columns
+    name_column = [str(name) for name in runaway_part['Source']]
+    ra_column   = [round(ra,3) for ra in runaway_part['RA_ICRS_1']]
+    dec_column   = [round(dec,3) for dec in runaway_part['DE_ICRS_1']]
+    distance_column = [f"${dist:.0f}\pm{e_dist:.0f}$" for dist, e_dist in zip(runaway_part['rgeo'], (runaway_part['B_rgeo']-runaway_part['b_rgeo']))]
+    pmRA_column = [f"${pmRA:.1f}\pm{e_pmRA:.1f}$" for pmRA, e_pmRA in zip(runaway_part['pmRA'], runaway_part['e_pmRA'])]
+    pmDE_column = [f"${pmDE:.1f}\pm{e_pmDE:.1f}$" for pmDE, e_pmDE in zip(runaway_part['pmDE'], runaway_part['e_pmDE'])]
+    vr_column = [f"${RV:.1f}\pm{e_RV:.1f}$" for RV, e_RV in zip(runaway_part['RV'], runaway_part['e_RV'])]
+    vpec2d_column = [f"${v_pec:.1f}\pm{e_v_pec:.1f}$" for v_pec, e_v_pec in zip(runaway_part['v_pec'], runaway_part['e_v_pec'])]
+    # Add the new columns to the table
+    runaway_part['Name'] = name_column
+    runaway_part['RA_ICRS_1'] = Column(ra_column, unit='deg')
+    runaway_part['DE_ICRS_1'] = Column(dec_column, unit='deg')
+    runaway_part['d'] = Column(distance_column, unit='pc')
+    runaway_part[r'$\mu_{\alpha}^*$'] = Column(pmRA_column, unit=u.mas/u.yr)
+    runaway_part[r'$\mu_{\delta}$'] = Column(pmDE_column, unit=u.mas/u.yr)
+    runaway_part[r'$v_r$'] = Column(vr_column, unit=u.km/u.s)
+    runaway_part[r'$v_\text{trans}$'] = Column(vpec2d_column, unit=u.km/u.s)
+
+    runaway_part.rename_column('RA_ICRS_1',r'$\alpha$')
+    runaway_part.rename_column('DE_ICRS_1',r'$\delta$')
+    runaway_part  = runaway_part['Name',r'$\alpha$',r'$\delta$','d',r'$\mu_{\alpha}^*$',r'$\mu_{\delta}$',r'$v_r$',r'$v_\text{trans}$']
+    
+    
+    warnings.filterwarnings("ignore", category=MergeConflictWarning)
+    kinematic_table=vstack([cluster_part,runaway_part])
+
+
+    output = io.StringIO()
+    ascii.write(kinematic_table, output, format='latex')
+    latex_string = output.getvalue()
+    output.close()
+    return latex_string
+
+def latex_text(cluster, n_members=10):
+    cld = ClusterDias(cluster.name)
+    ra, dec = cluster.skycoord.ra, cluster.skycoord.dec
+    ra_str, dec_str = ra.to_string(format='latex')[1:-1], dec.to_string(format='latex')[1:-1]
+    dist_str = str(round(cluster.distance.value,1)) + r"\pm" + str(round(cluster.e_distance.value,1))
+    
+    intro_text = rf"""\subsection{{Introduction}}
+    {cluster.name.replace('_', ' ')} is located at $\alpha = {ra_str}, \delta = {dec_str}$ at a distance of ${dist_str}$ pc.
+    {cluster.N} out of the {cld.N} mentioned in Dias have been selected as members. Using these, the kinematic parameters of the cluster have been determined. These are compared to the kinematic parameters of the runaway star in \ref{{tab:{cluster.name}_kinematics}}. Some of the brightest memebrs fo the cluster are shown in table \ref{{tab:{cluster.name}_members}}.
+    
+    \subsection{{CMD and proper motion}}
+    The parameters of the cluster's isochrone ...
+    Using these parameters, the CMD plot for the cluster is shown in figure \ref{{fig:{cluster.name}_cmd_pm}} in the left. The right plot in the figure shows the proper motion diagram showing that the runaway moves with a proper motion that is different from the cluster.
+    
+    \begin{{figure}}
+    \centering
+    \includegraphics[width=0.49\linewidth]{{Results/{cluster.name}/{cluster.name}_cmd.pdf}}
+    \includegraphics[width=0.49\linewidth]{{Results/{cluster.name}/{cluster.name}_pm.pdf}}
+    \caption{{\\ 
+    \textit{{Left}}: The CMD showing the temperature estimate of the runaway. The isochrone for the temperature estimate is shown in blue \\
+    \textit{{Right}}: Proper motion diagram depicting that the star is an outlier in proper motion in the local rest frame.}}
+        \label{{fig:{cluster.name}_cmd_pm}}
+    \end{{figure}}    
+
+    \subsection{{Traceback}}
+    
+    The runaway star's motion relative to the cluster is shown in figure \ref{{fig:{cluster.name}_traceback.pdf}}.
+    
+    \begin{{figure}}
+    \centering
+    \includegraphics[width=0.49\linewidth]{{Results/{cluster.name}/{cluster.name}_traceback_clean.pdf}}
+    \includegraphics[width=0.49\linewidth]{{Results/{cluster.name}/{cluster.name}_pm.pdf}}
+    \caption{{\\ 
+    \textit{{Left}}: The runaway star ...'s motion with respect to the cluster. The four green lines depict the four extreme cases of the proper motion considering the errors and the green ellipse represents the possible positions of the star 100 kyr ago. \\
+    \textit{{Right}}: Proper motion diagram depicting that the star is an outlier in proper motion in the local rest frame.}}
+        \label{{fig:{cluster.name}_traceback_clean&pm}}
+    \end{{figure}}
+    
+    \subsection{{Traceback}}
+    """
+    
+    # Members table generation
+    table = cluster.mymembers
+    table.sort('Gmag')
+    table = table[:n_members]
+    
+    formatted_distances = []
+    formatted_parallaxes = []
+    formatted_gmags = []
+    formatted_bprps = []
+    
+    for row in table:
+        distance = row['rgeo']
+        plx = row['Plx']
+        e_plx = row['e_Plx']
+        upper_error = row['B_rgeo'] - row['rgeo']
+        lower_error = -row['b_rgeo'] + row['rgeo']
+        gmag = row['Gmag']
+        e_gmag = row['e_Gmag']
+        bprp = row['BP-RP']
+        e_bprp = row['e_BP-RP']
+        
+        formatted_distance = f"${distance:.0f}^{{+{upper_error:.0f}}}_{{-{lower_error:.0f}}}$"
+        formatted_parallax = f"${plx:.4f}\pm{e_plx:.4f}$"
+        formatted_gmag = f"${gmag:.3f}\pm{e_gmag:.3f}$"
+        formatted_bprp = f"${bprp:.3f}\pm{e_bprp:.3f}$"
+        
+        formatted_distances.append(formatted_distance)
+        formatted_parallaxes.append(formatted_parallax)
+        formatted_gmags.append(formatted_gmag)
+        formatted_bprps.append(formatted_bprp)
+
+    table['formatted_distance'] = formatted_distances
+    table['formatted_parallax'] = formatted_parallaxes
+    table['formatted_gmag'] = formatted_gmags
+    table['formatted_bprp'] = formatted_bprps
+    
+    t_dict_members = {
+        'Gaia DR3 Source': table['Source'],
+        r"$r_{\text{geo}}$ (pc)": table['formatted_distance'],
+        r"$\pi$ (mas)": table['formatted_parallax'],
+        r"$G$ (mag)": table['formatted_gmag'],
+        r"$G_{\text{BP}}-G_{\text{RP}}$ (mag)": table['formatted_bprp']
+    }
+    
+    latexdict_members = {
+        'tabletype': 'table*',
+        'tablealign': 'h',
+        'header_start': r'\hline',
+        'data_start': r'\hline',
+        'data_end': r'\hline', 
+        'caption': f'Selected members of {cluster.name.replace("_"," ")}',
+        'preamble': r'\label{tab:' + f'{cluster.name}_members' + '}'
+    }
+    
+    astropy_table_members = Table(t_dict_members)
+    members_output_filename = 'members_text.txt'
+    
+    astropy.io.ascii.write(astropy_table_members, format='latex', output=members_output_filename, overwrite=True, latexdict=latexdict_members)
+    
+    with open(members_output_filename, 'r+') as f:
+        lines = f.readlines()
+        lines[1], lines[2] = lines[2], lines[1]
+        f.seek(0)
+        f.writelines(lines)
+        members_table_text = ''.join(lines)
+    
+    os.remove(members_output_filename)
+    kinematics_table_text = generate_kinematics_latex(cluster)
+    # Combine intro_text, kinematics_table_text, and members_table_text
+    full_text = intro_text + "\n\n" + kinematics_table_text + "\n\n" + members_table_text
+    
+    filename = f"{cluster.name}.tex"
+    
+    with open(filename, 'w') as file:
+        file.write(full_text)
+    
+    return full_text
+
