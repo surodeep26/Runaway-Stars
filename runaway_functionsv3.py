@@ -39,7 +39,7 @@ import tkinter as tk
 from tkinter import simpledialog, colorchooser  
 from astropy.io import ascii
 import io
-from uncertainties import ufloat
+from uncertainties import ufloat, unumpy
 
 
 
