@@ -298,14 +298,14 @@ class Cluster:
                                                                              'FeH': self.FeH}))
         if SkyCoord:
             star = star[
-                        "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est","v_pec","v_pec3d", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
-                        "Gmag", "BP-RP", "BPmag", "RPmag", "b_rgeo", "B_rgeo", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP", "SkyCoord",
+                        "RA_ICRS_1", "DE_ICRS_1", "rgeo", "b_rgeo", "B_rgeo", "Teff", "Temp. Est","v_pec","e_v_pec","v_pec3d", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
+                        "Gmag", "BP-RP", "BPmag", "RPmag", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP", "SkyCoord",
                         "rmRA","e_rmRA", "rmDE", "e_rmDE", "logg", "RV", "e_RV","rRV", "e_rRV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
                         ]
         else:
             star = star[
-                        "RA_ICRS_1", "DE_ICRS_1", "rgeo", "Teff", "Temp. Est","v_pec","v_pec3d", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
-                        "Gmag", "BP-RP", "BPmag", "RPmag", "b_rgeo", "B_rgeo", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP",
+                        "RA_ICRS_1", "DE_ICRS_1", "rgeo", "b_rgeo", "B_rgeo", "Teff", "Temp. Est","v_pec","e_v_pec","v_pec3d", "HIP", "TYC2", "Source", "Plx", "e_Plx", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "RUWE", 
+                        "Gmag", "BP-RP", "BPmag", "RPmag", "e_Gmag", "e_BPmag", "e_RPmag", "e_BP-RP",
                         "rmRA","e_rmRA", "rmDE", "e_rmDE", "logg", "RV", "e_RV","rRV", "e_rRV", "FG", "e_FG", "FBP", "e_FBP", "FRP", "e_FRP", "RAVE5", "RAVE6"
                         ]
         object = f"Gaia DR3 {source}"
@@ -336,6 +336,22 @@ class Cluster:
         
         if os.path.exists(stars_in_region_path):
             stars_in_region = Table.read(stars_in_region_path, format='ascii.ecsv')
+            rgeo = stars_in_region['rgeo'].value
+            b_rgeo = stars_in_region['b_rgeo'].value
+            B_rgeo = stars_in_region['B_rgeo'].value
+            rmRA = unumpy.uarray(stars_in_region['rmRA'].value,stars_in_region['e_rmRA'].value)
+            rmDE = unumpy.uarray(stars_in_region['rmDE'].value,stars_in_region['e_rmDE'].value)
+            rm = pm(rmRA,rmDE)
+            v_trans  = unumpy.nominal_values(v(rm,rgeo))*u.km/u.s
+            v_trans_upper = unumpy.nominal_values(v(rm,B_rgeo))*u.km/u.s
+            v_trans_lower = unumpy.nominal_values(v(rm,b_rgeo))*u.km/u.s
+            e_v_trans = abs((v_trans_lower-v_trans_upper)/2)
+            stars_in_region['v_pec'] = v_trans
+            stars_in_region['v_trans_upper'] = v_trans_upper
+            stars_in_region['v_trans_lower'] = v_trans_lower
+            stars_in_region['e_v_pec'] = e_v_trans
+            stars_in_region.write(stars_in_region_path, format='ascii.ecsv', overwrite=True)
+            
             # stars_in_region['rmRA'] = stars_in_region['pmRA']-self.pm_ra_cosdec
             # stars_in_region['rmDE'] = stars_in_region['pmDE']-self.pm_dec
             # stars_in_region['e_rmRA'] = stars_in_region['e_pmRA']+self.e_pm_ra_cosdec
@@ -372,6 +388,8 @@ class Cluster:
 
             stars_in_region.write(stars_in_region_path, format='ascii.ecsv')
 
+        
+        stars_in_region = Table.read(stars_in_region_path, format='ascii.ecsv')
         if star is None:
             return stars_in_region
         else:
