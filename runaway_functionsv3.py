@@ -1700,6 +1700,7 @@ def get_search_region(cluster, extra=10,display=True,**kwargs):
         images = SkyView.get_images(position=cluster.skycoord,
                                     survey='DSS',
                                     radius=2*search_arcmin,
+                                    pixels=800,
                                     **kwargs)
         # Extract the WCS information
         wcs = WCS(images[0][0].header)
@@ -1765,7 +1766,7 @@ def psrs_nearby(coordinate:SkyCoord, table:Table, sep_limit=4*u.deg)-> Table:
     nearby['sep3d'] = seps3d
     nearby['sep2d'] = nearby['sep2d']
     nearby['sep3d'] = nearby['sep3d']
-    distmask = (nearby['sep3d']<1.4*coordinate.distance) #max sep3d from the cluster may be 40% of the distance to the cluster
+    distmask = (nearby['sep3d']<config['psr_radial_tolerance']*coordinate.distance) #max sep3d from the cluster may be 40% of the distance to the cluster
     agemask = (nearby['AGE'] < 500*u.kyr) | (nearby['AGE'].mask) #the age of the pulsar should be less than 500kyr or unknown
     nearby = nearby[distmask & agemask]
     nearby.sort('sep3d')
@@ -2031,7 +2032,7 @@ def latex_text(cluster, n_members=10):
     
     intro_text = rf"""\subsection{{Introduction}}
     {cluster.name.replace('_', ' ')} is located at $\alpha = {ra_str}, \delta = {dec_str}$ at a distance of ${dist_str}$ pc.
-    {cluster.N} out of the {cld.N} mentioned in Dias have been selected as members. Using these, the kinematic parameters of the cluster have been determined. These are compared to the kinematic parameters of the runaway star in \ref{{tab:{cluster.name}_kinematics}}. Some of the brightest memebrs fo the cluster are shown in table \ref{{tab:{cluster.name}_members}}.
+    {cluster.N} out of the {cld.N} mentioned in Dias have been selected as members. Using these, the kinematic parameters of the cluster have been determined. These are compared to the kinematic parameters of the runaway star in \ref{{tab:{cluster.name}_kinematics}}. Some of the brightest members of the cluster are shown in table \ref{{tab:{cluster.name}_members}}.
     
     \subsection{{CMD and proper motion}}
     The parameters of the cluster's isochrone ...
