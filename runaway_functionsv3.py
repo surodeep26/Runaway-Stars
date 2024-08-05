@@ -758,7 +758,7 @@ class Cluster:
             region = CircleSkyRegion(c, radius)
             region_pix = region.to_pixel(wcs)
             region_pix.plot(ax=ax, color='orange', 
-                            lw=2, 
+                            lw=3, 
                             ls='dotted',
                             label=f"Cluster (r50) = {radius.value:.1f}'"
                             )
@@ -767,7 +767,7 @@ class Cluster:
             region_search_arcmin = CircleSkyRegion(c, radius_search_arcmin)
             region_pix_search_arcmin = region_search_arcmin.to_pixel(wcs)
             region_pix_search_arcmin.plot(ax=ax, color='green',
-                                          lw=2,
+                                          lw=4,
                                           ls='dotted',
                                           label=f"Search region = {radius_search_arcmin.value:.1f}'"
                                           )
@@ -1198,23 +1198,22 @@ class Cluster:
             s=200,
             )    
         
-        # for run in runaways:   
-        #     texts = []
-        #     text = ax.annotate(self.Star(run['Source'], returnName=1)+"\n"+
-        #                     r"$\Delta$µ$_{\alpha}^*=$"+rf"{run['rmRA']:.2f}$\pm${run['e_rmRA']:.2f}"+r"$\frac{mas}{yr}$"+
-        #                     "\n"+
-        #                     r"$\Delta$µ$_{\delta}=$"+f"{run['rmDE']:.2f}$\pm${run['e_rmDE']:.2f}"+r"$\frac{mas}{yr}$",
-        #                     xy=(run['pmRA'], run['pmDE']),
-        #                     fontsize='large',
-        #                     # fontweight='bold',
-        #                     color='firebrick',
-        #                     zorder=8
-        #                     )
-        #     text.draggable()
-        #     texts.append(text)
+        for run in runaways:   
+            texts = []
+            text = ax.annotate(#self.Star(run['Source'], returnName=1)+"\n"+
+                            r"$\Delta$µ$_{\alpha}^*=$"+rf"{run['rmRA']:.2f}$\pm${run['e_rmRA']:.2f}"+r"$\frac{mas}{yr}$"+
+                            "\n"+
+                            r"$\Delta$µ$_{\delta}=$"+f"{run['rmDE']:.2f}$\pm${run['e_rmDE']:.2f}"+r"$\frac{mas}{yr}$",
+                            xy=(run['pmRA'], run['pmDE']),
+                            fontsize='large',
+                            # fontweight='bold',
+                            color='firebrick',
+                            zorder=8
+                            )
+            text.draggable()
+            texts.append(text)
         
 
-        # texts.draggable()  # Make the annotation draggable
         # adjust_text(texts, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
             
         ax.grid(color='lightgrey')
@@ -1252,11 +1251,15 @@ class Cluster:
         """
 
         fig, ax = plt.subplots(figsize=(15, 15))
+        # fig.canvas.set_window_title(f'{self.name}_cmd')        
+        fig.canvas.manager.set_window_title(f'{self.name}_cmd')
+
         #plt.clf()
         # plt.cla()
         ax.set_xlabel(r"$G_{BP}-G_{RP}$ (mag)")
         ax.set_ylabel(r"$G$ (mag)")
-        # ax.set_title(f"CMD for {(cluster.name).replace('_',' ')}")
+
+        # ax.set_title(f"CMD for {(self.name).replace('_',' ')}")
         # print(cluster.Av, cluster.logage, cluster.FeH, "plotcmd")
         
         #main isochrone for temp
@@ -1307,6 +1310,13 @@ class Cluster:
             label=f'{len(runaways)} runaway(s)'
         )
         
+        # annotate runaways
+        for run in runaways:
+            text = ax.annotate(f'{run["Temp. Est"]:.0f} K', 
+                        xy=(run['BP-RP'],run['Gmag']),
+                        color='firebrick',
+                        fontweight='bold')
+            text.draggable()
         # Add cluster parameters table
         cluster_table = [
             ['N', len(self.mymembers)],
@@ -2031,8 +2041,8 @@ def latex_text(cluster, n_members=10):
     
     \begin{{figure}}
     \centering
-    \includegraphics[width=0.49\linewidth]{{Results/{cluster.name}/{cluster.name}_cmd.pdf}}
-    \includegraphics[width=0.49\linewidth]{{Results/{cluster.name}/{cluster.name}_pm.pdf}}
+    \includegraphics[width=7.5cm, height=7.5cm]{{Results/{cluster.name}/{cluster.name}_cmd.pdf}}
+    \includegraphics[width=7.5cm, height=7.5cm]{{Results/{cluster.name}/{cluster.name}_pm.pdf}}
     \caption{{\\ 
     \textit{{Left}}: The CMD showing the temperature estimate of the runaway. The isochrone for the temperature estimate is shown in blue \\
     \textit{{Right}}: Proper motion diagram depicting that the star is an outlier in proper motion in the local rest frame.}}
@@ -2044,11 +2054,11 @@ def latex_text(cluster, n_members=10):
     
     \begin{{figure}}
     \centering
-    \includegraphics[width=0.49\linewidth]{{Results/{cluster.name}/{cluster.name}_traceback_clean.pdf}}
-    \includegraphics[width=0.49\linewidth]{{Results/{cluster.name}/{cluster.name}_pm.pdf}}
+    \includegraphics[width=7.5cm, height=7.5cm]{{Results/{cluster.name}/{cluster.name}_traceback_clean.pdf}}
+    \includegraphics[width=7.5cm, height=7.5cm]{{Results/{cluster.name}/{cluster.name}_pm.pdf}}
     \caption{{\\ 
-    \textit{{Left}}: The runaway star ...'s motion with respect to the cluster. The four green lines depict the four extreme cases of the proper motion considering the errors and the green ellipse represents the possible positions of the star 100 kyr ago. \\
-    \textit{{Right}}: Proper motion diagram depicting that the star is an outlier in proper motion in the local rest frame.}}
+    \textit{{Left}}: The runaway star's motion with respect to the cluster. The four green lines depict the four extreme cases of the proper motion considering the errors and the green ellipse represents the possible positions of the star 100 kyr ago. \\
+    \textit{{Right}}: Proper motion diagram depicting that the star is an outlier in proper motion in the rest frame of the cluster.}}
         \label{{fig:{cluster.name}_traceback_clean&pm}}
     \end{{figure}}
     
