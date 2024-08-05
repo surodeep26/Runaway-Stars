@@ -839,26 +839,26 @@ class Cluster:
             #     ax.plot([start[0], end[0]], [start[1], end[1]], color='blue')
                 return 
          #annotations
-        # texts = []
-        # obs = Table()
-        # try:
-        #     for star in config['observed_stars'][self.name]:
-        #         table = self.Star(star)
-        #         obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
-        #         # wcs.world_to_pixel(table['SkyCoord'])
-        #         text = ax.annotate(self.Star(star, returnName=1),
-        #                         xy=(obs_pixels_now[0], obs_pixels_now[1]),
-        #                         fontsize='medium',
-        #                         color='white'
-        #                         )
-        #         ax.scatter(obs_pixels_now[0], obs_pixels_now[1],
-        #                 c='white',
-        #                 )
-        #         table = self.Star(star, SkyCoord=False)
-        #         obs = vstack([obs,table])
-        #         texts.append(text)
-        # except:
-        #     pass
+        texts = []
+        obs = Table()
+        try:
+            for star in config['observed_stars'][self.name]:
+                table = self.Star(star)
+                obs_pixels_now = wcs.world_to_pixel(table['SkyCoord'])
+                # wcs.world_to_pixel(table['SkyCoord'])
+                text = ax.annotate(self.Star(star, returnName=1),
+                                xy=(obs_pixels_now[0], obs_pixels_now[1]),
+                                fontsize='medium',
+                                color='white'
+                                )
+                ax.scatter(obs_pixels_now[0], obs_pixels_now[1],
+                        c='white',
+                        )
+                table = self.Star(star, SkyCoord=False)
+                obs = vstack([obs,table])
+                texts.append(text)
+        except:
+            pass
         
         # if True:
         #     for star in self.runaways()['Source']:
@@ -875,9 +875,9 @@ class Cluster:
         
             
         
-        # adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
-        # for text in texts:    
-        #     text.draggable()  # Make the annotation draggable
+        adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
+        for text in texts:    
+            text.draggable()  # Make the annotation draggable
             
         # for star_table in star_tables:
         #     star_table['rmRA'] = star_table['pmRA']-self.pm_ra_cosdec
@@ -1074,6 +1074,19 @@ class Cluster:
                             )
                 texts.append(text)
             psr_table_pixel = wcs.world_to_pixel(psr_table['SkyCoord'])
+            print(psr_table_pixel)
+            v_psr_arcmin = np.arctan((340*u.km/u.s).to(u.pc/u.kyr)*(100*u.kyr)/self.distance)
+            radius = v_psr_arcmin.to(u.arcmin)
+            sky_reg = CircleSkyRegion(self.skycoord, radius)
+            pix_reg = sky_reg.to_pixel(wcs)
+            circle_v_spr = patches.Circle(  
+                                            (psr_pixel[0],psr_pixel[1]),
+                                            radius=pix_reg.radius,
+                                            edgecolor='azure', 
+                                            facecolor='aqua',
+                                            alpha = 0.1
+                                            )
+            ax.add_patch(circle_v_spr)
             ax.scatter(psr_table_pixel[0],psr_table_pixel[1],
                        c='cyan',
                        label=f'{len(psr_table)} Pulsar(s) nearby')
@@ -1269,6 +1282,22 @@ class Cluster:
             
         for isochrone in isochrones:
             isochrone.plot(ax)
+
+        observed_stars = config['observed_stars'][self.name]
+        i=0
+        for star in observed_stars:
+            star_row = self.Star(star)
+            print(star_row['Name'])
+
+            ax.scatter( 
+                        star_row['BP-RP'],star_row['Gmag'],
+                        facecolors='none', edgecolors='k',
+                        lw=2,
+                        s=800,
+                        label='Observed Stars' if i==0 else None,
+                        )
+            i=1
+
 
         # Plot cluster members
         mymembers = self.mymembers

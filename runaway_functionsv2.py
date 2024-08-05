@@ -1640,7 +1640,8 @@ def plot_traceback(cluster,save=False,psr_circles=True):
                     radius = v_psr_arcmin.to(u.arcmin)
                     sky_reg = CircleSkyRegion(center, radius)
                     pix_reg = sky_reg.to_pixel(wcs)
-                    circle_v_spr = patches.Circle((ra_pix_psr,dec_pix_psr),radius=pix_reg.radius,edgecolor='azure', facecolor='aqua',alpha = 0.1)
+                    circle_v_spr = patches.Circle((ra_pix_psr,dec_pix_psr),
+                                                  radius=pix_reg.radius,edgecolor='azure', facecolor='aqua',alpha = 0.1)
                     ax2.add_patch(circle_v_spr)
 
     global annotations
