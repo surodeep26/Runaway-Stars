@@ -1843,7 +1843,6 @@ def show_annotation_manager(plot_pm):
 
     root.destroy()  # Destroy the root window when done
     
-    
 def generate_kinematics_latex(cl):
     warnings.filterwarnings("ignore", category=FutureWarning)
     
@@ -1909,9 +1908,9 @@ def generate_kinematics_latex(cl):
     latexdict_kinematics = {
     'tabletype': 'table*',
     'tablealign': 'h',
-    'header_start': r'\hline',
-    'data_start': r'\hline',
-    'data_end': r'\hline', 
+    'header_start': r'\toprule',
+    'data_start': r'\midrule',
+    'data_end': r'\bottomrule', 
     'caption': f'Kinematics of {cl.name.replace("_"," ")} compared to its runaway'
                 +r'\label{tab:' + f'{cl.name}_kinematics' + '}',
     'preamble':r'\fontsize{9pt}{11pt}\selectfont',
@@ -1919,16 +1918,106 @@ def generate_kinematics_latex(cl):
     }
     
     ascii.write(kinematic_table, output, format='latex', latexdict=latexdict_kinematics)
-    latex_string = output.getvalue()
+    kinematics_table_text = output.getvalue()
     output.close()
-    latex_string.replace(r'$--\pm--$','n/a')
-    return latex_string
+    kinematics_table_text.replace(r'$--\pm--$','n/a')
+    return kinematics_table_text, kinematic_table
+
+def generate_members_latex(cluster, n_members=10):
+    # Members table generation
+    table = cluster.mymembers
+    table.sort('Gmag')
+    table = table[:n_members]
+    
+    formatted_distances = []
+    # formatted_parallaxes = []
+    formatted_pmras = []
+    formatted_pmdes = []
+    formatted_gmags = []
+    formatted_bprps = []
+    
+    for row in table:
+        distance = row['rgeo']
+        upper_error = row['B_rgeo'] - row['rgeo']
+        lower_error = -row['b_rgeo'] + row['rgeo']
+        # plx = row['Plx']
+        # e_plx = row['e_Plx']
+        pmra = row['pmRA']
+        e_pmra = row['e_pmRA']
+        pmde = row['e_pmDE']
+        e_pmde = row['e_pmDE']
+        gmag = row['Gmag']
+        e_gmag = row['e_Gmag']
+        bprp = row['BP-RP']
+        e_bprp = row['e_BP-RP']
+        
+        formatted_distance = f"${distance:.0f}^{{+{upper_error:.0f}}}_{{-{lower_error:.0f}}}$"
+        formatted_pmra = f"${pmra:.2f}\pm{e_pmra:.2f}$"
+        formatted_pmde = f"${pmde:.2f}\pm{e_pmde:.2f}$"
+        # formatted_parallax = f"${plx:.4f}\pm{e_plx:.4f}$"
+        formatted_gmag = f"${gmag:.3f}\pm{e_gmag:.3f}$"
+        formatted_bprp = f"${bprp:.3f}\pm{e_bprp:.3f}$"
+        
+        formatted_distances.append(formatted_distance)
+        # formatted_parallaxes.append(formatted_parallax)
+        formatted_pmras.append(formatted_pmra)
+        formatted_pmdes.append(formatted_pmde)
+        formatted_gmags.append(formatted_gmag)
+        formatted_bprps.append(formatted_bprp)
+
+    table['formatted_distance'] = formatted_distances
+    # table['formatted_parallax'] = formatted_parallaxes
+    table['formatted_pmra'] = formatted_pmras
+    table['formatted_pmde'] = formatted_pmdes
+    table['formatted_gmag'] = formatted_gmags
+    table['formatted_bprp'] = formatted_bprps
+    
+    t_dict_members = {
+        'Gaia DR3 Source': table['Source'],
+        r"$r_{\text{geo}}$": table['formatted_distance'],
+        # r"$\pi$ (mas)": table['formatted_parallax'],
+        r"$G$": table['formatted_gmag'],
+        r'$\mu_{\alpha}^*$': table['formatted_pmra'],
+        r'$\mu_{\delta}$': table['formatted_pmde'],
+        r"$G_{\text{BP}}-G_{\text{RP}}$": table['formatted_bprp']
+    }
+    
+    latexdict_members = {
+        'tabletype': 'table*',
+        'tablealign': 'h',
+        'units':{
+                # 'Gaia DR3 Source': table['Source'],
+                r"$r_{\text{geo}}$": 'pc',
+                # r"$\pi$ (mas)": table['formatted_parallax'],
+                r"$G$": 'mag',
+                r'$\mu_{\alpha}^*$': 'mas/yr',
+                r'$\mu_{\delta}$': 'mas/yr',
+                r"$G_{\text{BP}}-G_{\text{RP}}$": 'mag'
+            },
+        'header_start': r'\toprule',
+        'data_start': r'\midrule',
+        'data_end': r'\bottomrule', 
+        'caption': f'Selected members of {cluster.name.replace("_"," ")}'
+                    +r'\label{tab:' + f'{cluster.name}_members' + '}',
+        'preamble': r'\fontsize{11pt}{11pt}\selectfont',
+    }
+    
+    astropy_table_members = Table(t_dict_members)
+
+    output = io.StringIO()
+    
+    ascii.write(astropy_table_members, output, format='latex', latexdict=latexdict_members)
+    members_table_text = output.getvalue()
+    output.close()
+    return members_table_text
 
 def latex_text(cluster, n_members=10):
+    kinematics_table_text, kinematics_table = generate_kinematics_latex(cluster)
+    run = cluster.runaways()
     cld = ClusterDias(cluster.name)
     ra, dec = cluster.skycoord.ra, cluster.skycoord.dec
     ra_str, dec_str = ra.to_string(format='latex')[1:-1], dec.to_string(format='latex')[1:-1]
-    dist_str = str(round(cluster.distance.value,1)) + r"\pm" + str(round(cluster.e_distance.value,1))
+    dist_str = str(round(cluster.distance.value,0)) + r"\pm" + str(round(cluster.e_distance.value,0))
     
     intro_text = rf"""\subsection{{Introduction}}
     {cluster.name.replace('_', ' ')} is located at $\alpha = {ra_str}, \delta = {dec_str}$ at a distance of ${dist_str}$ pc.
@@ -1936,7 +2025,9 @@ def latex_text(cluster, n_members=10):
     
     \subsection{{CMD and proper motion}}
     The parameters of the cluster's isochrone ...
-    Using these parameters, the CMD plot for the cluster is shown in figure \ref{{fig:{cluster.name}_cmd_pm}} in the left. The right plot in the figure shows the proper motion diagram showing that the runaway moves with a proper motion that is different from the cluster.
+    Using these parameters, the CMD plot for the cluster is shown in figure \ref{{fig:{cluster.name}_cmd_pm}} in the left.
+    The runaway star is highlighted with a temperature estimate of {run['Temp. Est'][0]:.0f} using this isochrone. This corresponds to a spectral class of ... .
+    The right plot in the figure shows the proper motion diagram showing that the runaway moves with a proper motion that is different from the cluster.
     
     \begin{{figure}}
     \centering
@@ -1949,8 +2040,7 @@ def latex_text(cluster, n_members=10):
     \end{{figure}}    
 
     \subsection{{Traceback}}
-    
-    The runaway star's motion relative to the cluster is shown in figure \ref{{fig:{cluster.name}_traceback.pdf}}.
+    The runaway star is {run['Name'][0]} whose motion relative to the cluster is shown in figure \ref{{fig:{cluster.name}_traceback.pdf}}. The trajectory of the runaway star relative to the cluster's motion for 100 kyr in past has been depicted, together with the uncertainties in the proper motion. The runaway star is located at a distance of ${run['rgeo'][0]:.0f}^{{{(run['B_rgeo'][0]-run['rgeo'][0]):.0f}}}_{{{(run['b_rgeo'][0]-run['rgeo'][0]):.0f}}}$.
     
     \begin{{figure}}
     \centering
@@ -1962,77 +2052,13 @@ def latex_text(cluster, n_members=10):
         \label{{fig:{cluster.name}_traceback_clean&pm}}
     \end{{figure}}
     
-    \subsection{{Traceback}}
     """
-    
-    # Members table generation
-    table = cluster.mymembers
-    table.sort('Gmag')
-    table = table[:n_members]
-    
-    formatted_distances = []
-    formatted_parallaxes = []
-    formatted_gmags = []
-    formatted_bprps = []
-    
-    for row in table:
-        distance = row['rgeo']
-        plx = row['Plx']
-        e_plx = row['e_Plx']
-        upper_error = row['B_rgeo'] - row['rgeo']
-        lower_error = -row['b_rgeo'] + row['rgeo']
-        gmag = row['Gmag']
-        e_gmag = row['e_Gmag']
-        bprp = row['BP-RP']
-        e_bprp = row['e_BP-RP']
-        
-        formatted_distance = f"${distance:.0f}^{{+{upper_error:.0f}}}_{{-{lower_error:.0f}}}$"
-        formatted_parallax = f"${plx:.4f}\pm{e_plx:.4f}$"
-        formatted_gmag = f"${gmag:.3f}\pm{e_gmag:.3f}$"
-        formatted_bprp = f"${bprp:.3f}\pm{e_bprp:.3f}$"
-        
-        formatted_distances.append(formatted_distance)
-        formatted_parallaxes.append(formatted_parallax)
-        formatted_gmags.append(formatted_gmag)
-        formatted_bprps.append(formatted_bprp)
 
-    table['formatted_distance'] = formatted_distances
-    table['formatted_parallax'] = formatted_parallaxes
-    table['formatted_gmag'] = formatted_gmags
-    table['formatted_bprp'] = formatted_bprps
-    
-    t_dict_members = {
-        'Gaia DR3 Source': table['Source'],
-        r"$r_{\text{geo}}$ (pc)": table['formatted_distance'],
-        r"$\pi$ (mas)": table['formatted_parallax'],
-        r"$G$ (mag)": table['formatted_gmag'],
-        r"$G_{\text{BP}}-G_{\text{RP}}$ (mag)": table['formatted_bprp']
-    }
-    
-    latexdict_members = {
-        'tabletype': 'table*',
-        'tablealign': 'h',
-        'header_start': r'\hline',
-        'data_start': r'\hline',
-        'data_end': r'\hline', 
-        'caption': f'Selected members of {cluster.name.replace("_"," ")}'
-                    +r'\label{tab:' + f'{cluster.name}_members' + '}',
-        'preamble': r'\fontsize{12pt}{12pt}\selectfont',
-    }
-    
-    astropy_table_members = Table(t_dict_members)
-
-    output = io.StringIO()
-    
-    ascii.write(astropy_table_members, output, format='latex', latexdict=latexdict_members)
-    members_table_text = output.getvalue()
-    output.close()
     
     
-    kinematics_table_text = generate_kinematics_latex(cluster)
+    
     # Combine intro_text, kinematics_table_text, and members_table_text
-    full_text = intro_text + "\n\n" + kinematics_table_text + "\n\n" + members_table_text
+    full_text = intro_text + "\n\n" + kinematics_table_text + "\n\n" + generate_members_latex(cluster)
     
     
     return full_text
-
