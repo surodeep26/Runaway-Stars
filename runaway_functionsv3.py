@@ -1069,13 +1069,13 @@ class Cluster:
                 psr_pixel = wcs.world_to_pixel(psr['SkyCoord'])
                 text = ax.annotate('PSR '+psr['JNAME'],
                             xy=(psr_pixel[0],psr_pixel[1]),
-                            fontsize='medium',
+                            fontsize='large',
                             color='cyan'
                             )
                 texts.append(text)
                 psr_table_pixel = wcs.world_to_pixel(psr_table['SkyCoord'])
                 # print(psr_table_pixel)
-                v_psr_arcmin = np.arctan((340*u.km/u.s).to(u.pc/u.kyr)*(100*u.kyr)/self.distance)
+                v_psr_arcmin = np.arctan((340*u.km/u.s).to(u.pc/u.kyr)*(15*u.kyr)/self.distance)
                 radius = v_psr_arcmin.to(u.arcmin)
                 sky_reg = CircleSkyRegion(self.skycoord, radius)
                 pix_reg = sky_reg.to_pixel(wcs)
@@ -1087,9 +1087,9 @@ class Cluster:
                                                 alpha = 0.1
                                                 )
                 ax.add_patch(circle_v_spr)
-                ax.scatter(psr_table_pixel[0],psr_table_pixel[1],
-                        c='cyan',
-                        label=f'{len(psr_table)} Pulsar(s) nearby')
+            ax.scatter(psr_table_pixel[0],psr_table_pixel[1],
+                    c='cyan',
+                    label=f'{len(psr_table)} Pulsar(s) nearby')
             
         for text in texts:    
             text.draggable()  # Make the annotations draggable
