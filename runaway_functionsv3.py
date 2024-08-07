@@ -1961,7 +1961,11 @@ def generate_kinematics_latex(cl):
     kinematics_table_text = output.getvalue()
     output.close()
     kinematics_table_text.replace(r'$--\pm--$','n/a')
-    return kinematics_table_text, kinematic_table
+    
+    modified_table = kinematics_table_text.replace(r"\begin{tabular}", r"\resizebox{\textwidth}{!}{\begin{tabular}")
+    modified_table = modified_table.replace(r"\end{tabular}", r"\end{tabular}}")
+    
+    return modified_table, kinematic_table
 
 def generate_members_latex(cluster, n_members=10):
     # Members table generation
@@ -2049,7 +2053,9 @@ def generate_members_latex(cluster, n_members=10):
     ascii.write(astropy_table_members, output, format='latex', latexdict=latexdict_members)
     members_table_text = output.getvalue()
     output.close()
-    return members_table_text
+    modified_table = members_table_text.replace(r"\begin{tabular}", r"\resizebox{\textwidth}{!}{\begin{tabular}")
+    modified_table = modified_table.replace(r"\end{tabular}", r"\end{tabular}}")
+    return modified_table
 
 def latex_text(cluster, n_members=10):
     kinematics_table_text, kinematics_table = generate_kinematics_latex(cluster)
