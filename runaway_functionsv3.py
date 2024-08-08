@@ -148,6 +148,7 @@ class ClusterDias:
         # print("this", Av, logage, FeH)
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
+            theo_iso["Gmag0"] = theo_iso["Gmag"] #saving the absolute magnitude of the stars
             theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
             theo_iso['G_BP'] = theo_iso["G_BP"]+ 5 * np.log10(self.distance.value) - 5
             theo_iso['G_RP'] = theo_iso["G_RP"]+ 5 * np.log10(self.distance.value) - 5
@@ -156,7 +157,7 @@ class ClusterDias:
 
             if parsec_version==1.2:
                 theo_iso['Teff0'] = 10**theo_iso['logTe']
-            theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
+            theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag","G_mag0", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
             theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
             #adjust absolute magnitudes to apparent magnitudes using the distance modulus after writing so that this cahnge is not stored in the isochrones written.
             theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
@@ -287,7 +288,7 @@ class Cluster:
             self.restoreParam("NRV")
         return members
 
-    def Star(self,source, SkyCoord=True,returnName=False):
+    def Star(self,source, get_similar=False, SkyCoord=True,returnName=False):
         warnings.filterwarnings("ignore", category=UserWarning)
         star = self.stars_in_region(source)
         if len(star)==0:
@@ -317,6 +318,18 @@ class Cluster:
         if returnName:
             return bestname
         star.add_column([bestname],name='Name', index=0)
+        if get_similar:
+            theoretical_isochrone = self.theoretical_isochrone()
+            bprptheo = theoretical_isochrone['BP-RP']
+            gmagtheo = theoretical_isochrone['Gmag']
+            differences_bprp = abs(bprptheo - star['BP-RP'])
+            differences_gmag = abs(gmagtheo - star['Gmag'])
+            # differences = differences_bprp**2+differences_gmag**2 #method 1
+            differences = differences_bprp #method 2 main star
+            closest_star_index = np.argmin(differences)
+            closest_star = theoretical_isochrone[closest_star_index]
+            display(closest_star)
+            
         return star
     
     def stars_in_region(self, star=None):
@@ -707,6 +720,7 @@ class Cluster:
         # print("this", Av, logage, FeH)
         if os.path.exists(theo_iso_path):
             theo_iso = Table.read(theo_iso_path, format="ascii")
+            theo_iso["Gmag0"] = theo_iso["Gmag"] #saving the absolute magnitude of the stars
             theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
             theo_iso['G_BP'] = theo_iso["G_BP"]+ 5 * np.log10(self.distance.value) - 5
             theo_iso['G_RP'] = theo_iso["G_RP"]+ 5 * np.log10(self.distance.value) - 5
@@ -715,7 +729,7 @@ class Cluster:
 
             if parsec_version==1.2:
                 theo_iso['Teff0'] = 10**theo_iso['logTe']
-            theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
+            theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag","Gmag0", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
             theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
             #adjust absolute magnitudes to apparent magnitudes using the distance modulus after writing so that this cahnge is not stored in the isochrones written.
             theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
@@ -2021,6 +2035,7 @@ def generate_kinematics_latex(cl):
     pmDE_column = [f"${pmDE:.1f}\pm{e_pmDE:.1f}$" for pmDE, e_pmDE in zip(runaway_part['pmDE'], runaway_part['e_pmDE'])]
     vr_column = [f"${RV:.1f}\pm{e_RV:.1f}$" for RV, e_RV in zip(runaway_part['RV'], runaway_part['e_RV'])]
     vpec2d_column = [f"${v_pec:.1f}\pm{e_v_pec:.1f}$" for v_pec, e_v_pec in zip(runaway_part['v_pec'], runaway_part['e_v_pec'])]
+    # vpec3d_column = [f"${v_pec:.1f}\pm{e_v_pec:.1f}$" for v_pec, e_v_pec in zip(runaway_part['v_pec'], runaway_part['e_v_pec'])]
     # Add the new columns to the table
     runaway_part['Name'] = name_column
     runaway_part['RA_ICRS_1'] = Column(ra_column, unit='deg')
