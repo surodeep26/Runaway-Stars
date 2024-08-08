@@ -725,6 +725,104 @@ class Cluster:
             return theo_iso, (Av, logage, FeH)
         else:
             return theo_iso
+
+    def plot_cluster(self, extra=5 , pixels=1000):
+        # Open the FITS file and extract the image and WCS
+        cluster_5pc_fits_path = f'./Clusters/{self.name}/{self.name}_extra{extra}pc.fits'
+        if not os.path.exists(cluster_5pc_fits_path):
+            get_search_region(self, extra=extra, pixels=pixels)
+        with fits.open(cluster_5pc_fits_path) as fits_file:
+            image = fits_file[0]
+            wcs = WCS(image.header)
+            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15.5, 15.5))
+
+            ax.imshow(image.data, cmap='gray', alpha=0.7, interpolation='gaussian')
+            ax.set_xlabel('Right Ascension (hms)', color="black")
+            ax.set_ylabel('Declination (degrees)', color="black")
+
+            # Set the background color to black
+            # fig.patch.set_facecolor('black')
+            ax.set_facecolor('black')
+            # Set text colors to white
+            ax.title.set_color('white')
+            # ax.tick_params(axis='both', colors='black', length=10)
+            ax.tick_params(axis='none')
+            ax.grid(color='lightgrey', ls='dotted')
+            # Plot the cluster region
+            c = self.skycoord
+            #circle for the cluster r50
+            radius = (self.r50).to(u.arcmin)
+            region = CircleSkyRegion(c, radius)
+            region_pix = region.to_pixel(wcs)
+            region_pix.plot(ax=ax, color='orange', 
+                            lw=3, 
+                            ls='dotted',
+                            label=f"Cluster (r50) = {radius.value:.1f}'"
+                            )
+            members = self.mymembers
+            member_px, member_py = wcs.world_to_pixel_values(members['SkyCoord'].ra, members['SkyCoord'].dec)
+            ax.scatter(member_px, member_py, 
+                    label=f'{len(members)} Cluster members',
+                    c='none',  # This can be omitted since facecolors='none' does the job
+                    lw=1,
+                    s=200,
+                    facecolors='none',  # Makes the markers hollow
+                    edgecolors='yellow',  # Edge color of the markers
+                    alpha=1)
+
+            scalebar_angle = ((((self.search_arcmin.value/4)//5)+1)*5)*u.arcmin
+            add_scalebar(ax, length=scalebar_angle, 
+                        label='', 
+                        pad=0.5,
+                        borderpad=0.3,
+                        color='yellow', 
+                        size_vertical=0.5)
+            from astropy.wcs.utils import proj_plane_pixel_scales
+            if ax.wcs.is_celestial:
+                pix_scale = proj_plane_pixel_scales(ax.wcs)
+                sx = pix_scale[0]
+                sy = pix_scale[1]
+                degrees_per_pixel = np.sqrt(sx * sy)
+            scalebar = AnchoredSizeBar(
+                ax.transData,
+                size=0,
+                loc='lower right',
+                label=f'{scalebar_angle:.1f}',
+                color='yellow',
+                pad=0.5,
+                borderpad=0.4,
+                size_vertical=0,
+                label_top=True,
+                frameon=False,
+                sep=30,
+            )
+
+            sep = ((scalebar_angle.value*np.pi)/(60*180))*self.distance.value*u.pc
+            
+            scalebar2 = AnchoredSizeBar(
+                ax.transData,
+                size=0,
+                loc='lower right',
+                label=f'{sep:.2f}',
+                color='yellow',
+                pad=0.5,
+                borderpad=0.4,
+                size_vertical=0,
+                label_top=False,
+                frameon=False,
+                sep=30,
+            )
+
+            ax.add_artist(scalebar)
+            ax.add_artist(scalebar2)
+            legend = plt.legend()
+            legend.get_frame().set_alpha(0.2)
+            for text in legend.get_texts():
+                text.set_color("white")
+            plt.tight_layout()
+            plt.show()
+            fig.canvas.manager.set_window_title(f'{self.name}_cluster')
+            return ax
     
     def plot_traceback_clean(self, star_tables=[]):
         warnings.simplefilter('ignore', ErfaWarning)
@@ -733,7 +831,7 @@ class Cluster:
         # Open the FITS file and extract the image and WCS
         cluster_10pc_fits_path = f'./Clusters/{self.name}/{self.name}_extra10pc.fits'
         if not os.path.exists(cluster_10pc_fits_path):
-            get_search_region(self)
+            get_search_region(self, pixels=800)
         with fits.open(cluster_10pc_fits_path) as fits_file:
             image = fits_file[0]
             wcs = WCS(image.header)
@@ -948,7 +1046,7 @@ class Cluster:
         warnings.simplefilter('ignore', ErfaWarning)
         psr_fits_path = f'./Clusters/{self.name}/{self.name}_extra50pc.fits'
         if not os.path.exists(psr_fits_path):
-            get_search_region(self, extra=50)
+            get_search_region(self, extra=50, pixels=800)
         with fits.open(psr_fits_path) as fits_file:
             image = fits_file[0]
             wcs = WCS(image.header)
@@ -1729,7 +1827,6 @@ def get_search_region(cluster, extra=10,display=True,**kwargs):
         images = SkyView.get_images(position=cluster.skycoord,
                                     survey='DSS',
                                     radius=2*search_arcmin,
-                                    pixels=800,
                                     **kwargs)
         # Extract the WCS information
         wcs = WCS(images[0][0].header)
@@ -1946,7 +2043,7 @@ def generate_kinematics_latex(cl):
     output = io.StringIO()
     
     latexdict_kinematics = {
-    'tabletype': 'table*',
+    'tabletype': 'table',
     'tablealign': 'h',
     'header_start': r'\toprule',
     'data_start': r'\midrule',
@@ -2027,7 +2124,7 @@ def generate_members_latex(cluster, n_members=10):
     }
     
     latexdict_members = {
-        'tabletype': 'table*',
+        'tabletype': 'table',
         'tablealign': 'h',
         'units':{
                 # 'Gaia DR3 Source': table['Source'],
