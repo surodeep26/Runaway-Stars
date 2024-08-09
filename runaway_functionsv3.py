@@ -729,9 +729,10 @@ class Cluster:
 
             if parsec_version==1.2:
                 theo_iso['Teff0'] = 10**theo_iso['logTe']
-            theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag","Gmag0", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
+            theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
             theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
             #adjust absolute magnitudes to apparent magnitudes using the distance modulus after writing so that this cahnge is not stored in the isochrones written.
+            theo_iso["Gmag0"] = theo_iso["Gmag"] #saving the absolute magnitude of the stars
             theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
             theo_iso['G_BP'] = theo_iso["G_BP"]+ 5 * np.log10(self.distance.value) - 5
             theo_iso['G_RP'] = theo_iso["G_RP"]+ 5 * np.log10(self.distance.value) - 5
@@ -1056,11 +1057,11 @@ class Cluster:
         plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_clean')
         return ax
-    def plot_traceback_psr(self):
+    def plot_traceback_psr(self, extra=50, trace_time = -100*u.kyr):
         warnings.simplefilter('ignore', ErfaWarning)
-        psr_fits_path = f'./Clusters/{self.name}/{self.name}_extra50pc.fits'
+        psr_fits_path = f'./Clusters/{self.name}/{self.name}_extra{extra}pc.fits'
         if not os.path.exists(psr_fits_path):
-            get_search_region(self, extra=50, pixels=800)
+            get_search_region(self, extra=extra, pixels=800)
         with fits.open(psr_fits_path) as fits_file:
             image = fits_file[0]
             wcs = WCS(image.header)
@@ -1078,7 +1079,7 @@ class Cluster:
             region = CircleSkyRegion(c, radius)
             region_pix = region.to_pixel(wcs)
             region_pix.plot(ax=ax, color='orange', 
-                            lw=2, 
+                            lw=3, 
                             ls='dotted',
                             label=f"Cluster (r50) = {radius.value:.1f}'"
                             )
@@ -1087,19 +1088,20 @@ class Cluster:
             region_search_arcmin = CircleSkyRegion(c, radius_search_arcmin)
             region_pix_search_arcmin = region_search_arcmin.to_pixel(wcs)
             region_pix_search_arcmin.plot(ax=ax, color='green',
-                                          lw=2,
+                                          lw=3,
                                           ls='dotted',
                                           label=f"Search region = {radius_search_arcmin.value:.1f}'"
                                           )
-            def plot_traces(ax, allrun, alpha=0.5):
+           
+            
+            def plot_traces(ax, allrun,trace_time, alpha=0.5):
                 allrun_coord_now = SkyCoord(ra=allrun['RA_ICRS_1'], 
                         dec=allrun['DE_ICRS_1'],
                         distance=allrun['rgeo'], 
                         pm_ra_cosdec=allrun['rmRA'],
                         pm_dec=allrun['rmDE'],
                         obstime=Time('J2000')+500*u.kyr)
-
-                allrun_coord_earlier = allrun_coord_now.apply_space_motion(dt=-100*u.kyr)
+                allrun_coord_earlier = allrun_coord_now.apply_space_motion(dt=trace_time)
                 # Calculate the pixel coordinates of the runaway stars
                 allrun_pixels_now = wcs.world_to_pixel(allrun_coord_now)
                 allrun_pixels_earlier = wcs.world_to_pixel(allrun_coord_earlier)
@@ -1119,11 +1121,11 @@ class Cluster:
                                                                         SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=(allrun['rmRA']-allrun['e_rmRA']),pm_dec=allrun['rmDE']+allrun['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr)),
                                                                         SkyCoord(ra=allrun['RA_ICRS_1'],dec=allrun['DE_ICRS_1'], pm_ra_cosdec=(allrun['rmRA']-allrun['e_rmRA']),pm_dec=allrun['rmDE']-allrun['e_rmDE'], frame='icrs',obstime=(Time('J2000')+1*u.Myr))]
 
-                    earlier_runaway_00 = runaway_00.apply_space_motion(dt = -100_000*u.year)
-                    earlier_runaway_apdp = runaway_apdp.apply_space_motion(dt = -100_000*u.year)
-                    earlier_runaway_apdm = runaway_apdm.apply_space_motion(dt = -100_000*u.year)
-                    earlier_runaway_amdp = runaway_amdp.apply_space_motion(dt = -100_000*u.year)
-                    earlier_runaway_amdm = runaway_amdm.apply_space_motion(dt = -100_000*u.year)
+                    earlier_runaway_00   = runaway_00.apply_space_motion(dt = trace_time)
+                    earlier_runaway_apdp = runaway_apdp.apply_space_motion(dt = trace_time)
+                    earlier_runaway_apdm = runaway_apdm.apply_space_motion(dt = trace_time)
+                    earlier_runaway_amdp = runaway_amdp.apply_space_motion(dt = trace_time)
+                    earlier_runaway_amdm = runaway_amdm.apply_space_motion(dt = trace_time)
 
                     earlier_runaway_00_px = wcs.world_to_pixel_values(earlier_runaway_00.ra, earlier_runaway_00.dec)
                     earlier_runaway_apdp_px = wcs.world_to_pixel_values(earlier_runaway_apdp.ra, earlier_runaway_apdp.dec)
@@ -1169,9 +1171,11 @@ class Cluster:
         #     table = self.Star(star, SkyCoord=False)
         #     texts.append(text)
         #     adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
+        
+        
 
         if len(self.runaways())>0:
-            plot_traces(ax, self.runaways(),alpha=1)
+            plot_traces(ax, self.runaways(),trace_time=trace_time,alpha=1)
         texts = []
             
         #annotate and plot the psrs
@@ -1187,7 +1191,7 @@ class Cluster:
                 texts.append(text)
                 psr_table_pixel = wcs.world_to_pixel(psr_table['SkyCoord'])
                 # print(psr_table_pixel)
-                v_psr_arcmin = np.arctan((340*u.km/u.s).to(u.pc/u.kyr)*(15*u.kyr)/self.distance)
+                v_psr_arcmin = np.arctan((340*u.km/u.s).to(u.pc/u.kyr)*(-trace_time)/self.distance)
                 radius = v_psr_arcmin.to(u.arcmin)
                 sky_reg = CircleSkyRegion(self.skycoord, radius)
                 pix_reg = sky_reg.to_pixel(wcs)
@@ -1207,7 +1211,7 @@ class Cluster:
             text.draggable()  # Make the annotations draggable
         
         #scalebar
-        scalebar_angle = ((((self.search_arcmin.value/4)//5)+1)*5)*u.arcmin*5 #last *5 for psr
+        scalebar_angle = ((((self.search_arcmin.value/4)//5)+1)*5)*u.arcmin*(extra/10) #last *5 for psr
         add_scalebar(ax, length=scalebar_angle, 
                      label='', 
                      pad=0.5,
@@ -1394,21 +1398,24 @@ class Cluster:
             
         for isochrone in isochrones:
             isochrone.plot(ax)
+        try:
+            observed_stars = config['observed_stars'][self.name]
+            i=0
+            for star in observed_stars:
+                star_row = self.Star(star)
+                print(star_row['Name'])
 
-        observed_stars = config['observed_stars'][self.name]
-        i=0
-        for star in observed_stars:
-            star_row = self.Star(star)
-            print(star_row['Name'])
+                ax.scatter( 
+                            star_row['BP-RP'],star_row['Gmag'],
+                            facecolors='none', edgecolors='k',
+                            lw=2,
+                            s=800,
+                            label='Observed Stars' if i==0 else None,
+                            )
+                i=1
+        except:
+            pass
 
-            ax.scatter( 
-                        star_row['BP-RP'],star_row['Gmag'],
-                        facecolors='none', edgecolors='k',
-                        lw=2,
-                        s=800,
-                        label='Observed Stars' if i==0 else None,
-                        )
-            i=1
 
 
         # Plot cluster members
@@ -1488,7 +1495,7 @@ class Cluster:
         ax.set_ylim(bottom=(cluster.theoretical_isochrone()['Gmag'].min()) - 2.5, top=17)
         ax.set_xlim(left=(cluster.theoretical_isochrone()['BP-RP'].min()) - 0.5, right=3)
         ax.invert_yaxis()
-        ax.legend(loc='lower right')
+        ax.legend(loc='right')
         plt.grid()
         plt.tight_layout()
 
@@ -2027,7 +2034,7 @@ def generate_kinematics_latex(cl):
     # Runaway part
     runaway_part = cl.runaways()
     # Create the combined columns
-    name_column = [str(name) for name in runaway_part['Source']]
+    name_column = [str(name) for name in runaway_part['Name']]
     ra_column   = [round(ra,3) for ra in runaway_part['RA_ICRS_1']]
     dec_column   = [round(dec,3) for dec in runaway_part['DE_ICRS_1']]
     distance_column = [f"${dist:.0f}\pm{e_dist:.0f}$" for dist, e_dist in zip(runaway_part['rgeo'], (runaway_part['B_rgeo']-runaway_part['b_rgeo']))]
