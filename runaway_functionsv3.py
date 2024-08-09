@@ -9,9 +9,7 @@ from astropy.time import Time
 import warnings
 from astropy.utils.metadata import MergeConflictWarning
 from astropy.utils.exceptions import ErfaWarning
-
 import time
-# import logging
 from typing import List
 import yaml
 from astropy.stats import sigma_clip
@@ -20,8 +18,15 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from matplotlib import pyplot as plt
-plt.rcParams["font.family"] = "C059"
-plt.rcParams["font.size"] = 25
+
+plt.rcParams["font.family"] = "Palatino"
+plt.rcParams["font.size"] = 46
+plt.rcParams['figure.subplot.top'] = 0.999
+plt.rcParams['figure.subplot.bottom'] = 0.1
+plt.rcParams['figure.subplot.left'] = 0.1
+plt.rcParams['figure.subplot.right'] = 0.989
+plt.rcParams['figure.subplot.hspace'] = 0.2
+plt.rcParams['figure.subplot.wspace'] = 0.2
 
 from astroquery.skyview import SkyView
 from regions import CircleSkyRegion, PointSkyRegion, LineSkyRegion
@@ -749,7 +754,7 @@ class Cluster:
         with fits.open(cluster_5pc_fits_path) as fits_file:
             image = fits_file[0]
             wcs = WCS(image.header)
-            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15.5, 15.5))
+            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15, 15))
 
             ax.imshow(image.data, cmap='gray', alpha=0.7, interpolation='gaussian')
             ax.set_xlabel('Right Ascension (hms)', color="black")
@@ -850,7 +855,7 @@ class Cluster:
         with fits.open(cluster_10pc_fits_path) as fits_file:
             image = fits_file[0]
             wcs = WCS(image.header)
-            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15.5, 15.5))
+            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15, 15))
 
             ax.imshow(image.data, cmap='gray', alpha=0.7, interpolation='gaussian')
             ax.set_xlabel('Right Ascension (hms)', color="black")
@@ -1065,7 +1070,7 @@ class Cluster:
         with fits.open(psr_fits_path) as fits_file:
             image = fits_file[0]
             wcs = WCS(image.header)
-            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15.5, 15.5))
+            fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15, 15))
             ax.imshow(image.data, cmap='gray', alpha=0.7, interpolation='gaussian')
             ax.set_xlabel('Right Ascension (hms)', color="black")
             ax.set_ylabel('Declination (degrees)', color="black")
@@ -1270,7 +1275,7 @@ class Cluster:
             
     def plot_pm(self):
         
-        fig, ax = plt.subplots(figsize=(14, 14))
+        fig, ax = plt.subplots(figsize=(15, 15))
         ax.set_xlabel(r'$\mu^{*}_{\alpha}$ mas yr$^{-1}$')
         ax.set_ylabel(r'$\mu_{\delta}$ mas yr$^{-1}$')
                 
@@ -1378,8 +1383,8 @@ class Cluster:
         >>> isochrone2 = Isochrone(cl, Av=3, logage=7)
         >>> cl.plot_cmd(isochrones=[isochrone1,isochrone2])
         """
-
         fig, ax = plt.subplots(figsize=(15, 15))
+
         # fig.canvas.set_window_title(f'{self.name}_cmd')        
         fig.canvas.manager.set_window_title(f'{self.name}_cmd')
 
@@ -1424,7 +1429,7 @@ class Cluster:
             mymembers['BP-RP'], mymembers['Gmag'],
             color='black', zorder=2, fmt='o',
             xerr=mymembers['e_BP-RP'] + 0.02, yerr=mymembers['e_Gmag'],
-            label=rf'{len(mymembers)} cluster members',
+            label=rf'{len(mymembers)} Members',
             markersize=10
         )   
         
@@ -1434,7 +1439,8 @@ class Cluster:
         stars_in_region = self.stars_in_region()
         ax.scatter(
             stars_in_region['BP-RP'], stars_in_region['Gmag'],
-            s=6, color='grey', zorder=1, label=f"{len(stars_in_region)} stars in the region"
+            s=6, color='grey', zorder=1, 
+            # label=f"{len(stars_in_region)} stars in the region"
         )
         
         # # scatter kinematic_members
@@ -1455,7 +1461,7 @@ class Cluster:
             lw=3,
             c=runaways['Temp. Est'],
             cmap='RdYlBu', norm=plt.Normalize(3000, 15000),
-            label=f'{len(runaways)} runaway(s)'
+            label=f'{len(runaways)} Runaway(s)'
         )
         
         # annotate runaways
@@ -1486,18 +1492,23 @@ class Cluster:
         
           
         colWidths = [0.4, 0.6]  # Adjust the proportion of widths for each column
-        table_bbox = [0.0, 0.84, 0.4, 0.16]  # [left, bottom, width, height]
-        table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox, colWidths=colWidths, zorder=8)
-        for key, cell in table._cells.items():
-            cell.set_linewidth(0.5)
-            cell.set_edgecolor('black')
+        table_bbox = [0.0, 0.75, 0.5, 0.25]  # [left, bottom, width, height]
+        # table = ax.table(cellText=cluster_table, cellLoc='right', loc='upper left', bbox=table_bbox, colWidths=colWidths, zorder=8)
+        # for key, cell in table._cells.items():
+        #     cell.set_linewidth(0.5)
+        #     cell.set_edgecolor('black')
         # Set plot limits and invert y-axis
-        ax.set_ylim(bottom=(cluster.theoretical_isochrone()['Gmag'].min()) - 2.5, top=17)
-        ax.set_xlim(left=(cluster.theoretical_isochrone()['BP-RP'].min()) - 0.5, right=3)
+        # ax.set_ylim(bottom=(cluster.theoretical_isochrone()['Gmag'].min()) - 2.5, top=17)
+        # ax.set_xlim(left=(cluster.theoretical_isochrone()['BP-RP'].min()) - 0.5, right=3)
+        ax.set_ylim(bottom=(cluster.theoretical_isochrone()['Gmag'].min())-0.5, top=17)
+        ax.set_xlim(left=(cluster.theoretical_isochrone()['BP-RP'].min())- 0.5, right=3)
         ax.invert_yaxis()
-        ax.legend(loc='right')
+        legend = ax.legend(loc='right')
+        legend.set_draggable(True)
         plt.grid()
-        plt.tight_layout()
+        # plt.tight_layout()
+        # plt.subplots_adjust(top=0.999, bottom=0.1, left=0.1, right=0.989, hspace=0.2, wspace=0.2)
+        
 
         return ax
         
@@ -1526,7 +1537,7 @@ class Isochrone:
             label = (
                 rf"$A_V$      = {self.Av:.2f}" + "\n" + 
                 rf"log($\tau$) = {self.logage:<10.2f}" + "\n" + 
-                rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f} (for $T_{{eff}}$)" + "\n"
+                rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f}"# (for $T_{{eff}}$)" + "\n"
                 # r"(This work)" + "\n"
                 
             )
@@ -1534,13 +1545,13 @@ class Isochrone:
             label = (
                 rf"$A_V$      = {self.Av:.2f}" + "\n" + 
                 rf"log($\tau$) = {self.logage:<10.2f}" + "\n" + 
-                rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f} (Dias)" + "\n"
+                rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f}"# (Dias)" + "\n"
             )
         else:
             label = (
                 rf"$A_V$      = {self.Av:.2f}" + "\n" + 
                 rf"log($\tau$) = {self.logage:<10.2f}" + "\n" + 
-                rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f}" + "\n"
+                rf"$\left[\frac{{Fe}}{{H}}\right]$    = {self.FeH:<10.2f}"# + "\n"
                 # r"(Dinçel et al. 2024)" + "\n"
             )        
 
@@ -1958,7 +1969,7 @@ class AnnotationManager:
                                         xy=(0.2, 0.2),  # Coordinates for the plot position
                                         xycoords='axes fraction',  # Use fractional coordinates
                                         # fontweight='bold',  # Make the text bold
-                                        fontsize='large',  # Set the font size to 'large'
+                                        # fontsize='large',  # Set the font size to 'large'
                                         color=color)  # Set the text color
 
             annotation.draggable()  # Make the annotation draggable
