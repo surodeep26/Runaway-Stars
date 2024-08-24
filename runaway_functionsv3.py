@@ -20,11 +20,19 @@ from selenium.webdriver.support.ui import Select
 from matplotlib import pyplot as plt
 
 plt.rcParams["font.family"] = "Palatino"
-plt.rcParams["font.size"] = 46
+plt.rcParams["font.size"] = 44
 plt.rcParams['figure.subplot.top'] = 0.999
 plt.rcParams['figure.subplot.bottom'] = 0.1
 plt.rcParams['figure.subplot.left'] = 0.1
 plt.rcParams['figure.subplot.right'] = 0.989
+plt.rcParams['figure.subplot.hspace'] = 0.2
+plt.rcParams['figure.subplot.wspace'] = 0.2
+
+plt.rcParams["font.size"] = 44
+plt.rcParams['figure.subplot.top'] = 1
+plt.rcParams['figure.subplot.bottom'] = 0.1
+plt.rcParams['figure.subplot.left'] = 0.12
+plt.rcParams['figure.subplot.right'] = 1
 plt.rcParams['figure.subplot.hspace'] = 0.2
 plt.rcParams['figure.subplot.wspace'] = 0.2
 
@@ -859,9 +867,13 @@ class Cluster:
             fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15, 15))
 
             ax.imshow(image.data, cmap='gray', alpha=0.7, interpolation='gaussian')
-            ax.set_xlabel('Right Ascension (hms)', color="black")
-            ax.set_ylabel('Declination (degrees)', color="black")
-
+            # ax.set_xlabel('Right Ascension (hms)', color="black")
+            # ax.set_ylabel('Declination (degrees)', color="black")
+            lon = ax.coords[0]
+            lat = ax.coords[1]
+            lon.set_axislabel('Right Ascension (hms)', minpad=0.4)
+            lat.set_axislabel('Declination (degrees)', minpad=-0.1)
+            lon.tick_params(pad=15)
             # Set the background color to black
             # fig.patch.set_facecolor('black')
             ax.set_facecolor('black')
@@ -1007,16 +1019,17 @@ class Cluster:
         #     star_table['e_rRV'] = star_table['e_RV']+self.e_RV
         #     star_table['Temp. Est'] = 0
         #     #plot_traces(ax, star_table)
-
-        if len(self.runaways())>0:
-            plot_traces(ax, self.runaways(),alpha=1)
+        runaways = self.runaways()
+        if len(runaways)>0:
+            plot_traces(ax, runaways,alpha=1)
         scalebar_angle = ((((self.search_arcmin.value/4)//5)+1)*5)*u.arcmin
         add_scalebar(ax, length=scalebar_angle, 
                      label='', 
                      pad=0.5,
-                     borderpad=0.3,
+                     borderpad=0.2,
                      color='yellow', 
-                     size_vertical=0.5)
+                     size_vertical=2,
+                     fill_bar = True)
         from astropy.wcs.utils import proj_plane_pixel_scales
         if ax.wcs.is_celestial:
             pix_scale = proj_plane_pixel_scales(ax.wcs)
@@ -1027,9 +1040,9 @@ class Cluster:
             ax.transData,
             size=0,
             loc='lower right',
-            label=f'{scalebar_angle:.1f}',
+            label=f"{(scalebar_angle.value):.1f} '",
             color='yellow',
-            pad=0.5,
+            pad=0.6,
             borderpad=0.4,
             size_vertical=0,
             label_top=True,
@@ -1045,7 +1058,7 @@ class Cluster:
             loc='lower right',
             label=f'{sep:.2f}',
             color='yellow',
-            pad=0.5,
+            pad=0.3,
             borderpad=0.4,
             size_vertical=0,
             label_top=False,
@@ -1057,10 +1070,13 @@ class Cluster:
         ax.add_artist(scalebar2)
         legend = plt.legend()
         legend.get_frame().set_alpha(0.2)
+        legend.set_draggable(True)
         for text in legend.get_texts():
             text.set_color("white")
-        plt.tight_layout()
-        plt.show()
+        # plt.tight_layout()
+
+                
+        # plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_clean')
         return ax
     def plot_traceback_psr(self, extra=50, trace_time = -100*u.kyr):
