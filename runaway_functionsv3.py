@@ -159,10 +159,11 @@ class ClusterDias:
             theo_iso['G_RP'] = theo_iso["G_RP"]+ 5 * np.log10(self.distance.value) - 5
         else:
             theo_iso = get_theoretical_isochrone(Av=Av, logage=logage, FeH=FeH, parsec_version=parsec_version)
+            theo_iso["Gmag0"] = theo_iso["Gmag"] #saving the absolute magnitude of the stars
 
             if parsec_version==1.2:
                 theo_iso['Teff0'] = 10**theo_iso['logTe']
-            theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag","G_mag0", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
+            theo_iso = theo_iso["Mass", "Teff0", "BP-RP", "Gmag","Gmag0", "G_BP", "G_RP", "logg", "logAge", "logL", "logTe", "Mini"]
             theo_iso.write(theo_iso_path, format="ascii", overwrite=True)
             #adjust absolute magnitudes to apparent magnitudes using the distance modulus after writing so that this cahnge is not stored in the isochrones written.
             theo_iso['Gmag'] = theo_iso['Gmag'] + 5 * np.log10(self.distance.value) - 5
@@ -1365,9 +1366,22 @@ class Cluster:
         # Set the new limits centered around the specified point
         ax.set_xlim(center_pmRA - x_range / 2, center_pmRA + x_range / 2)
         ax.set_ylim(center_pmDE - y_range / 2, center_pmDE + y_range / 2)
-        plt.legend()
-        plt.tight_layout()
+        legend = plt.legend()
+        legend.set_draggable(True)
+        
+        # plt.tight_layout()
         fig.canvas.manager.set_window_title(f'{self.name}_pm')
+        
+        legend.set_draggable(True)
+        plt.subplots_adjust(
+            top=0.999,
+            bottom=0.108,
+            left=0.133,
+            right=0.999,
+            hspace=0.2,
+            wspace=0.2
+        )
+        
         return ax
         
     def psrs(self, sep_limit=None): #*5 asssuming 500km/s for psrs vs 100km/s for runaways 
@@ -1804,7 +1818,7 @@ def get_theoretical_isochrone(Av=None,logage=None,FeH=None,parsec_version=2):
         f.write(data_out)
     # browser.close()
     theoretical_data = Table.read("temp_isochrone", format='ascii')
-    # os.remove("temp_isochrone")
+    os.remove("temp_isochrone")
     # Define the new column names
     if parsec_version==2:
         new_column_names = ['Zini', 'MH', 'logAge', 'Mini', 'int_IMF', 'Mass', 'logL', 'logTe', 'logg', 'label', 'McoreTP', 'C_O', 'period0', 'period1', 'period2', 'period3', 'period4', 'pmode', 'Mloss', 'tau1m', 'X', 'Y', 'Xc', 'Xn', 'Xo', 'Cexcess', 'Z', 'Teff0', 'omega', 'angvel', 'vtaneq', 'angmom', 'Rpol', 'Req', 'mbolmag', 'G_fSBmag', 'G_BP_fSBmag', 'G_RP_fSBmag', 'G_fSB', 'G_f0', 'G_fk', 'G_i00', 'G_i05', 'G_i10', 'G_i15', 'G_i20', 'G_i25', 'G_i30', 'G_i35', 'G_i40', 'G_i45', 'G_i50', 'G_i55', 'G_i60', 'G_i65', 'G_i70', 'G_i75', 'G_i80', 'G_i85', 'G_i90', 'G_BP_fSB', 'G_BP_f0', 'G_BP_fk', 'G_BP_i00', 'G_BP_i05', 'G_BP_i10', 'G_BP_i15', 'G_BP_i20', 'G_BP_i25', 'G_BP_i30', 'G_BP_i35', 'G_BP_i40', 'G_BP_i45', 'G_BP_i50', 'G_BP_i55', 'G_BP_i60', 'G_BP_i65', 'G_BP_i70', 'G_BP_i75', 'G_BP_i80', 'G_BP_i85', 'G_BP_i90', 'G_RP_fSB', 'G_RP_f0', 'G_RP_fk', 'G_RP_i00', 'G_RP_i05', 'G_RP_i10', 'G_RP_i15', 'G_RP_i20', 'G_RP_i25', 'G_RP_i30', 'G_RP_i35', 'G_RP_i40', 'G_RP_i45', 'G_RP_i50', 'G_RP_i55', 'G_RP_i60', 'G_RP_i65', 'G_RP_i70', 'G_RP_i75', 'G_RP_i80', 'G_RP_i85', 'G_RP_i90']
