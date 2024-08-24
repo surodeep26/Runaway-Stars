@@ -848,7 +848,7 @@ class Cluster:
             legend.get_frame().set_alpha(0.2)
             for text in legend.get_texts():
                 text.set_color("white")
-            plt.tight_layout()
+            # plt.tight_layout()
             plt.show()
             fig.canvas.manager.set_window_title(f'{self.name}_cluster')
             return ax
@@ -872,7 +872,7 @@ class Cluster:
             lon = ax.coords[0]
             lat = ax.coords[1]
             lon.set_axislabel('Right Ascension (hms)', minpad=0.4)
-            lat.set_axislabel('Declination (degrees)', minpad=-0.1)
+            lat.set_axislabel('Declination (deg)', minpad=-0.1)
             lon.tick_params(pad=15)
             # Set the background color to black
             # fig.patch.set_facecolor('black')
@@ -1040,7 +1040,7 @@ class Cluster:
             ax.transData,
             size=0,
             loc='lower right',
-            label=f"{(scalebar_angle.value):.1f} '",
+            label=f"{(scalebar_angle.value):.0f} '",
             color='yellow',
             pad=0.6,
             borderpad=0.4,
@@ -1056,7 +1056,7 @@ class Cluster:
             ax.transData,
             size=0,
             loc='lower right',
-            label=f'{sep:.2f}',
+            label=f'{sep:.1f}',
             color='yellow',
             pad=0.3,
             borderpad=0.4,
@@ -1079,7 +1079,7 @@ class Cluster:
         # plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_clean')
         return ax
-    def plot_traceback_psr(self, extra=50, trace_time = -100*u.kyr):
+    def plot_traceback_psr(self, extra=50, psr_table=None, trace_time = -100*u.kyr):
         warnings.simplefilter('ignore', ErfaWarning)
         psr_fits_path = f'./Clusters/{self.name}/{self.name}_extra{extra}pc.fits'
         if not os.path.exists(psr_fits_path):
@@ -1089,8 +1089,14 @@ class Cluster:
             wcs = WCS(image.header)
             fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15, 15))
             ax.imshow(image.data, cmap='gray', alpha=0.7, interpolation='gaussian')
-            ax.set_xlabel('Right Ascension (hms)', color="black")
-            ax.set_ylabel('Declination (degrees)', color="black")
+            # ax.set_xlabel('Right Ascension (hms)', color="black")
+            # ax.set_ylabel('Declination (degrees)', color="black")
+            lon = ax.coords[0]
+            lat = ax.coords[1]
+            lon.set_axislabel('Right Ascension (hms)', minpad=0.4)
+            lat.set_axislabel('Declination (deg)', minpad=-0.1)
+            lon.tick_params(pad=15)
+            
             ax.set_facecolor('black')
             ax.title.set_color('white')
             ax.tick_params(axis='none')
@@ -1195,13 +1201,60 @@ class Cluster:
         #     adjust_text(texts)#, arrowprops=dict(arrowstyle="->", color='red', lw=2))        
         
         
-
         if len(self.runaways())>0:
             plot_traces(ax, self.runaways(),trace_time=trace_time,alpha=1)
         texts = []
-            
+        #scalebar
+        scalebar_angle = ((((self.search_arcmin.value/4)//5)+1)*5)*u.arcmin*(extra/10) #last *5 for psr
+        add_scalebar(ax, length=scalebar_angle, 
+                     label='', 
+                     pad=0.5,
+                     borderpad=0.2,
+                     color='yellow', 
+                     size_vertical=1,
+                     fill_bar = True)
+        from astropy.wcs.utils import proj_plane_pixel_scales
+        if ax.wcs.is_celestial:
+            pix_scale = proj_plane_pixel_scales(ax.wcs)
+            sx = pix_scale[0]
+            sy = pix_scale[1]
+            degrees_per_pixel = np.sqrt(sx * sy)
+        scalebar = AnchoredSizeBar(
+            ax.transData,
+            size=0,
+            loc='lower right',
+            label=f"{(scalebar_angle.value):.0f}'",
+            color='yellow',
+            pad=0.6,
+            borderpad=0.4,
+            size_vertical=0,
+            label_top=True,
+            frameon=False,
+            sep=30,
+        )
+
+        sep = ((scalebar_angle.value*5*np.pi)/(60*180))*self.distance.value*u.pc
+        
+        scalebar2 = AnchoredSizeBar(
+            ax.transData,
+            size=0,
+            loc='lower right',
+            label=f'{sep:.1f}',
+            color='yellow',
+            pad=0.3,
+            borderpad=0.4,
+            size_vertical=0,
+            label_top=False,
+            frameon=False,
+            sep=30,
+        )
+
+        ax.add_artist(scalebar)
+        ax.add_artist(scalebar2)
         #annotate and plot the psrs
-        psr_table = self.psrs()
+        if not psr_table:
+            psr_table = self.psrs()
+        
         if len(psr_table)>0:
             for psr in psr_table:
                 psr_pixel = wcs.world_to_pixel(psr['SkyCoord'])
@@ -1226,69 +1279,25 @@ class Cluster:
                                                 )
                 ax.add_patch(circle_v_spr)
             ax.scatter(psr_table_pixel[0],psr_table_pixel[1],
-                    c='cyan',
-                    label=f'{len(psr_table)} Pulsar(s) nearby')
+                    c='cyan',)
+                    #label='Pulsar')
             
         for text in texts:    
             text.draggable()  # Make the annotations draggable
         
-        #scalebar
-        scalebar_angle = ((((self.search_arcmin.value/4)//5)+1)*5)*u.arcmin*(extra/10) #last *5 for psr
-        add_scalebar(ax, length=scalebar_angle, 
-                     label='', 
-                     pad=0.5,
-                     borderpad=0.3,
-                     color='yellow', 
-                     size_vertical=0.5)
-        from astropy.wcs.utils import proj_plane_pixel_scales
-        if ax.wcs.is_celestial:
-            pix_scale = proj_plane_pixel_scales(ax.wcs)
-            sx = pix_scale[0]
-            sy = pix_scale[1]
-            degrees_per_pixel = np.sqrt(sx * sy)
-        scalebar = AnchoredSizeBar(
-            ax.transData,
-            size=0,
-            loc='lower right',
-            label=f'{scalebar_angle:.1f}',
-            color='yellow',
-            pad=0.5,
-            borderpad=0.4,
-            size_vertical=0,
-            label_top=True,
-            frameon=False,
-            sep=30,
-        )
 
-        sep = ((scalebar_angle.value*5*np.pi)/(60*180))*self.distance.value*u.pc
-        
-        scalebar2 = AnchoredSizeBar(
-            ax.transData,
-            size=0,
-            loc='lower right',
-            label=f'{sep:.2f}',
-            color='yellow',
-            pad=0.5,
-            borderpad=0.4,
-            size_vertical=0,
-            label_top=False,
-            frameon=False,
-            sep=30,
-        )
-
-        ax.add_artist(scalebar)
-        ax.add_artist(scalebar2)
         legend = plt.legend(loc='upper left')
         legend.get_frame().set_alpha(0.2)
+        legend.set_draggable(True)
         for text in legend.get_texts():
             text.set_color("white")
             
 
             
-        plt.tight_layout()
+        # plt.tight_layout()
         plt.show()
         fig.canvas.manager.set_window_title(f'{self.name}_traceback_psr')
-        return ax
+        return ax,wcs
             
     def plot_pm(self):
         
