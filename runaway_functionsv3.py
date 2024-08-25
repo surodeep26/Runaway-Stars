@@ -21,20 +21,20 @@ from matplotlib import pyplot as plt
 
 plt.rcParams["font.family"] = "Palatino"
 plt.rcParams["font.size"] = 44
-plt.rcParams['figure.subplot.top'] = 0.999
-plt.rcParams['figure.subplot.bottom'] = 0.1
-plt.rcParams['figure.subplot.left'] = 0.1
-plt.rcParams['figure.subplot.right'] = 0.989
-plt.rcParams['figure.subplot.hspace'] = 0.2
-plt.rcParams['figure.subplot.wspace'] = 0.2
-
-plt.rcParams["font.size"] = 44
 plt.rcParams['figure.subplot.top'] = 1
-plt.rcParams['figure.subplot.bottom'] = 0.1
-plt.rcParams['figure.subplot.left'] = 0.12
+plt.rcParams['figure.subplot.bottom'] = 0.12
+plt.rcParams['figure.subplot.left'] = 0.14
 plt.rcParams['figure.subplot.right'] = 1
 plt.rcParams['figure.subplot.hspace'] = 0.2
 plt.rcParams['figure.subplot.wspace'] = 0.2
+
+# plt.rcParams["font.size"] = 44
+# plt.rcParams['figure.subplot.top'] = 1
+# plt.rcParams['figure.subplot.bottom'] = 0.1
+# plt.rcParams['figure.subplot.left'] = 0.12
+# plt.rcParams['figure.subplot.right'] = 1
+# plt.rcParams['figure.subplot.hspace'] = 0.2
+# plt.rcParams['figure.subplot.wspace'] = 0.2
 
 from astroquery.skyview import SkyView
 from regions import CircleSkyRegion, PointSkyRegion, LineSkyRegion
@@ -872,7 +872,7 @@ class Cluster:
             lon = ax.coords[0]
             lat = ax.coords[1]
             lon.set_axislabel('Right Ascension (hms)', minpad=0.4)
-            lat.set_axislabel('Declination (deg)', minpad=-0.1)
+            lat.set_axislabel('Declination (deg)', minpad=-0.8)
             lon.tick_params(pad=15)
             # Set the background color to black
             # fig.patch.set_facecolor('black')
@@ -1028,7 +1028,7 @@ class Cluster:
                      pad=0.5,
                      borderpad=0.2,
                      color='yellow', 
-                     size_vertical=2,
+                     size_vertical=1,
                      fill_bar = True)
         from astropy.wcs.utils import proj_plane_pixel_scales
         if ax.wcs.is_celestial:
@@ -1094,7 +1094,7 @@ class Cluster:
             lon = ax.coords[0]
             lat = ax.coords[1]
             lon.set_axislabel('Right Ascension (hms)', minpad=0.4)
-            lat.set_axislabel('Declination (deg)', minpad=-0.1)
+            lat.set_axislabel('Declination (deg)', minpad=0.5)
             lon.tick_params(pad=15)
             
             ax.set_facecolor('black')
@@ -1347,7 +1347,7 @@ class Cluster:
             elinewidth=4,
             markeredgecolor='red',
             markeredgewidth=3,
-            label='Runaway(s)',
+            # label='Runaway(s)',
             zorder=9
             )   
         ax.scatter(runaways['pmRA'], runaways['pmDE'],
@@ -1422,6 +1422,12 @@ class Cluster:
         >>> isochrone2 = Isochrone(cl, Av=3, logage=7)
         >>> cl.plot_cmd(isochrones=[isochrone1,isochrone2])
         """
+        plt.rcParams['figure.subplot.top'] = 0.999
+        plt.rcParams['figure.subplot.bottom'] = 0.1
+        plt.rcParams['figure.subplot.left'] = 0.1
+        plt.rcParams['figure.subplot.right'] = 0.989
+        plt.rcParams['figure.subplot.hspace'] = 0.2
+        plt.rcParams['figure.subplot.wspace'] = 0.2
         fig, ax = plt.subplots(figsize=(15, 15))
 
         # fig.canvas.set_window_title(f'{self.name}_cmd')        
@@ -2277,3 +2283,41 @@ def latex_text(cluster, n_members=10):
     
     
     return full_text
+
+
+def nearest_cluster(objectname, output=False):
+    try:
+        result_table = Simbad.query_object(objectname)
+        ra = result_table['RA'].value.data[0]
+        dec = result_table['DEC'].value.data[0]
+        coord = SkyCoord(ra=ra, dec=dec, unit=(u.hourangle, u.deg))
+        
+    except:
+        coord = SkyCoord(objectname)
+
+    cluster_table = Table.read("dias2021.tsv",format='ascii.ecsv')['Cluster','RA_ICRS','DE_ICRS',"Dist"]
+
+
+    # Create a SkyCoord object
+
+    # Input coordinate
+    input_coord = coord
+
+    # Convert the input coordinate to a SkyCoord object
+    target_coord = coord
+
+    # Calculate the angular separation for each cluster in the table
+    separations = []
+    for row in cluster_table:
+        cluster_coord = SkyCoord(ra=row['RA_ICRS'], dec=row['DE_ICRS'], distance=row['Dist'], unit=(u.deg, u.deg), frame='icrs')
+        separation = target_coord.separation(cluster_coord).deg
+        separations.append(separation)
+
+    # Find the index of the minimum separation
+    min_index = separations.index(min(separations))
+
+    # Get the nearest cluster
+    nearest_cluster = cluster_table[min_index]['Cluster']
+    if output:
+        print(f"The nearest cluster to the {objectname} is: {nearest_cluster}"+f' at a separation of {min(separations)*u.deg.to(u.arcmin):.2f} arcmin')
+    return nearest_cluster
