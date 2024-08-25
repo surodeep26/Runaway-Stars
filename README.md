@@ -4,6 +4,7 @@ Dias 2021 [https://vizier.cds.unistra.fr/viz-bin/VizieR-3?-source=J/MNRAS/504/35
 
 Sample Color-Magnitude Diagram
 
+
 <img src="Figure_00.png" alt="Sample Color-Magnitude Diagram" width="1001">
 
 # Demo
