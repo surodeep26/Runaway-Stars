@@ -247,6 +247,7 @@ class Cluster:
             self.distance = self.mymembers['rgeo'].mean()*u.pc
             self.N = len(self.mymembers)
         self.kinematic_cluster = find_cluster(self.stars_in_region())
+        self.all_dias_members = Table.read(f"Clusters/{self.name}/{self.name}_all_dias_members.tsv", format="ascii.ecsv")
         #functions
         # self.members = (Table.read(f'./Clusters_Dias/{self.name}.dat', format='ascii.tab'))[2:] 
         # self.members_list = list(self.members['Source'].astype(np.int64))
@@ -266,6 +267,8 @@ class Cluster:
             diasmembers.add_row([mem_source,1])
         #display(diasmembers)
         members = join(sr, diasmembers, keys='Source', join_type='inner') #select the ones that dias says is a member
+        members.write(f"Clusters/{self.name}/{self.name}_all_dias_members.tsv", format="ascii.ecsv", overwrite=True)
+        
         print(f'{len(members)} out of {len(diasmembers)-len(add_members)} dias members found in search region')
         mask_pmemb = members['Pmemb'] >= pmemb
         mask_plxquality = members['Plx']/members['e_Plx'] >= plxquality
@@ -794,24 +797,47 @@ class Cluster:
                             ls='dotted',
                             label=f"Cluster (r50) = {radius.value:.1f}'"
                             )
+            
+            #main members
             members = self.mymembers
             member_px, member_py = wcs.world_to_pixel_values(members['SkyCoord'].ra, members['SkyCoord'].dec)
             ax.scatter(member_px, member_py, 
                     label=f'{len(members)} Cluster members',
                     c='none',  # This can be omitted since facecolors='none' does the job
-                    lw=1,
-                    s=200,
+                    lw=3,
+                    s=300,
                     facecolors='none',  # Makes the markers hollow
                     edgecolors='yellow',  # Edge color of the markers
+                    alpha=1)
+            #dias cluster
+            members = self.all_dias_members
+            member_px, member_py = wcs.world_to_pixel_values(members['SkyCoord'].ra, members['SkyCoord'].dec)
+            ax.scatter(member_px, member_py, 
+                    label=f'{len(members)} Dias members',
+                    c='red',  # This can be omitted since facecolors='none' does the job
+                    s=200,
+                    marker="x",
+                    alpha=1)
+            #kinematic cluster
+            members = self.kinematic_cluster
+            member_px, member_py = wcs.world_to_pixel_values(members['SkyCoord'].ra, members['SkyCoord'].dec)
+            ax.scatter(member_px, member_py, 
+                    label=f'{len(members)} kinematic members',
+                    c='none',  # This can be omitted since facecolors='none' does the job
+                    lw=2,
+                    s=200,
+                    facecolors='none',  # Makes the markers hollow
+                    edgecolors='cyan',  # Edge color of the markers
                     alpha=1)
 
             scalebar_angle = ((((self.search_arcmin.value/4)//5)+1)*5)*u.arcmin
             add_scalebar(ax, length=scalebar_angle, 
                         label='', 
                         pad=0.5,
-                        borderpad=0.3,
+                        borderpad=0.2,
                         color='yellow', 
-                        size_vertical=0.5)
+                        size_vertical=1,
+                        fill_bar = True)
             from astropy.wcs.utils import proj_plane_pixel_scales
             if ax.wcs.is_celestial:
                 pix_scale = proj_plane_pixel_scales(ax.wcs)
@@ -824,7 +850,7 @@ class Cluster:
                 loc='lower right',
                 label=f'{scalebar_angle:.1f}',
                 color='yellow',
-                pad=0.5,
+                pad=0.6,
                 borderpad=0.4,
                 size_vertical=0,
                 label_top=True,
@@ -840,7 +866,7 @@ class Cluster:
                 loc='lower right',
                 label=f'{sep:.2f}',
                 color='yellow',
-                pad=0.5,
+                pad=0.3,
                 borderpad=0.4,
                 size_vertical=0,
                 label_top=False,
@@ -852,6 +878,7 @@ class Cluster:
             ax.add_artist(scalebar2)
             legend = plt.legend()
             legend.get_frame().set_alpha(0.2)
+            legend.set_draggable(True)
             for text in legend.get_texts():
                 text.set_color("white")
             # plt.tight_layout()
