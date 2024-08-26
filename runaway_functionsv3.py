@@ -286,25 +286,26 @@ class Cluster:
         self.changeParam(("pmDE", members['pmDE'].mean()))
         self.changeParam(("e_pmDE", members['pmRA'].std()))
         # finding RV from the RV mean of the cluster found
-        kinematic_cluster = self.kinematic_cluster
+        # kinematic_cluster = self.kinematic_cluster
+        kinematic_cluster = self.mymembers
         # if (np.count_nonzero(~(kinematic_cluster['RV'].mask)))>5:
         #     self.changeParam(("RV", np.mean(kinematic_cluster['RV'])))
         #     self.changeParam(("e_RV", np.sqrt(np.sum(kinematic_cluster['e_RV'])**2/((np.count_nonzero(~(kinematic_cluster['RV'].mask))))**2)))
         #     self.changeParam(("NRV", np.count_nonzero(~(kinematic_cluster['RV'].mask))))
         #     return members
-        if (np.count_nonzero(~(kinematic_cluster['RV'].mask)))>5:
+        if (np.count_nonzero(~(kinematic_cluster['RV'].mask)))>1:
             RV = unumpy.uarray(kinematic_cluster['RV'].value, kinematic_cluster['e_RV'].value)
             self.changeParam(("RV", RV.mean().nominal_value))
             self.changeParam(("e_RV", RV.mean().std_dev))
             self.changeParam(("NRV", np.count_nonzero(~(kinematic_cluster['RV'].mask))))
             return members
-        elif (np.count_nonzero(~(members['RV'].mask)))>1:
-            # self.restoreParam("RV")
-            # self.restoreParam("e_RV")
-            # self.restoreParam("NRV")
-            self.changeParam(("RV", members['RV'].mean()))
-            self.changeParam(("e_RV", np.sqrt(np.sum(members['e_RV'])**2/(np.count_nonzero(~(members['RV'].mask)))**2)))
-            self.changeParam(("NRV", (np.count_nonzero(~(members['RV'].mask)))))
+        # elif (np.count_nonzero(~(members['RV'].mask)))>1:
+        #     # self.restoreParam("RV")
+        #     # self.restoreParam("e_RV")
+        #     # self.restoreParam("NRV")
+        #     self.changeParam(("RV", members['RV'].mean()))
+        #     self.changeParam(("e_RV", np.sqrt(np.sum(members['e_RV'])**2/(np.count_nonzero(~(members['RV'].mask)))**2)))
+        #     self.changeParam(("NRV", (np.count_nonzero(~(members['RV'].mask)))))
         else:
             self.restoreParam("RV")
             self.restoreParam("e_RV")
@@ -775,8 +776,10 @@ class Cluster:
             fig, ax = plt.subplots(subplot_kw={'projection': wcs}, figsize=(15, 15))
 
             ax.imshow(image.data, cmap='gray', alpha=0.7, interpolation='gaussian')
-            ax.set_xlabel('Right Ascension (hms)', color="black")
-            ax.set_ylabel('Declination (degrees)', color="black")
+            lon = ax.coords[0]
+            lat = ax.coords[1]
+            lon.set_axislabel('Right Ascension (hms)', minpad=0.4)
+            latlabel = lat.set_axislabel('Declination (deg)', minpad=0.5)
 
             # Set the background color to black
             # fig.patch.set_facecolor('black')
@@ -818,17 +821,17 @@ class Cluster:
                     s=200,
                     marker="x",
                     alpha=1)
-            #kinematic cluster
-            members = self.kinematic_cluster
-            member_px, member_py = wcs.world_to_pixel_values(members['SkyCoord'].ra, members['SkyCoord'].dec)
-            ax.scatter(member_px, member_py, 
-                    label=f'{len(members)} kinematic members',
-                    c='none',  # This can be omitted since facecolors='none' does the job
-                    lw=2,
-                    s=200,
-                    facecolors='none',  # Makes the markers hollow
-                    edgecolors='cyan',  # Edge color of the markers
-                    alpha=1)
+            # #kinematic cluster
+            # members = self.kinematic_cluster
+            # member_px, member_py = wcs.world_to_pixel_values(members['SkyCoord'].ra, members['SkyCoord'].dec)
+            # ax.scatter(member_px, member_py, 
+            #         label=f'{len(members)} kinematic members',
+            #         c='none',  # This can be omitted since facecolors='none' does the job
+            #         lw=2,
+            #         s=200,
+            #         facecolors='none',  # Makes the markers hollow
+            #         edgecolors='cyan',  # Edge color of the markers
+            #         alpha=1)
 
             scalebar_angle = ((((self.search_arcmin.value/4)//5)+1)*5)*u.arcmin
             add_scalebar(ax, length=scalebar_angle, 
@@ -836,7 +839,7 @@ class Cluster:
                         pad=0.5,
                         borderpad=0.2,
                         color='yellow', 
-                        size_vertical=1,
+                        size_vertical=2,
                         fill_bar = True)
             from astropy.wcs.utils import proj_plane_pixel_scales
             if ax.wcs.is_celestial:
@@ -848,7 +851,7 @@ class Cluster:
                 ax.transData,
                 size=0,
                 loc='lower right',
-                label=f'{scalebar_angle:.1f}',
+                label=f"{scalebar_angle.value:.0f}'",
                 color='yellow',
                 pad=0.6,
                 borderpad=0.4,
@@ -2197,7 +2200,7 @@ def generate_members_latex(cluster, n_members=10):
         # e_plx = row['e_Plx']
         pmra = row['pmRA']
         e_pmra = row['e_pmRA']
-        pmde = row['e_pmDE']
+        pmde = row['pmDE']
         e_pmde = row['e_pmDE']
         gmag = row['Gmag']
         e_gmag = row['e_Gmag']

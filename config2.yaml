@@ -1,7 +1,7 @@
 Cluster:
   search_extent: 10 #pc
   distance_tolerance: 0.2 #20% for distance tolerance of stars in the region
-  pmemb: 0.8
+  pmemb: 0.5
   plxquality: 10
 psr_radial_tolerance: 1.4
 # runaways3d
