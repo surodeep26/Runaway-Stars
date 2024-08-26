@@ -780,6 +780,7 @@ class Cluster:
             lat = ax.coords[1]
             lon.set_axislabel('Right Ascension (hms)', minpad=0.4)
             latlabel = lat.set_axislabel('Declination (deg)', minpad=0.5)
+            lon.tick_params(pad=15)
 
             # Set the background color to black
             # fig.patch.set_facecolor('black')
