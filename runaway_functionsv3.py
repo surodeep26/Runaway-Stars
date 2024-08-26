@@ -284,9 +284,15 @@ class Cluster:
         self.changeParam(("e_pmDE", members['pmRA'].std()))
         # finding RV from the RV mean of the cluster found
         kinematic_cluster = self.kinematic_cluster
+        # if (np.count_nonzero(~(kinematic_cluster['RV'].mask)))>5:
+        #     self.changeParam(("RV", np.mean(kinematic_cluster['RV'])))
+        #     self.changeParam(("e_RV", np.sqrt(np.sum(kinematic_cluster['e_RV'])**2/((np.count_nonzero(~(kinematic_cluster['RV'].mask))))**2)))
+        #     self.changeParam(("NRV", np.count_nonzero(~(kinematic_cluster['RV'].mask))))
+        #     return members
         if (np.count_nonzero(~(kinematic_cluster['RV'].mask)))>5:
-            self.changeParam(("RV", np.mean(kinematic_cluster['RV'])))
-            self.changeParam(("e_RV", np.sqrt(np.sum(kinematic_cluster['e_RV'])**2/((np.count_nonzero(~(kinematic_cluster['RV'].mask))))**2)))
+            RV = unumpy.uarray(kinematic_cluster['RV'].value, kinematic_cluster['e_RV'].value)
+            self.changeParam(("RV", RV.mean().nominal_value))
+            self.changeParam(("e_RV", RV.mean().std_dev))
             self.changeParam(("NRV", np.count_nonzero(~(kinematic_cluster['RV'].mask))))
             return members
         elif (np.count_nonzero(~(members['RV'].mask)))>1:
